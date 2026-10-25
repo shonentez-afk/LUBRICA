@@ -1,32 +1,40 @@
 # GitHub migration status
 
-## Current status
+## Status: COMPLETE
 
-Repository initialized and ready for full baseline import.
+Полный baseline **LUBRICA 1.0.33.67** перенесён в GitHub и зафиксирован в `main`.
 
-Already committed:
-- README.md
-- START_NEW_CHAT_RU.md
-- project/PROJECT_STATE_RU.md
-- project/DECISIONS_RU.md
-- project/GITHUB_WORKFLOW_RU.md
-- project/RELEASE_HISTORY_RU.md
-- 1.0.33.67 release note
-- 1.0.33.67 regression acceptance
-- 1.0.33.67 PP-53736 engineering acceptance (MD + JSON)
-- automated import workflow: .github/workflows/import-baseline.yml
+Import commit:
+`6f3cb4ad82da15c65bd1774a7b92363c98a8cb9c`
+— **Import full LUBRICA 1.0.33.67 baseline**
 
-## Full baseline import
+Tag/release:
+`v1.0.33.67`
 
-Expected release/tag: `v1.0.33.67`
+## Проверено после импорта
 
-Expected release asset filename:
-`LUBRICA_GITHUB_IMPORT_PACKAGE.zip`
+Подтверждено наличие в `main`:
+- `index.html`;
+- `components/gearbox-oem-data-1.0.33.67.js`;
+- `components/binding.js`;
+- `calculations/gearbox-oil-adapter.js`;
+- `machines/izoteh-pp53736-arrangement.js`;
+- `test/test_release_1_0_33_67_pp53736_persistence_interval.js`;
+- `test/run_all.sh`;
+- `START_NEW_CHAT_RU.md`;
+- `project/PROJECT_STATE_RU.md`;
+- acceptance 1.0.33.67;
+- актуальная производственная PP-53736 JSON-база;
+- OEM PDF-источники Izoteh;
+- `project/FILE_MANIFEST_SHA256.txt`.
 
-When that release is published, GitHub Actions automatically:
-1. downloads the release asset;
-2. unpacks `LUBRICA_GITHUB_IMPORT/`;
-3. copies the full baseline into the repository;
-4. commits it to `main`.
+SHA-256 manifest содержит **765 записей** и намеренно не включает сам файл манифеста. Полный импортируемый baseline содержит **766 файлов** без внутреннего каталога `.git`.
 
-After the workflow succeeds, verify that `components/`, `calculations/`, `test/`, `assets/`, `project/sources/` and the application entry files are present in `main`.
+## Правило дальнейшей работы
+
+GitHub `shonentez-afk/LUBRICA` является главным хранилищем актуального состояния проекта.
+
+Новый чат начинать с:
+`START_NEW_CHAT_RU.md`
+
+Новые изменения вести через отдельную рабочую ветку, после тестов и acceptance переносить в `main`.
