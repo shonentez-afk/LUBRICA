@@ -1,0 +1,15 @@
+# Temporary / recovery / generated
+*.tmp
+*.log
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# Generated release archives should be attached as GitHub Release assets, not committed
+LUBRICA_RELEASE_*.zip
+
+# Local work dirs
+_work/
+work/
+tmp/
