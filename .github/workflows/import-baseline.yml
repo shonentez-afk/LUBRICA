@@ -1,0 +1,45 @@
+name: Import LUBRICA baseline package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  import-baseline:
+    if: github.event.release.tag_name == 'v1.0.33.67'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download baseline package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .import
+          gh release download v1.0.33.67             --repo "${{ github.repository }}"             --pattern "LUBRICA_GITHUB_IMPORT_PACKAGE.zip"             --dir .import
+
+      - name: Extract project
+        run: |
+          set -e
+          unzip -q .import/LUBRICA_GITHUB_IMPORT_PACKAGE.zip -d .import/unpacked
+          test -d .import/unpacked/LUBRICA_GITHUB_IMPORT
+          rsync -a             --exclude '.git/'             --exclude 'README.md'             .import/unpacked/LUBRICA_GITHUB_IMPORT/ ./
+          rm -rf .import
+
+      - name: Commit imported baseline
+        run: |
+          git config user.name "LUBRICA GitHub Import"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Import full LUBRICA 1.0.33.67 baseline"
+            git push origin HEAD:main
+          fi
