@@ -85,3 +85,20 @@
 **«Продолжай LUBRICA из GitHub. Сначала прочитай START_NEW_CHAT_RU.md и project/PROJECT_INDEX_RU.md. Не начинай проект заново.»**
 
 Не переносить вручную всю переписку из старых чатов.
+
+## 6. Полная проектная память
+
+После `PROJECT_STATE_RU.md` дополнительно прочитай:
+- `project/PROJECT_INDEX_RU.md` — индекс проектной памяти;
+- `project/PROJECT_CHARTER_RU.md` — назначение и направление проекта;
+- `project/PROJECT_CHRONICLE_RU.md` — что уже сделано и как проект развивался;
+- `project/MODULE_STATUS_RU.md` — состояние крупных модулей;
+- `project/OPEN_QUESTIONS_RU.md` — незакрытые вопросы;
+- `project/ROADMAP_RU.md` — дальнейшее направление;
+- `project/NEXT_RELEASE_PLAN_RU.md` — ближайший практический план;
+- `project/ARCHITECTURE_OVERVIEW_RU.md` — карта архитектуры;
+- `project/ENGINEERING_EVIDENCE_POLICY_RU.md` — правила OEM/источников;
+- `project/SOURCE_INDEX_RU.md` — карта инженерных источников;
+- `project/TEST_ACCEPTANCE_POLICY_RU.md` — критерии приёмки.
+
+Если в чате не хватает контекста, сначала восстанавливай его из этих файлов, а не придумывай проект заново.
