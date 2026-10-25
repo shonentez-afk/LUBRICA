@@ -1,0 +1,44 @@
+name: LUBRICA Project Memory Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "manifest.json"
+      - "README.md"
+      - "START_NEW_CHAT_RU.md"
+      - "project/**"
+      - "releases/**"
+      - "acceptance/**"
+      - "test/project_memory_audit.py"
+      - ".github/workflows/project-memory-audit.yml"
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  project-memory-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && 'main' || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Audit project memory
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            python3 test/project_memory_audit.py --release-tag "${{ github.event.release.tag_name }}"
+          else
+            python3 test/project_memory_audit.py
+          fi
