@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 echo '[1/99] JS syntax'
 find . -name '*.js' -type f ! -path './vendor/*' -print | sort | while IFS= read -r f; do node --check "$f" >/dev/null; done
 echo '[2/99] Preflight'; python3 test/preflight.py
+echo '[PROJECT MEMORY]'; python3 test/project_memory_audit.py
 echo '[3/99] Database modules'; node test/test_database_modules.js
 echo '[4/99] Safe database/recovery'; node test/test_safe_database.js
 echo '[5/99] Classifier unit'; node test/test_classifier.js
