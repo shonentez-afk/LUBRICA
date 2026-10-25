@@ -1,0 +1,45 @@
+name: Update current project manifest
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'project/CURRENT_FILE_MANIFEST_SHA256.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate SHA-256 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f \
+            -not -path './.git/*' \
+            -not -path './project/CURRENT_FILE_MANIFEST_SHA256.txt' \
+            -print0 \
+          | sort -z \
+          | xargs -0 sha256sum \
+          > project/CURRENT_FILE_MANIFEST_SHA256.txt
+
+      - name: Commit manifest if changed
+        shell: bash
+        run: |
+          git config user.name "LUBRICA Manifest Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add project/CURRENT_FILE_MANIFEST_SHA256.txt
+          if git diff --cached --quiet; then
+            echo "Manifest is already current"
+          else
+            git commit -m "Update current project SHA-256 manifest"
+            git push origin HEAD:main
+          fi
