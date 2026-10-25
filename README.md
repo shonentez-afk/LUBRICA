@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icons/lubrica-header.png" alt="LUBRICA" width="520">
+</p>
+
 # LUBRICA
 
 Промышленная система управления смазкой оборудования.
