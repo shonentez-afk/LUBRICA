@@ -9,11 +9,19 @@
 5. `ROADMAP_RU.md` — куда двигаться дальше.
 6. `DECISIONS_RU.md` — решения, которые нельзя случайно отменить.
 7. `ARCHITECTURE_OVERVIEW_RU.md` — как связаны подсистемы.
-8. `ENGINEERING_EVIDENCE_POLICY_RU.md` — как работать с OEM и источниками.
-9. `TEST_ACCEPTANCE_POLICY_RU.md` — когда изменение можно считать принятым.
-10. `PROJECT_CHRONICLE_RU.md` — как проект пришёл к текущему состоянию.
-11. `RELEASE_HISTORY_RU.md` — история принятых версий.
-12. `GITHUB_WORKFLOW_RU.md` — как вести изменения и релизы.
+8. `DATA_MODEL_MAP_RU.md` — основные persistent-сущности и их связи.
+9. `UI_UX_PRINCIPLES_RU.md` — утверждённые UI/UX правила.
+10. `ENGINEERING_EVIDENCE_POLICY_RU.md` — как работать с OEM и источниками.
+11. `OEM_SOURCE_INDEX_RU.md` — какие источники уже используются и где.
+12. `EQUIPMENT_COVERAGE_MATRIX_RU.md` — что из реального оборудования покрыто.
+13. `TEST_ACCEPTANCE_POLICY_RU.md` — когда изменение можно считать принятым.
+14. `TEST_MATRIX_RU.md` — какие тесты защищают какие области.
+15. `KNOWN_LIMITATIONS_RU.md` — сознательные ограничения текущей версии.
+16. `PROJECT_CHRONICLE_RU.md` — как проект пришёл к текущему состоянию.
+17. `RELEASE_HISTORY_RU.md` — история принятых версий.
+18. `NEXT_RELEASE_TEMPLATE_RU.md` — обязательный чек-лист нового релиза.
+19. `GITHUB_WORKFLOW_RU.md` — как вести изменения и релизы.
+20. `MIGRATION_STATUS_RU.md` — статус переноса проекта в GitHub.
 
 Подробная карта production-файлов: `../01_СОСТАВ_АРХИВА.md`.
 Руководство по коду: `../02_РУКОВОДСТВО_ПО_КОДУ.md`.
@@ -21,3 +29,14 @@
 ## Главное правило
 
 Если короткое резюме в project-документах расходится с кодом, тестами или acceptance конкретной версии, нельзя угадывать. Нужно определить, что является более свежим подтверждённым источником, и затем обновить проектную документацию.
+
+## Правило актуальности
+
+После каждого принятого релиза проверить минимум:
+- `PROJECT_STATE_RU.md`;
+- `OPEN_QUESTIONS_RU.md`;
+- `ROADMAP_RU.md`;
+- `EQUIPMENT_COVERAGE_MATRIX_RU.md`;
+- `OEM_SOURCE_INDEX_RU.md`;
+- `TEST_MATRIX_RU.md`;
+- `RELEASE_HISTORY_RU.md`.
