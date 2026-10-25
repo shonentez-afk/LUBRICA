@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const base=path.resolve(__dirname,'..');
+let refreshed=0,rendered=0,secondary=0;
+global.window=global;
+global.$$=(sel)=> sel==='.rail-item' ? [{dataset:{view:'workspace'},classList:{toggle(){}}}] : [{classList:{toggle(){}}}];
+global.$=()=>null;
+global.LubricaApp={refreshFromCore(){refreshed++},renderAll(){rendered++}};
+global.LubricaStructure={render(){secondary++}};
+vm.runInThisContext(fs.readFileSync(path.join(base,'ui/view-router.js'),'utf8'),{filename:'ui/view-router.js'});
+switchView('workspace');
+if(refreshed!==1||rendered!==1)throw new Error(`workspace did not refresh/render: ${refreshed}/${rendered}`);
+if(secondary!==0)throw new Error('workspace incorrectly rendered secondary view');
+console.log('WORKSPACE NAVIGATION RUNTIME REFRESH PASS');

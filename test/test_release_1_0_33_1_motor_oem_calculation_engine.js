@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const sandbox={window:{LubricaSystem:{registerModule(){}}}};sandbox.window.window=sandbox.window;vm.createContext(sandbox);
+for(const f of ['motors/motor-oem-data.js','motors/motor-method-resolver.js','motors/motor-calculator.js'])vm.runInContext(fs.readFileSync(f,'utf8'),sandbox,{filename:f});
+const OEM=sandbox.window.LubricaMotorOEM,Calc=sandbox.window.LubricaMotorCalculator;
+let p=OEM.resolve('Электродвигатель DRE132MC4/FL/TF N=7,5кВт, n=1470мин-1 IP54');
+assert.equal(p.manufacturer,'SEW-EURODRIVE');assert.equal(p.policy,'NO_ROUTINE_RELUBE');
+let r=Calc.calculate({motorText:'Электродвигатель DRE132MC4/FL/TF N=7,5кВт, n=1470мин-1'});assert.equal(r.policy,'NO_ROUTINE_RELUBE');
+r=Calc.calculate({motorText:'Вибромотор MVE 1700/15.'});assert.equal(r.policy,'NO_ROUTINE_RELUBE');assert.equal(r.profile.manufacturer,'OLI');
+p=OEM.resolve('Электродвигатель M2AA 112M4 B5');assert.equal(p.manufacturer,'ABB');assert.equal(p.policy,'CONFIRM_NIPPLE');
+r=Calc.calculate({motorText:'Электродвигатель M2AA 112M4 B5',rpm:1500,nippleConfirmed:'yes',bearingType:'ball'});assert.equal(r.policy,'RELUBE');assert.equal(r.relube.doseG,10);assert.equal(r.relube.intervalHours,21000);
+r=Calc.calculate({motorText:'Электродвигатель M2AA 112M4 B5',rpm:1500,nippleConfirmed:'no'});assert.equal(r.policy,'NO_ROUTINE_RELUBE');
+r=Calc.calculate({motorText:'Электродвигатель 1LE1001-1CB23-4JB4 N=7,5кВт, n=1500мин-1'});assert.equal(r.policy,'MACHINE_PLATE');assert(r.needs.length);
+r=Calc.calculate({motorText:'Электродвигатель 1LE1001-1CB23-4JB4',plateDoseG:12,plateIntervalHours:5000,plateSource:'шильдик двигателя'});assert.equal(r.policy,'RELUBE');assert.equal(r.relube.intervalHours,5000);
+r=Calc.calculate({motorText:'Электродвигатель WK 160/2-215T N=37кВт n=9000об/мин'});assert.equal(r.profile.manufacturer,'EMOD');assert.equal(r.policy,'MACHINE_PLATE');
+r=Calc.calculate({motorText:'Электродвигатель QCA 100LB4 B5'});assert.equal(r.policy,'REQUIRE_IDENTIFICATION');
+console.log('Motor OEM Calculation Engine: PASS');

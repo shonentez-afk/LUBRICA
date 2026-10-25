@@ -1,0 +1,30 @@
+LUBRICA 1.0.33.51 — Oscillating Constructor Single-Mode UX Hotfix
+Date: 2026-09-18
+
+CHANGE
+- Removed "Простой режим" from oscillating/linkage constructor.
+- Removed "Экспертный режим" from oscillating/linkage constructor.
+- Removed top-level "Обоснование" calculation control from oscillating/linkage constructor.
+- Removed hidden expert-only technical blocks and obsolete oscillating mode CSS.
+- Preserved all physical-construction fields and transactional point creation flow.
+- Preserved Simple/Expert modes in lubrication calculation UI.
+
+TARGETED TESTS
+PASS test_release_1_0_33_51_oscillating_single_mode_ux.js
+PASS test_release_1_0_33_49_integration_hotfix.js
+PASS test_release_1_0_33_50_real_base_safety.js
+PASS current oscillating UI integration contract
+PASS real production base acceptance (Line 1 + Line 2)
+PASS JS syntax check for oscillating engine
+PASS preflight
+PASS file:// static contract
+PASS production docs
+PASS branding
+
+RELEASE GATE
+Stages 1-78 progressed without FAIL; stage 60 Source XLSX audit = SKIP because source XLSX files are not present in the test environment.
+Stages 79-99 re-run separately: all PASS.
+Final effective result: 98 PASS / 0 FAIL / 1 SKIP.
+
+ARCHITECTURE RULE
+Equipment constructors are single-mode. Simple/Expert modes belong only to lubrication calculation UI.

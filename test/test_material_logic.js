@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const db={materials:[{id:'M1',code:'GRE-001',name:'Grease A',status:'active'},{id:'M2',code:'GRE-002',name:'Grease B',status:'retired'}],tools:[{id:'G1',code:'GG-001',name:'Gun A',type:'grease_gun',materialId:'M1',status:'active'},{id:'G2',code:'GG-002',name:'Gun B',type:'grease_gun',materialId:'M2',status:'calibration'}],tasks:[],lubricationPoints:[]};
+const context={console,window:{LubricaCore:{State:{getDatabase(){return db}}}},current(){return null},taskKey(){return ''},esc:x=>String(x),$:()=>null,toast(){}};
+Object.assign(context,context.window);context.window.window=context.window;context.window.current=context.current;context.window.taskKey=context.taskKey;context.window.esc=context.esc;context.window.$=context.$;context.window.toast=context.toast;
+vm.createContext(context);
+for(const rel of ['structure/context.js','materials/library-ui.js'])vm.runInContext(fs.readFileSync(path.join(root,rel),'utf8'),context,{filename:rel});
+const M=context.window.LubricaMaterials; const assert=(x,m)=>{if(!x)throw new Error(m)};
+assert(M.taskNeedsMaterial('regrease')===true,'regrease needs material');
+assert(M.taskNeedsMaterial('oil_level_check')===false,'level check no material');
+assert(M.taskNeedsMaterial('state_inspection')===false,'state inspection no material');
+assert(M.taskNeedsMaterial('filter_dp_check')===false,'filter differential no material');
+let opts=M.toolOptions('M1','');assert(opts.includes('GG-001')&&!opts.includes('GG-002'),'only active compatible tool should be offered');
+opts=M.materialOptions('',true);assert(opts.includes('GRE-001')&&!opts.includes('GRE-002'),'retired material should not be offered for new selection');
+console.log('MATERIAL LOGIC TEST PASS');

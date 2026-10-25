@@ -1,0 +1,15 @@
+global.window=global;
+require('../bearings/multi-oem-data.js');
+require('../bearings/calculator.js');
+const C=global.LubricaBearingCalculator;
+const assert=(x,m)=>{if(!x)throw new Error(m)};
+let r=C.calculate({designation:'UCP320',bearingType:'bearing_unit',d:100,D:215,B:108,rpm:300,temperatureC:70,manufacturer:'NTN-SNR',greaseDensity:0.9,method:'lubrica_unified'});
+assert(r.maintenancePolicy?.id==='housed_relube_only','UCP320 policy');
+assert(r.relube.value===60,'UCP320 relube dose');
+assert(r.fullRenewal?.notApplicable===true&&r.fullRenewal.value==null,'UCP320 renewal quantity must be N/A');
+assert(r.renewalInterval?.notApplicable===true&&r.renewalInterval.value==null,'UCP320 renewal interval must be N/A');
+r=C.calculate({designation:'6212',bearingType:'deep_groove_ball',d:60,D:110,B:22,rpm:1500,temperatureC:70,manufacturer:'NSK',greaseDensity:0.9,bearingMassKg:0.78,fillRatio:1,method:'lubrica_unified'});
+assert(r.maintenancePolicy?.id==='standard_serviceable_bearing','6212 standard policy');
+assert(r.maintenancePolicy.fullRenewal===true,'ordinary bearing renewal preserved');
+assert(r.fullRenewal?.notApplicable!==true,'ordinary bearing renewal must remain available');
+console.log('BEARING MAINTENANCE POLICY 1.0.27.6 PASS');

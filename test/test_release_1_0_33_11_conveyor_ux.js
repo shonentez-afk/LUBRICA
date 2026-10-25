@@ -1,0 +1,14 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.join(__dirname,'..');
+const finalizer=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),'utf8');
+const candidates=fs.readFileSync(path.join(root,'import/candidates.js'),'utf8');
+const css=fs.readFileSync(path.join(root,'assets/app.css'),'utf8');
+assert(finalizer.includes('ФАКТИЧЕСКАЯ КОНСТРУКЦИЯ'));
+assert(finalizer.includes('Фактический узел / ТМЦ'));
+assert(finalizer.includes("template?.id==='conveyor_arrangement'?'Включить':'Создать'"));
+assert(finalizer.includes("item.sourceRef?.source==='component'"),'conveyor point must bind actual component');
+assert(candidates.includes('Ленточный конвейер'));
+assert(candidates.includes("classificationVersion!=='2.4'"));
+assert(css.includes('.conveyor-evidence-grid'));
+assert(css.includes('@container candidateFinalize (max-width:560px)'));
+console.log('1.0.33.11 conveyor UI/UX contract: OK');

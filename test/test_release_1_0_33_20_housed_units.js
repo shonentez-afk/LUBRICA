@@ -1,0 +1,18 @@
+const assert=require('assert');
+global.window=global;
+global.LubricaCore={State:{getDatabase:()=>({bearingOverrides:[]})}};
+global.LubricaSystem={registerModule:()=>{}};
+require('../bearings/catalog-data.js');
+require('../bearings/library.js');
+const B=global.LubricaBearings;
+let r=B.lookup('Узел подшипниковый UCPA 210 Линия №2');
+assert(r.parsed.recognized,'UCPA210 must be recognized');
+assert.equal(r.record.designation,'UCPA210');
+assert.equal(r.record.d,50);assert.equal(r.record.D,90);assert.equal(r.record.B,51.6);
+r=B.lookup('Узел подшипниковый UKHA 212 Линия №2');
+assert(r.parsed.recognized,'UKHA212 must be recognized');
+assert.equal(r.record.designation,'UKHA212');
+assert.equal(r.record.d,55);assert.equal(r.record.D,110);assert.equal(r.record.B,62);
+assert(B.search('UCPA 210').some(x=>x.designation==='UCPA210'),'UCPA210 search');
+assert(B.search('UKHA 212').some(x=>x.designation==='UKHA212'),'UKHA212 search');
+console.log('RELEASE 1.0.33.20 HOUSED UNITS PASS');

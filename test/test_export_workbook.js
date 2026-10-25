@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..'),out={name:null,blob:null};
+global.window=global;global.Blob=Blob;
+const task={id:'T1',lubricationPointId:'LP-1',operation:'Замена масла',activityType:'oil_change',materialMode:'point_target',quantity:{approved:'10',unit:'л',source:'OEM'},schedule:{strategy:'По календарю',legacyText:'12 месяцев'},approvalStatus:'approved'};
+const db={lines:[{id:'L1',name:'Линия 1'}],areas:[{id:'A1',lineId:'L1',name:'Участок A'}],equipment:[{id:'EQ1',areaId:'A1',externalCode:'EQ-1',name:'Редуктор'}],nodes:[{id:'N1',equipmentId:'EQ1',name:'Картер',quantity:1}],lubricationPoints:[{id:'LP-1',equipmentId:'EQ1',nodeId:'N1',name:'Картер',category:'gearbox_oil',feedMethod:'Заливка',targetMaterialId:'M1'}],tasks:[task],materials:[{id:'M1',code:'OIL-220',name:'Oil 220',kind:'Редукторное масло',approved:true}],tools:[],routes:[{id:'RT-001',code:'RT-001',status:'active',taskIds:['T1']}],componentLibraryEntries:[],components:[]};
+global.state={points:[{id:'T1',taskId:'T1',lubricationPointId:'LP-1',line:'Линия 1',area:'Участок A',position:'EQ-1',equipment:'Редуктор',unit:'Картер',material:'Oil 220',operation:'Замена масла',strategy:'По календарю',interval:'12 месяцев',qty:'10',measure:'л'}]};
+global.SCOPE_LABELS={};global.taskKey=p=>p.taskId||p.id;global.pointDisplayId=p=>p.lubricationPointId||p.id;global.csvCell=x=>'"'+String(x??'').replace(/"/g,'""')+'"';global.toolFor=()=>'';global.routeEntries=()=>[];
+global.download=(name,blob)=>{out.name=name;out.blob=blob};global.toast=()=>{};global.LubricaCore={State:{getDatabase:()=>db}};
+vm.runInThisContext(fs.readFileSync(path.join(root,'vendor/jszip.min.js'),'utf8'));
+vm.runInThisContext(fs.readFileSync(path.join(root,'export/export-ui.js'),'utf8'));
+vm.runInThisContext(fs.readFileSync(path.join(root,'export/final-excel-template.js'),'utf8'));
+vm.runInThisContext(fs.readFileSync(path.join(root,'export/final-excel.js'),'utf8'));
+(async()=>{await exportWorkbook();if(out.name!=='LUBRICA_Финальный_Excel_по_эталону.xlsx')throw Error('wrong export name');const buf=Buffer.from(await out.blob.arrayBuffer());const zip=await JSZip.loadAsync(buf);const wb=await zip.file('xl/workbook.xml').async('text');for(const n of ['Выбор смазочного материала','Карта смазки','Справочники','Код типа смазочного материала','Стандарт Чек-листа','Расчёт и обоснование'])if(!wb.includes(n))throw Error('missing '+n);if((wb.match(/<sheet /g)||[]).length!==6)throw Error('expected exactly 6 sheets');console.log('EXPORT WORKBOOK TEST PASS',buf.length)})().catch(e=>{console.error(e);process.exit(1)});

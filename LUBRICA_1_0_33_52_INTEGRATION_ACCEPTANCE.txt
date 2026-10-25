@@ -1,0 +1,43 @@
+LUBRICA 1.0.33.52 — SKF BS2-2208-2CS/VT143 Bearing Library Hotfix
+Integration acceptance
+Date: 2026-09-18
+
+CHANGE UNDER TEST
+- Added SKF BS2-2208-2CS/VT143 to the built-in Bearing Library.
+- OEM dimensions: d 40 mm / D 80 mm / B 28 mm.
+- Bearing mass: 0.57 kg.
+- Type: sealed spherical roller bearing.
+- 2CS recognized as sealed NBR contact seals.
+- VT143 retained as factory-grease suffix (SKF LGEP 2).
+- Exact OEM designation is preserved when points are created.
+- 2CS / 2CS2 / 2CS5 added to sealed-bearing warning logic.
+
+REAL DATABASE CHECK
+Uploaded plant database contains 4 physical components with this designation:
+- COMP-0001555 / EQ-000477
+- COMP-0001588 / EQ-000480
+- COMP-0001622 / EQ-000482
+- COMP-0001695 / EQ-000492
+All resolve through the new built-in Bearing Library entry.
+
+TARGETED TESTS
+PASS 1.0.33.52 SKF BS2-2208-2CS/VT143 library
+PASS Bearing Library regression
+PASS Component Binding
+PASS Component Library
+PASS 1.0.33.47 chain/scraper conveyor regression
+PASS 1.0.33.50 real-base safety
+PASS 1.0.33.51 oscillating single-mode UX
+PASS Preflight
+PASS Edge file:// static protocol
+
+FULL RELEASE GATE
+Stages 1-59: PASS
+Stage 60 Source XLSX audit: SKIP (source production XLSX files are not present in the test environment)
+Stages 61-99: PASS
+Final: 98 PASS / 0 FAIL / 1 SKIP
+
+NOTES
+- Existing calculation formulas were not changed.
+- Sealed bearing recognition was extended so BS2-2208-2CS/VT143 does not get treated as an ordinary open spherical roller bearing.
+- SKF documentation states sealed spherical roller bearings with VT143 use SKF LGEP 2 factory grease and are normally virtually maintenance-free; application-specific relubrication still requires OEM/installation confirmation.

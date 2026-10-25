@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const sandbox={window:{LubricaSystem:{registerModule(){}}}};sandbox.window.window=sandbox.window;vm.createContext(sandbox);
+for(const f of ['motors/motor-oem-data.js','motors/motor-method-resolver.js','motors/motor-calculator.js'])vm.runInContext(fs.readFileSync(f,'utf8'),sandbox,{filename:f});
+const OEM=sandbox.window.LubricaMotorOEM,Calc=sandbox.window.LubricaMotorCalculator;
+let p=OEM.resolve('Электродвигатель M2AA 112M4 B5');
+assert.equal(p.bearingConstruction.de,'6206-2Z/C3');assert.equal(p.bearingConstruction.nde,'6205-2Z/C3');assert.equal(p.policy,'CONFIRM_NIPPLE');
+p=OEM.resolve('Электродвигатель M2VA 63A4 B14');assert.equal(p.policy,'NO_ROUTINE_RELUBE');assert.equal(p.bearingConstruction.de,'6202-2Z/C3');assert.equal(p.bearingConstruction.nde,'6201-2Z/C3');
+p=OEM.resolve('Электродвигатель M3AA 200MLA2 B3');assert.equal(p.policy,'NO_ROUTINE_RELUBE');assert.equal(p.bearingConstruction.de,'6312-2Z/C3');assert.equal(p.bearingConstruction.nde,'6210-2Z/C3');
+p=OEM.resolve('Электродвигатель M2CA 280SA4 B3');assert.equal(p.policy,'ABB_L1_STANDARD');assert.equal(p.bearingConstruction.de,'6316/C3');assert.equal(p.bearingConstruction.nde,'6316/C3');assert.equal(p.rpm,1500);
+let r=Calc.calculate({motorText:'Электродвигатель M2CA 280SA4 B3',bearingType:'ball'});assert.equal(r.policy,'RELUBE');assert.equal(r.relube.doseG,40);assert.equal(r.relube.intervalHours,9600);
+p=OEM.resolve('Электродвигатель M2CA 315MB4 B3');assert.equal(p.bearingConstruction.de,'6319/C3');assert.equal(p.bearingConstruction.nde,'6316/C3');assert.equal(p.rpm,1500);
+r=Calc.calculate({motorText:'Электродвигатель M2CA 315MB4 B3',bearingType:'ball'});assert.equal(r.policy,'RELUBE');assert.equal(r.relube.doseG,55);assert.equal(r.relube.intervalHours,7600);
+p=OEM.resolve('Электродвигатель M2QA 132MB6 B3 N=5,5 кВт, n=960 мин-1');assert.equal(p.policy,'NO_ROUTINE_RELUBE');
+console.log('ABB fleet bearing mapping: PASS');

@@ -1,0 +1,55 @@
+LUBRICA 1.0.33.54 — FLEET BEARING LIBRARY COMPLETION
+ACCEPTANCE DATE: 2026-09-18
+BASELINE: LUBRICA 1.0.33.53
+PRODUCTION DATABASE: Филиал_завода__Техно__г._Юрга(20260918-022910).json
+
+IMPLEMENTATION
+- 21 standard rolling-bearing records added.
+- 38 housed-bearing-unit records added.
+- 4 special bearing records added: YAR206-2F, GEH35ES-2RS, KR40PP, KRE40PP.
+- 17 production Linear Motion designations added to the separate Component Library.
+- SNL/SNH remain housing context and are not converted into rolling bearings.
+- 3HAA/3HAB/3HAC OEM part numbers remain unresolved until actual bearing designation is confirmed.
+- Bearing parser now performs longest exact designation/alias matching while preserving UKFC D execution suffix semantics.
+- Generic rolling-bearing dose/interval is blocked for insert_ball, spherical_plain, track_roller and roller_bearing_unit types.
+- Narrow database repair migrates only legacy 2208 points with exact BS2-2208-2CS/VT143 source context.
+
+PRODUCTION DATABASE ACCEPTANCE
+runtime bearing catalog: 579 records
+unique imported bearing/linear-bearing names: 193
+rolling/housed/special resolved: 162 unique / 609 occurrences
+linear motion resolved separately: 17 unique / 44 occurrences
+remaining unresolved: 14 unique / 16 occurrences
+  housing context (SNL/SNH): 11 occurrences
+  OEM part numbers without confirmed designation: 5 occurrences
+unexpected bearing gaps: 0
+legacy BS2 points repaired: 8/8
+catalog duplicate IDs: 0
+catalog duplicate designations: 0
+
+TARGETED REGRESSION
+PASS test/test_bearing_library.js
+PASS test/test_bearing_calculator.js
+PASS test/test_release_1_0_33_20_housed_units.js
+PASS test/test_release_1_0_33_21_housed_unit_fleet_coverage.js
+PASS test/test_release_1_0_33_21_universal_housed_logic.js
+PASS test/test_release_1_0_33_52_skf_bs2_2208.js
+PASS test/test_release_1_0_33_53_ukf211.js
+PASS test/test_release_1_0_33_54_fleet_bearing_library.js
+PASS test/test_release_1_0_33_54_bs2_migration.js
+PASS test/preflight.py
+PASS test/test_stage9_9_file_protocol.py
+
+FULL 99-STAGE RELEASE GATE
+98 PASS / 0 FAIL / 1 SKIP
+SKIP: Source XLSX audit — original production XLSX source files are not present in the test environment.
+Execution note: stages 1-78 completed in the main run; the container command timed out while entering stage 79, so stages 79-99 were immediately rerun separately and all passed.
+
+STANDALONE RELEASE-JS PARITY
+1.0.33.53 baseline: 156 total / 119 PASS / 37 historical FAIL
+1.0.33.54 current: 158 total / 121 PASS / 37 historical FAIL
+New FAIL versus 1.0.33.53: 0
+Resolved historical FAIL: 0
+The two additional current tests are the new 1.0.33.54 tests and both pass.
+
+RELEASE GATE: PASS

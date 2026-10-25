@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm');
+const window={LubricaBearingCatalogData:[],LubricaSystem:{registerModule(){}}};
+const ctx={window,console};vm.createContext(ctx);
+vm.runInContext(fs.readFileSync('bearings/multi-oem-data.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync('bearings/calculator.js','utf8'),ctx);
+const C=window.LubricaBearingCalculator,O=window.LubricaBearingOEM;
+const a=(x,m)=>{if(!x)throw new Error(m)};
+let r=C.calculate({designation:'UCP320',manufacturer:'auto',bearingType:'bearing_unit',d:100,D:215,B:108,rpm:300,temperatureC:70,shaftOrientation:'horizontal',loadClass:'medium',contamination:'normal',vibration:'normal',bearingMassKg:10.9,bearingMassKind:'insert',massManufacturer:'SKF',fillRatio:0.25,greaseDensity:0.9,method:'auto_oem',intervalSource:'auto_oem'});
+a(r.relube.value===116.1,'auto unified dose');a(r.interval.value===1500,'auto unified interval');a(r.initialFill.massG>0,'auto fill');
+r=C.calculate({designation:'UCP320',manufacturer:'NTN-SNR',bearingType:'bearing_unit',d:100,D:215,B:108,rpm:300,temperatureC:70,shaftOrientation:'horizontal',loadClass:'medium',contamination:'normal',vibration:'normal',bearingMassKg:10.9,bearingMassKind:'insert',massManufacturer:'NTN-SNR',fillRatio:0.25,greaseDensity:0.9,method:'auto_oem',intervalSource:'auto_oem'});
+a(r.relube.value===60,'NTN UCP320 table quantity');a(r.relube.confidenceCode==='A','NTN exact quantity confidence');a(r.interval.value===1500,'NTN interval table midpoint');a(r.interval.confidenceCode==='B','NTN interval confidence');
+r=C.calculate({designation:'6212',manufacturer:'NSK',bearingType:'deep_groove_ball',d:60,D:110,B:22,rpm:1800,temperatureC:70,bearingMassKg:0.78,bearingMassKind:'bearing',massManufacturer:'NSK',fillRatio:0.4,greaseDensity:0.9,method:'auto_oem',intervalSource:'auto_oem'});
+a(r.interval.confidenceCode==='A'&&r.interval.value>9000,'NSK exact interval remains priority');
+console.log('1.0.27.1 unified auto PASS');

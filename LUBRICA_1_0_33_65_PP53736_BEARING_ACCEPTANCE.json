@@ -1,0 +1,82 @@
+{
+  "release": "1.0.33.65",
+  "scope": "Izoteh PP-53736 physical roller-bearing topology",
+  "sourceDatabase": "Филиал_завода__Техно__г._Юрга(20260923-023529).json",
+  "drawing": "Izoteh 53736 sheet 5/5",
+  "drawingCount": {
+    "lowerRollers": 28,
+    "upperRollers": 23,
+    "totalRollers": 51,
+    "supportsPerRoller": 2,
+    "physicalBearingPositions": 102
+  },
+  "passportIntervalHours": 200,
+  "sourceRepresentativesLine1": {
+    "lowerFY30": {
+      "componentId": "COMP-0001724",
+      "name": "Узел подшипниковый FY 30 TF",
+      "externalCode": "10108220"
+    },
+    "lowerSYF30": {
+      "componentId": "COMP-0001725",
+      "name": "Узел подшипниковый SYF 30 TF",
+      "externalCode": "10108221"
+    },
+    "upperFY30": {
+      "componentId": "COMP-0001731",
+      "name": "Узел подшипниковый FY 30 TF",
+      "externalCode": "10108228"
+    },
+    "upperSYF30": {
+      "componentId": "COMP-0001732",
+      "name": "Узел подшипниковый SYF 30 TF",
+      "externalCode": "10108229"
+    },
+    "upperFY40": {
+      "componentId": "COMP-0001733",
+      "name": "Узел подшипниковый FY 40 TF",
+      "externalCode": "10108230"
+    }
+  },
+  "lines": [
+    {
+      "rootId": "EQ-000493",
+      "externalCode": "10108190",
+      "lineId": "LINE-0001",
+      "physicalRollerBearingPoints": 102,
+      "lowerPoints": 56,
+      "upperPoints": 46,
+      "fy30": 47,
+      "syf30": 47,
+      "fy40": 8,
+      "missingRepresentatives": 0,
+      "sharedBearingNodes": 2,
+      "sealed6015AutoPoints": 0
+    },
+    {
+      "rootId": "EQ-001199",
+      "externalCode": "10208190",
+      "lineId": "LINE-0002",
+      "physicalRollerBearingPoints": 102,
+      "lowerPoints": 56,
+      "upperPoints": 46,
+      "fy30": 47,
+      "syf30": 47,
+      "fy40": 8,
+      "missingRepresentatives": 0,
+      "sharedBearingNodes": 2,
+      "sealed6015AutoPoints": 0
+    }
+  ],
+  "safety": {
+    "tmcRowsAreTypesNotPhysicalCounts": true,
+    "sealed6015Excluded": true,
+    "repeatPhysicalPositionKeysStable": true,
+    "noInventedUnknownBearingDesignation": true
+  },
+  "tests": [
+    "test/test_release_1_0_33_65_pp53736_physical_bearing_positions.js PASS",
+    "real current base line 1 = 102 PASS",
+    "real current base line 2 repaired/analog = 102 PASS"
+  ]
+}

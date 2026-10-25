@@ -1,0 +1,23 @@
+const fs=require('fs'),vm=require('vm'),path=require('path'),assert=require('assert');
+const root=path.resolve(__dirname,'..');
+const adapter=fs.readFileSync(path.join(root,'calculations/gearbox-oil-adapter.js'),'utf8');
+assert(adapter.includes("fillRevisionId:td.fillRevisionId||c.fillRevisionId||''"),'Gearbox apply must persist the active fill dataset revision');
+
+const window={LubricaSystem:{registerModule(){}}};window.window=window;
+const ctx={window,console,Object,Number,String,JSON,Date,Map,Set};vm.createContext(ctx);
+for(const f of ['components/registry.js','components/starter-data.js','components/gearbox-oem-data-1.0.33.60.js','components/gearbox-oem-data-1.0.33.61.js','components/starter-adapter.js','components/matcher.js','components/binding.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx,{filename:f});
+const B=window.LubricaComponentBinding;
+const revision='bonfiglioli-legacy-1.0.33.61';
+const source='Bonfiglioli legacy IOM / Annex 2 — historical lubricant fill quantity table for older C/A/F gear units. Quantities are reference fills; final operating level is verified by the OEM level plug/sight glass/dipstick.';
+const db={equipment:[{id:'EQ-B',name:'Test'}],components:[{id:'COMP-B',equipmentId:'EQ-B',manufacturer:'BONFIGLIOLI',name:'Редуктор C412/P 1:25 B3 PAM 100'}],lubricationPoints:[{id:'LP-B',equipmentId:'EQ-B',category:'gearbox_oil',componentBinding:{sourceComponentId:'COMP-B',sourceEquipmentId:'EQ-B',libraryCategory:'gearbox_oil',libraryEntryId:'STD-GBX-BONF-C412-P-25-P100-B3',actualLibraryEntryId:null,matchStatus:'matched',matchConfidence:1,structuralText:'BONFIGLIOLI Редуктор C412/P 1:25 B3 PAM 100'},gearboxOil:{manufacturer:'BONFIGLIOLI',model:'C 41 2 P 25 P100 B3',mountingPosition:'B3',calculation:{calculationVersion:'8.9',oemFillLiters:2.2,approvedFillLiters:2.2,effectiveFillLiters:2.2,appliedFillLiters:2.2,appliedAt:'2026-09-21T00:00:00Z',calculatedAt:'2026-09-21T00:00:00Z',fillRevisionId:revision,fillSource:source,changeHours:8000,changeMonths:12,interval:{rule:'whichever_first'},provenance:{sourceId:'BONFIGLIOLI-GEARBOX-FILL'}}}}],tasks:[{id:'TASK-B',lubricationPointId:'LP-B',activityType:'oil_change',operation:'Замена масла',quantity:{approved:'2.2',calculated:2.2,unit:'л',source},schedule:{strategy:'По наработке',runtimeHours:8000,legacyText:'8000 ч'},approvalStatus:'review',verified:false}]};
+B.reconcileDatabase(db);
+const calc=db.lubricationPoints[0].gearboxOil.calculation,task=db.tasks[0];
+assert.equal(calc.fillRevisionId,revision,'current revision must survive reconciliation');
+assert.equal(calc.approvedFillLiters,2.2,'applied fill must not be invalidated after apply');
+assert.equal(calc.effectiveFillLiters,2.2,'effective fill must persist');
+assert.equal(calc.appliedFillLiters,2.2,'applied fill marker must persist');
+assert.equal(task.quantity.approved,'2.2','task quantity must remain populated');
+assert.equal(task.quantity.calculated,2.2,'task calculated quantity must remain populated');
+assert.equal(task.quantity.unit,'л');
+assert.equal(task.schedule.runtimeHours,8000,'interval must remain populated');
+console.log('PASS 1.0.33.62 Bonfiglioli apply quantity persistence');

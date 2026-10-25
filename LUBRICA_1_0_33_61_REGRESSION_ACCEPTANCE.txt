@@ -1,0 +1,35 @@
+LUBRICA 1.0.33.61 - REGRESSION ACCEPTANCE
+===========================================
+Release: 1.0.33.61
+Scope: Legacy Bonfiglioli reference oil-fill fix for current plant fleet
+Date: 2026-09-21
+
+RESULT: PASS
+
+Full integration suite:
+- Checkpoints completed: 99/99
+- Final status: ALL INTEGRATION TESTS PASS
+- FAIL / AssertionError / Traceback / ERROR: none
+- Expected source-dependent skips:
+  * IMPORT INTEGRATION TEST SKIP: source XLSX files not found
+  * SOURCE XLSX AUDIT SKIP: source files not found
+
+Release-specific tests:
+- PASS 1.0.33.61 legacy Bonfiglioli reference fills + stale fill migration
+- PASS 1.0.33.61 Bonfiglioli fleet acceptance
+
+Current fleet acceptance:
+- Actual Bonfiglioli instances: 98
+- Instances with available working legacy OEM fill: 96
+- Verification-only instances: 2
+- Verification-only designation: A412/NR 1:28,3 B5 PAM112
+- Cross-OEM guard preserved: yes
+- A412/NR B5 value not guessed: yes
+- Stale wrong fill migration enabled: yes
+
+Critical corrected case:
+- C412/P 1:25 B3 PAM100 -> legacy reference fill 2.2 L
+- Previous stale 3.0 L UNIT DRIVE-derived calculation is invalidated and returned to review.
+
+Operational rule:
+Reference fill quantity does not replace final oil-level verification at the OEM level plug / sight glass / dipstick.

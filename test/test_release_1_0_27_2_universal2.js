@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm');
+const window={LubricaBearingCatalogData:[],LubricaSystem:{registerModule(){}}};
+const ctx={window,console};vm.createContext(ctx);
+vm.runInContext(fs.readFileSync('bearings/multi-oem-data.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync('bearings/calculator.js','utf8'),ctx);
+const C=window.LubricaBearingCalculator;const a=(x,m)=>{if(!x)throw new Error(m)};
+function base(extra={}){return {bearingType:'bearing_unit',d:100,D:215,B:108,rpm:300,temperatureC:70,shaftOrientation:'horizontal',loadClass:'medium',contamination:'normal',vibration:'normal',bearingMassKg:10.8,bearingMassKind:'insert',fillRatio:0.25,greaseDensity:0.9,method:'lubrica_unified',intervalSource:'unified_auto',...extra}}
+let r=C.calculate(base({designation:'UCP320',manufacturer:'NTN-SNR',massManufacturer:'NTN-SNR'}));
+a(r.relube.value===60,'NTN exact must win universal');a(r.relube.confidenceCode==='A','NTN exact confidence');a(r.interval.value===1500,'NTN guide interval');
+r=C.calculate(base({designation:'UCP320',manufacturer:'NSK',massManufacturer:'NSK'}));
+a(r.relube.value===116.1,'NSK housed gets universal numeric fallback');a(r.relube.confidenceCode==='D','NSK housed fallback must not pretend OEM');a(r.initialFill.massG>0,'NSK OEM mass should enable fill');
+r=C.calculate({designation:'6212',manufacturer:'NSK',bearingType:'deep_groove_ball',d:60,D:110,B:22,rpm:1800,temperatureC:70,bearingMassKg:0.78,bearingMassKind:'bearing',massManufacturer:'NSK',fillRatio:0.4,greaseDensity:0.9,method:'lubrica_unified',intervalSource:'unified_auto'});
+a(r.relube.confidenceCode==='A','NSK exact dose priority');a(r.interval.confidenceCode==='A','NSK exact interval priority');
+r=C.calculate(base({designation:'UCP320',manufacturer:'SKF',massManufacturer:'SKF'}));
+a(r.relube.value===116.1&&r.relube.confidenceCode==='B','SKF OEM method');
+r=C.calculate(base({designation:'UCP320',manufacturer:'TIMKEN',massManufacturer:'TIMKEN'}));
+a(r.relube.value===116.1&&r.relube.confidenceCode==='D','Timken without OEM tool -> universal engineering');
+r=C.calculate(base({designation:'UCP320',manufacturer:'NTN-SNR',massManufacturer:'NTN-SNR',greaseDensity:1.0}));
+a(r.relube.value===66.67&&r.relube.confidenceCode==='B','NTN exact table density correction');
+console.log('1.0.27.2 Universal 2.0 PASS');

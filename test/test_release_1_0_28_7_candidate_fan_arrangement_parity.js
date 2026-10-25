@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const base=path.join(__dirname,'..');
+const code=fs.readFileSync(path.join(base,'import/candidate-finalizer.js'),'utf8');
+assert.ok(code.includes("if(equipmentType==='fan'&&global.LubricaFanBearingArrangement)"),'fan component/equipment must share Fan Engine route');
+assert.ok(!code.includes("if(source==='equipment'&&equipmentType==='fan'"),'fan redirect must not be limited to equipment source');
+let stored=null,opened=null;
+const database={equipment:[{id:'EQ1',maintenanceEquipmentType:'fan',maintenanceCandidateState:'equipment',maintenanceCreatedPointIds:[]}],components:[{id:'CF',equipmentId:'EQ1',candidateEquipmentType:'fan',candidateState:'equipment'}],nodes:[],lubricationPoints:[],tasks:[]};
+const sandbox={window:{LubricaCore:{State:{getDatabase:()=>database,setDatabase:d=>{stored=d}},Database:{normalize:d=>d}},LubricaStructureContext:{},LubricaFanBearingArrangement:{open:id=>{opened=id}}},console,document:{getElementById:()=>null}};sandbox.window.window=sandbox.window;vm.createContext(sandbox);vm.runInContext(code,sandbox);
+const A=sandbox.window.LubricaCandidateFinalizer;
+A.open('component','CF'); assert.equal(opened,'EQ1','Fan Asset candidate must open parent fan arrangement');
+const arrangement={fanAssetComponentId:'CF',bearingArrangementType:'NO_SEPARATE_FAN_BEARINGS',readiness:{code:'NO_SEPARATE_FAN_BEARINGS'}};
+A.applyFanArrangement(database,database.equipment[0],[],arrangement);
+assert.equal(database.components[0].candidateState,'confirmed','Fan Asset must be confirmed after arrangement save');
+assert.equal(database.equipment[0].maintenanceCandidateState,'confirmed','direct-drive parent fan must be confirmed');
+console.log('PASS 1.0.28.7 Candidate Fan Arrangement Parity');

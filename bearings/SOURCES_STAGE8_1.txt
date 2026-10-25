@@ -1,0 +1,15 @@
+Stage 8.1 calculation model correction
+
+1. Bearing mass is no longer an input for full grease replacement.
+2. Lubrica calculates the geometric annular envelope from dimensions:
+   Vgeom = π/4 × (D² − d²) × B × 10⁻³ [cm³].
+3. The actual grease-containing free volume is not identical to the geometric envelope.
+   Therefore the application requires an explicit free-space coefficient Kfree (0…1).
+4. Grease volume:
+   Vgrease = Vgeom × Kfree × Kfill.
+5. Grease mass:
+   G = Vgrease × grease density.
+6. Kfree is intentionally not hard-coded as one universal constant. It must come from the bearing/OEM data or an approved engineering rule.
+7. If Kfree is unknown, Lubrica shows Vgeom but does not invent an exact full-fill mass.
+
+The relubrication formulas from Stage 8 remain separate from full replacement.

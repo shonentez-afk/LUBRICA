@@ -1,0 +1,14 @@
+const fs=require('fs');
+const vm=require('vm');
+const assert=require('assert');
+const code=fs.readFileSync(require('path').join(__dirname,'../import/candidate-finalizer.js'),'utf8');
+const sandbox={window:{LubricaCore:{},LubricaStructureContext:{categoryLabels:{bearing:'Подшипник качения'},categories:{bearing:{defaultActivities:[{type:'regrease',label:'Досмазывание'}]}},operationOptions:()=>['Досмазывание'],activityLabel:x=>x}},document:{},console};
+vm.createContext(sandbox);
+vm.runInContext(code,sandbox);
+const specsFor=sandbox.window.LubricaCandidateFinalizer.specsFor;
+const fan={maintenanceTemplate:{id:'fan_bearings',evidence:{actual:[]}},maintenanceEquipmentType:'fan',maintenanceLabel:'Вентилятор'};
+assert.equal(specsFor(fan,'equipment').length,0,'fan without actual supports must not get virtual left/right rows');
+const fanActual={maintenanceTemplate:{id:'fan_bearings',evidence:{actual:[{id:'B1',source:'component',name:'Подшипник со стороны муфты'}]}},maintenanceEquipmentType:'fan',maintenanceLabel:'Вентилятор'};
+const specs=specsFor(fanActual,'equipment');
+assert.equal(specs.length,1); assert.equal(specs[0].name,'Подшипник со стороны муфты');
+console.log('PASS 1.0.27.31 fan no virtual supports');

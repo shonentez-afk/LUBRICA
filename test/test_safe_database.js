@@ -1,0 +1,27 @@
+const fs=require('fs'),vm=require('vm');
+const store=new Map();
+const localStorage={getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k)};
+const events=[];
+const window={localStorage,dispatchEvent:e=>events.push(e),addEventListener:()=>{},LubricaCore:{}};
+const ctx={window,localStorage,console,CustomEvent:function(type,opts){this.type=type;this.detail=opts?.detail},setTimeout,clearTimeout,Date,JSON,Promise};
+vm.createContext(ctx);
+for(const f of ['core/ids.js','core/database-schema.js','core/database-normalizer.js','core/database-migrations.js','core/database.js','core/migration.js','core/storage.js','core/state.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx,{filename:f});
+const C=window.LubricaCore;
+const old=C.Database.createEmpty('Старая рабочая');old.lines=[{id:'LINE-1',name:'L1'}];
+C.Storage.saveRecoverySync(old,'seed');
+const demo={project:'Демонстрационная база',points:[{id:'D1',line:'Demo',scope:'d',equipment:'Demo eq',unit:'Demo node',position:'1',type:'bearing',operation:'Досмазывание',interval:'1 неделя',material:'Demo grease'}],materials:[],rules:{}};
+const legacy=C.State.loadLegacy(demo);
+if(C.State.getMode()!=='demo')throw new Error('startup mode is not demo');
+if(legacy.project!=='Демонстрационная база')throw new Error('startup did not use demo');
+if(!C.State.hasRecovery())throw new Error('recovery should still be discoverable');
+const work=C.Database.createEmpty('Новая рабочая');work.lines=[{id:'LINE-2',name:'L2'}];
+C.State.activateDatabase(work,'new');
+if(C.State.getMode()!=='work')throw new Error('activate did not switch to work');
+if(C.State.getDatabase().project.name!=='Новая рабочая')throw new Error('wrong work db');
+C.State.startDemo(demo);
+if(C.State.getMode()!=='demo')throw new Error('return to demo failed');
+C.State.restoreRecovery().then(restored=>{
+ if(!restored)throw new Error('restore recovery failed');
+ if(C.State.getMode()!=='work')throw new Error('restore did not activate work mode');
+ console.log('SAFE DATABASE TEST PASS');
+}).catch(e=>{console.error(e);process.exit(1)});

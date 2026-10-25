@@ -1,0 +1,18 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const root=path.resolve(__dirname,'..'),w={LubricaSystem:{registerModule(){}},open(){}},c={window:w,document:{getElementById(){return null}},console};vm.createContext(c);
+for(const f of ['bearings/catalog-data.js','bearings/multi-oem-data.js','bearings/calculator.js','bearings/source-registry.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),c);
+const O=w.LubricaBearingOEM,R=w.LubricaBearingSources;
+let p=O.nskBearingUnitProfile('UCP212');assert(p&&p.insert.massKg===1.46);assert.strictEqual(p.unitMassKg,4.6,'plain UCP212 must not use covered CM mass');
+p=O.nskBearingUnitProfile('CM-UCP212D1');assert(p&&p.coverPrefix==='CM'&&p.insert.massKg===1.46);assert.strictEqual(p.unitMassKg,null,'covered unit must not inherit plain mass');
+p=O.nskBearingUnitProfile('UC216D1');assert(p&&p.insert.massKg===2.78&&p.insert.D===140);
+p=O.nskBearingUnitProfile('UCP216');assert(p&&p.insertDesignation==='UC216D1'&&p.unitMassKg===9);
+p=O.nskBearingUnitProfile('UC320');assert(p&&p.insert.massKg===10.8&&p.insert.D===215);
+p=O.nskBearingUnitProfile('UCP320');assert(p&&p.insertDesignation==='UC320D1'&&p.unitMassKg===35);
+p=O.nskBearingUnitProfile('UK216');assert(p&&p.insert.massKg===3.23&&p.adapterSleeve==='H2316X');
+p=O.nskBearingUnitProfile('UK320D1');assert(p&&p.insert.massKg===11&&p.adapterSleeve==='H2320X');
+p=O.nskBearingUnitProfile('UCF216');assert(p&&p.insertDesignation==='UC216D1'&&p.unitMassKg===null);
+p=O.nskBearingUnitProfile('UKFL320');assert(p&&p.insertDesignation==='UK320D1'&&p.adapterSleeve==='H2320X');
+for(const family of ['UCP','UCF','UCFS','UCFC','UCFL','UCT','UCL','UCM','UCHB','UKP','UKF','UKFS','UKFC','UKFL','UKT'])assert(O.nskHousingFamilies[family],family+' family missing');
+for(const id of ['SKF-RELUBE','SKF-HOUSED','NSK-BEARING-UNITS','FAG-TPI228','FAG-HOUSED','NTN-LUB','NTN-HOUSED','TIMKEN-HELP','TIMKEN-HOUSED'])assert(R.sources.some(x=>x.id===id),id+' source missing');
+assert(R.sources.find(x=>x.id==='FAG-WL81115').status==='legacy-reference');
+console.log('RELEASE 1.0.26.6 NSK FULL HOUSED + ALL OEM SOURCE AUDIT PASS');

@@ -1,0 +1,16 @@
+{
+  "release": "1.0.33.59",
+  "sourceAuditRelease": "1.0.33.58",
+  "uniqueDesignations": 186,
+  "componentInstances": 335,
+  "resolved": 306,
+  "unresolved": 29,
+  "expectedConflicts": 19,
+  "wrongDomainBlocked": 6,
+  "crossOemFalseMatches": 0,
+  "fillSafeRecordsChecked": 115,
+  "fillSafeInstancesChecked": 205,
+  "fillMismatches": [],
+  "unexpectedMatches": [],
+  "unexpectedUnresolved": []
+}

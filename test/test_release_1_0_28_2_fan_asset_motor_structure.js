@@ -1,0 +1,15 @@
+const fs=require('fs'),assert=require('assert'),path=require('path');
+const root=path.join(__dirname,'..');
+const tree=fs.readFileSync(path.join(root,'structure/tree-ui.js'),'utf8');
+const ctx=fs.readFileSync(path.join(root,'structure/context.js'),'utf8');
+const detail=fs.readFileSync(path.join(root,'structure/detail-ui.js'),'utf8');
+const fan=fs.readFileSync(path.join(root,'fans/fan-bearing-arrangement.js'),'utf8');
+assert.ok(ctx.includes("component:'ТМЦ / агрегат'"),'component structure label');
+assert.ok(ctx.includes('component:d.components'),'component entity resolution');
+assert.ok(tree.includes('renderComponentAsset'),'fan/motor assets rendered in tree');
+assert.ok(tree.includes("'Сам вентилятор'"),'fan asset role');
+assert.ok(tree.includes("'Электродвигатель'"),'motor asset role');
+assert.ok(tree.includes('fan_housing_'),'fan bearing nodes grouped under fan asset');
+assert.ok(detail.includes('Подшипники электродвигателя'),'motor bearing action');
+assert.ok(!fan.includes('ПЧ и прочие электрические ТМЦ не участвуют.'),'no VFD notice in fan wizard');
+console.log('PASS 1.0.28.2 Fan Asset + Motor Structure UX');

@@ -1,0 +1,26 @@
+LUBRICA 1.0.33.59 — REGRESSION ACCEPTANCE
+
+Regression suite: 99 checkpoints completed in two execution blocks because the single full run exceeded the environment command-time limit at checkpoint 79.
+Failures: 0
+AssertionError/Traceback: 0
+Expected source-dependent skips: 2 (source XLSX files are not part of this release workspace).
+
+Critical retained tests PASS:
+- 1.0.33.51 oscillating single-mode UX
+- 1.0.33.52 SKF BS2-2208-2CS/VT143
+- 1.0.33.53 UKF211
+- 1.0.33.54 fleet bearing library + BS2 migration
+- 1.0.33.55 gearbox tc scope
+- 1.0.33.56 Bonfiglioli C412 structured recognition
+- 1.0.33.57 gearbox fleet completion + cross-OEM guard
+- 1.0.33.58 persisted gearbox binding migration
+- 1.0.33.59 full gearbox OEM dataset + MVF parser + domain policies
+
+Fleet audit acceptance:
+- 186 unique designations / 335 instances
+- resolved 306 / guarded-unresolved 29
+- cross-OEM false matches 0
+- wrong-domain blocked 6
+- manufacturer conflicts blocked 19
+- safe OEM fill records checked 115 / 205 instances
+- fill mismatches 0

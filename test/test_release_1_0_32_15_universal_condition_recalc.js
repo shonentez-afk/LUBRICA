@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const root=path.resolve(__dirname,'..'),w={LubricaSystem:{registerModule(){}}},c={window:w};vm.createContext(c);
+for(const f of ['bearings/catalog-data.js','bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),c);
+const C=w.LubricaBearingCalculator;
+const base={designation:'UCP212',manufacturer:'SKF',bearingType:'bearing_unit',d:60,D:110,B:65.1,method:'lubrica_unified',rpm:300,temperatureC:70,intervalSource:'unified_auto',baseHours:2250};
+let r=C.calculate(base); assert.strictEqual(r.relubeInterval.value,2250); assert.strictEqual(r.relubeInterval.sourceManufacturer,'engineering');
+r=C.calculate({...base,contamination:'heavy'}); assert.strictEqual(r.relubeInterval.value,1125);
+r=C.calculate({...base,loadClass:'heavy'}); assert.strictEqual(r.relubeInterval.value,1575);
+r=C.calculate({...base,vibration:'high'}); assert.strictEqual(r.relubeInterval.value,1350);
+r=C.calculate({...base,contamination:'severe',loadClass:'heavy',vibration:'high'}); assert.strictEqual(r.relubeInterval.value,236);
+console.log('RELEASE 1.0.32.15 UNIVERSAL CONDITION RECALC PASS');

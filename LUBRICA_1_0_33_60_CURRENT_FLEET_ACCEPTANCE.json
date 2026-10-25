@@ -1,0 +1,97 @@
+{
+  "release": "1.0.33.60",
+  "sourceDatabase": "Филиал_завода__Техно__г._Юрга(20260918-095105).json",
+  "componentInstances": 363,
+  "uniqueRecords": 202,
+  "previousMatchedInstances": 314,
+  "matchedInstances": 331,
+  "unmatchedInstances": 32,
+  "newCorrectMatchesInstances": 19,
+  "unsafeMatchesRemovedInstances": 2,
+  "netCoverageGainInstances": 17,
+  "wrongDomainBlockedInstances": 6,
+  "crossOemFalseMatches": [],
+  "newlyMatched": [
+    {
+      "count": 1,
+      "manufacturer": "BONFIGLIOLI",
+      "name": "Редуктор C412/P 1:31,4 B6 PAM 100",
+      "entryId": "STD-GBX-BONF-C412-P-31_4-P100-B6"
+    },
+    {
+      "count": 1,
+      "manufacturer": "",
+      "name": "Редуктор MRIV 63UO2A 1:101,6 B3PAM 80",
+      "entryId": "STD-GBX-ROSSI-MRIV63"
+    },
+    {
+      "count": 1,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Мотор-редуктор FH77/G DRE132S4/TF i=58.32 N=4 кВт n=1460 об/мин",
+      "entryId": "STD-GBX-SEW-FH77"
+    },
+    {
+      "count": 1,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Мотор-редуктор FH77/GDRE112M4/TF  i=43,58 N=3 кВт",
+      "entryId": "STD-GBX-SEW-FH77"
+    },
+    {
+      "count": 1,
+      "manufacturer": "",
+      "name": "Мотор-редуктор FH87/GDRE132M4/TF  i=56,75 N=5,5 кВт",
+      "entryId": "STD-GBX-SEW-FH87"
+    },
+    {
+      "count": 2,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Мотор-редуктор FH87/GDRE132M4/TF  i=56,75 N=5,5 кВт",
+      "entryId": "STD-GBX-SEW-FH87"
+    },
+    {
+      "count": 1,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Мотор-редуктор KA87/TDRS100M4BE5 i=49,16 N=3 кВт",
+      "entryId": "STD-GBX-SEW-KA87"
+    },
+    {
+      "count": 2,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Мотор-редуктор KHF47DRE100M4/TF/V/M1B  i=16,86 N=2,2 кВт",
+      "entryId": "STD-GBX-SEW-KHF47"
+    },
+    {
+      "count": 2,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Мотор-редуктор KHF87DRE132M4/TF  i=49,16 N=5,5 кВт",
+      "entryId": "STD-GBX-SEW-KHF87"
+    },
+    {
+      "count": 2,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Мотор-редуктор SF67DRS71M4/TF/M6A i=217,41 N=0,55 кВт",
+      "entryId": "STD-GBX-SEW-SF67"
+    },
+    {
+      "count": 4,
+      "manufacturer": "SEW EURODRIVE",
+      "name": "Редуктор планетарный PSF822 EPH07/22/14 i=20,00",
+      "entryId": "STD-GBX-SEW-PSF822"
+    },
+    {
+      "count": 1,
+      "manufacturer": "UNIMEC",
+      "name": "Редуктор XRC 54 S1 1:1",
+      "entryId": "STD-GBX-UNIMEC-XRC54"
+    }
+  ],
+  "removedUnsafeMatches": [
+    {
+      "count": 2,
+      "manufacturer": "TANDLER",
+      "name": "Редуктор STD EА1 1:1 1",
+      "oldEntryId": "STD-GBX-TANDLER-STDB1",
+      "reason": "TANDLER: семейство STDEA1UNCONFIRMED распознано, но записи в Справочнике нет; редуктор другого производителя не подставляется"
+    }
+  ]
+}

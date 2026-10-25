@@ -1,0 +1,41 @@
+LUBRICA 1.0.33.66 — REGRESSION ACCEPTANCE
+Release: PP-53736 Gearbox OEM Completion
+Date: 2026-09-23
+
+RESULT: PASS
+
+Preflight:
+- python3 test/preflight.py — PASS
+
+Full integration suite:
+- All checkpoints 1–99 completed successfully across continuation blocks because the execution wrapper timed out during long sequential runs.
+- Checkpoints 1–49: PASS in the first block; wrapper timeout occurred while checkpoint 50 was starting.
+- Checkpoints 50–91: PASS in the continuation block.
+- During checkpoint 92, the legacy 1.0.33.55 source-extraction test harness lacked the newly introduced local flag `isPP53736`; product execution was not failing. The harness was updated to provide the new captured variable, then checkpoints 92–99 were rerun and all PASS.
+- No product FAIL / ERROR / AssertionError / Traceback remains after the compatibility rerun.
+
+Expected source-dependent skips:
+- Import integration source XLSX files not present — SKIP.
+- Source XLSX audit source files not present — SKIP.
+These are pre-existing source-file-dependent skips, not product failures.
+
+Release-specific checks:
+- PASS 1.0.33.66 PP53736 gearbox audit.
+- PASS 1.0.33.65 PP53736 physical bearing topology regression.
+- PASS 1.0.33.64 manual add parity/UI regression.
+- PASS 1.0.33.63 PP53736 constructor/integration regression.
+- PASS gearbox regressions 1.0.33.55–1.0.33.62.
+- PASS Stage 9.9 Edge file protocol, E2E contract, final UX/UI audit and documentation.
+
+Real production DB acceptance:
+- Source DB: Филиал_завода__Техно__г._Юрга(20260923-023529).json
+- Imported PP-53736 representative gearbox rows checked: 10.
+- 2 × R77 representatives resolve to STD-GBX-SEW-R77.
+- 4 × KF37R17 representatives resolve to STD-GBX-SEW-KF37R17.
+- 2 × K37 representatives resolve to STD-GBX-SEW-K37.
+- 2 × Tandler A1/HW A1 representatives resolve to STD-GBX-TANDLER-HWA1.
+- False mounting-position detections from motor tokens DRE100M4 / DRE80M4 / DR63S4: 0.
+- S37 is absent from the imported PP-53736 structure but is now present in the local OEM library for engineer-confirmed installation.
+
+Conclusion:
+LUBRICA 1.0.33.66 is accepted as a regression-safe release candidate for PP-53736 gearbox OEM completion.

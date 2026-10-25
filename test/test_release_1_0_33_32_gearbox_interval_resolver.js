@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.join(__dirname,'..');
+function ok(v,m){if(!v)throw new Error(m)}
+const sandbox={window:{LubricaOfflineEvidence:{bySource:()=>[]}}};sandbox.window.window=sandbox.window;vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(root,'calculations/gearbox-architecture.js'),'utf8'),sandbox);
+const A=sandbox.window.LubricaGearboxArchitecture;
+const entry={manufacturer:'SEW-EURODRIVE',designation:'KA57B',technicalData:{mountingFillLiters:{M1:1.1}},lubricationData:{}};
+const ctx=A.buildContext({entry,input:{mountingPosition:'M1',oilBaseType:'mineral',intervalMode:'auto'}});
+ok(ctx.oemMineralOilMaxMonths===36,'SEW family mineral interval fallback');
+ok(ctx.oemSyntheticOilMaxMonths===60,'SEW family synthetic interval fallback');
+ok(ctx.oemInspectionHours===3000,'SEW family inspection hours fallback');
+ok(A.sourceIdsForContext(ctx).includes('SEW-GEARBOX-MAINTENANCE'),'maintenance source available');
+const adapter=fs.readFileSync(path.join(root,'calculations/gearbox-oil-adapter.js'),'utf8');
+ok(adapter.includes('name="oilBaseType"'),'simple oil base selector');
+ok(adapter.includes('name="intervalMode"'),'simple interval mode selector');
+ok(adapter.includes('applyAutoInterval();const x=input()'),'auto interval is part of recalc lifecycle');
+ok(adapter.includes("isSew?'SEW-EURODRIVE · OEM регламент замены масла'"),'SEW auto interval source');
+ok(adapter.includes("version:'8.8-arch-1.0.33.32'"),'adapter version');
+const schema=fs.readFileSync(path.join(root,'core/database-schema.js'),'utf8');ok(schema.includes("appVersion:'1.0.33.39'"),'app version');
+console.log('PASS 1.0.33.32 gearbox interval resolver');

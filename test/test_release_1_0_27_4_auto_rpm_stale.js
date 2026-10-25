@@ -1,0 +1,14 @@
+const fs=require('fs'),assert=require('assert'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const ui=fs.readFileSync(path.join(root,'lubrication/task-editor.js'),'utf8');
+assert(ui.includes("const defaultManufacturer=(c.manufacturerSelectionExplicit&&c.manufacturer)?c.manufacturer:'auto'"),'manufacturer must default to auto unless explicitly selected');
+assert(ui.includes('Условия эксплуатации'),'operating conditions block visible');
+assert(ui.includes('Обороты, об/мин <b>*</b>'),'RPM required field visible');
+assert(ui.includes('Обороты обязательны для периодичности'),'RPM missing hint');
+assert(ui.includes('data-stale-calc-banner'),'stale calculation banner');
+assert(ui.includes('Пересчитать и заменить старые значения'),'stale replace action');
+assert(ui.includes("CURRENT_CALC_VERSION='multi-oem-1.0.27.4'"),'current calculation version');
+assert(ui.includes('manufacturerSelectionExplicit:true'),'explicit manufacturer persisted');
+const rpmInputs=(ui.match(/name="rpm"/g)||[]).length;
+assert.strictEqual(rpmInputs,1,'RPM must have a single form control');
+console.log('RELEASE 1.0.27.4 AUTO/RPM/STALE RECALC PASS');

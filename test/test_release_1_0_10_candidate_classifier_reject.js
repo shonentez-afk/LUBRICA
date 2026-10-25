@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+global.window=global;
+const base=path.resolve(__dirname,'..');
+vm.runInThisContext(fs.readFileSync(path.join(base,'import/component-classifier.js'),'utf8'),{filename:'component-classifier.js'});
+const typo=global.LubricaClassifier.classifyComponentText('Бабаран натяжной','');
+if(typo.equipmentType!=='drum') throw new Error('typo tension drum not classified as drum: '+JSON.stringify(typo));
+if(typo.equipmentSubtype!=='tension') throw new Error('tension subtype missing: '+JSON.stringify(typo));
+if(typo.state!=='review') throw new Error('tension drum should require review');
+const proper=global.LubricaClassifier.classifyComponentText('Барабан натяжной','');
+if(proper.equipmentType!=='drum'||proper.equipmentSubtype!=='tension') throw new Error('proper tension drum regression');
+console.log('CANDIDATE CLASSIFIER TYPO/TENSION DRUM PASS');

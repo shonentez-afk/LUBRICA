@@ -1,0 +1,46 @@
+[1/99] JS syntax
+[2/99] Preflight
+PREFLIGHT PASS
+[3/99] Database modules
+DATABASE MODULE TEST PASS
+[4/99] Safe database/recovery
+SAFE DATABASE TEST PASS
+[5/99] Classifier unit
+OK ШВП 32x10 => ball_screw
+OK Линейный подшипник LM25UU => linear_bearing
+OK Подшипник 6205-2RS1 => bearing
+OK Насос плунжерный NP25/25-250 => pump
+OK Насос шестеренный TFP100/4.3 D CO01 => pump
+OK Насос винтовой XYZ => pump
+OK Вал приводной => rotating_shaft
+OK Вал натяжной => rotating_shaft
+OK Ролик приводной => roller
+OK Барабан натяжной => drum
+OK Домкрат винтовой M42VT => screw_jack
+OK Кардан 71.G4.090.090 => cardan
+OK Механизм кривошипно-шатунный основной => crank
+OK Компрессор №1 => compressor
+OK Гидростанция GA0504 S11 => hydraulic_station
+CLASSIFIER TEST PASS
+[6/99] Classifier real data
+ACTUAL CLASSIFIER TEST PASS 5650 states={"unclassified":2567,"equipment":686,"candidate":884,"excluded":659,"review":854} classes={"none":3226,"motor_gearbox":214,"bearing":695,"chain":168,"motor":240,"gearbox":146,"screw_jack":26,"coupling":105,"linear_bearing":23,"guide":43,"bushing":415,"motor_drum":10,"hydraulic_station":4,"pump":12,"joint":86,"roller":7,"fan":86,"drum":23,"rotating_shaft":94,"cardan":6,"axis":1,"spindle":20}
+[7/99] Structured activities
+STRUCTURED ACTIVITIES TEST PASS
+[8/99] Candidate finalization
+/mnt/data/lubrica_32_6/test/test_candidate_finalization.js:9
+const assert=(x,m)=>{if(!x)throw new Error(m)};
+                           ^
+
+Error: oil change material mode
+    at assert (/mnt/data/lubrica_32_6/test/test_candidate_finalization.js:9:34)
+    at Object.<anonymous> (/mnt/data/lubrica_32_6/test/test_candidate_finalization.js:34:1)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.16.0

@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const ctx={window:{},console};ctx.window.window=ctx.window;ctx.window.LubricaCore={};
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(root,'core/database-schema.js'),'utf8'),ctx);
+vm.runInContext(fs.readFileSync(path.join(root,'core/database-normalizer.js'),'utf8'),ctx);
+const normalize=ctx.window.LubricaCore.DatabaseNormalizer.normalize;
+const base={schemaVersion:'2.0',project:{},plants:[],lines:[],areas:[],equipment:[],components:[],nodes:[],materials:[],tools:[],routes:[],checklistRuns:[],bearingOverrides:[],lubricationPoints:[{id:'LP-1',category:'bearing',targetMaterialId:null}],tasks:[{id:'T1',lubricationPointId:'LP-1',activityType:'regrease',operation:'Досмазывание',materialMode:'none',materialId:null,quantity:{},schedule:{},approvalStatus:'review'}]};
+let d=normalize(base);let t=d.tasks.find(x=>x.id==='T1');if(t.materialMode!=='explicit')throw new Error('regrease without target must require explicit material');
+base.lubricationPoints[0].targetMaterialId='MAT-1';base.materials=[{id:'MAT-1',name:'Grease'}];d=normalize(base);t=d.tasks.find(x=>x.id==='T1');if(t.materialMode!=='point_target')throw new Error('regrease with target must inherit point target');
+console.log('PASS 1.0.33.24 rotating bearing material mode repair');

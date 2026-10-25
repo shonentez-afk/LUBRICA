@@ -1,0 +1,17 @@
+Stage 8 calculation basis
+
+SKF:
+- Relubrication from the side: Gp = 0.005 × D × B [g]
+- Relubrication through annular groove / lubrication holes: Gp = 0.002 × D × B [g]
+- Relubrication interval adjustments: halve for each 15 °C above 70 °C; vertical shaft halves interval; intervals above 30 000 h are not recommended.
+- Bearing free volume formula uses d, D, B and bearing mass.
+
+Schaeffler:
+- Replenishment m1 = D × B × x [g]
+  weekly x=0.002, monthly x=0.003, yearly x=0.004.
+
+Design rule in Lubrica:
+- The app does NOT approximate the SKF relubrication interval chart.
+- User supplies the base interval from SKF/OEM/approved engineering source; Stage 8 applies only explicit generic adjustment rules.
+- Vibration, severe contamination and heavy-load reductions are warnings unless an engineer supplies a condition factor.
+- Calculated values and approved values are stored separately.

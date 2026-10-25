@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),path=require('path'),assert=require('assert');
+const sandbox={window:{}};sandbox.window.window=sandbox.window;sandbox.window.LubricaLubricationDomainCleanup={classifyStaticEquipment:()=>null};
+sandbox.window.LubricaCore={IDs:{nextFrom(arr,prefix,digits){let n=1;while((arr||[]).some(x=>x.id===`${prefix}-${String(n).padStart(digits,'0')}`))n++;return `${prefix}-${String(n).padStart(digits,'0')}`}}};
+vm.createContext(sandbox);
+for(const rel of ['import/component-classifier.js','conveyors/conveyor-arrangement.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',rel),'utf8'),sandbox);
+const db={components:[],equipment:[],meta:{}};
+const eq={id:'EQ-000001',lineId:'L1',areaId:'A1',name:'Конвейер ленточный ручной',externalCode:'MAN-1',equipmentType:'conveyor',origin:'manual',status:'active'};db.equipment.push(eq);
+sandbox.window.LubricaConveyorArrangement.ensureManualComponents(db,eq,{driveShaftName:'Вал приводной',returnShaftRole:'tension',returnShaftName:'Вал натяжной',bearingDesignation:'Подшипник 22210 E',chainEnabled:true,chainName:'Цепь роликовая 12B-2',driveEnabled:true,driveName:'Мотор-редуктор R67'});
+db.components=db.components.map(c=>sandbox.window.LubricaClassifier.classifyComponent(c));
+const classified=sandbox.window.LubricaClassifier.classifyEquipment(db,eq);db.equipment[0]=classified;
+assert.equal(classified.maintenanceEquipmentType,'conveyor');assert.equal(classified.maintenanceTemplate.id,'conveyor_arrangement');
+const ev=classified.maintenanceTemplate.evidence;assert(ev.supportLayout);assert.equal(ev.supportLayout.supports.length,4);assert.equal(ev.byCategory.chain,1);assert.equal(ev.assets.length,1);assert.equal(ev.assets[0].equipmentType,'motor_gearbox');
+assert.equal(eq.manualConveyorSetup.layout,'TWO_SHAFT_FOUR_SUPPORTS');
+console.log('PASS 1.0.33.14 manual conveyor parity: 4 supports + chain + motor-gearbox');

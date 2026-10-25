@@ -1,0 +1,33 @@
+LUBRICA 1.0.33.60 — REGRESSION ACCEPTANCE
+Date: 2026-09-18
+Source production DB: Филиал_завода__Техно__г._Юрга(20260918-095105).json
+
+FULL REGRESSION
+- test/run_all.sh checkpoints 1–76: PASS before command timeout at checkpoint 77; no FAIL/ERROR/AssertionError/Traceback in the completed block.
+- checkpoints 77–99 rerun as continuation with fail-fast: PASS.
+- expected source-dependent skip: Source XLSX audit (source XLSX files not packaged).
+- release-targeted tests 1.0.33.55–1.0.33.60: PASS.
+- new current-fleet acceptance: PASS.
+
+CURRENT FLEET ACCEPTANCE
+- component instances: 363
+- unique manufacturer+designation records: 202
+- 1.0.33.59 linked instances: 314
+- 1.0.33.60 safely linked instances: 331
+- intentionally blocked/unresolved instances: 32
+- new correct links: +19
+- unsafe Tandler EA1→B1 links removed: 2
+- net coverage gain: +17
+- wrong-domain blocked: 6 (ABB/Nabtesco 4 + ZIMM 2)
+- manufacturer conflicts blocked: 20 (Bonfiglioli field OEM vs Rossi MRV designation)
+- Tandler EA1 type-code confirmation blocked: 2
+- insufficient identification blocked: 4
+- cross-OEM false matches: 0
+
+SAFETY INVARIANTS
+- Cross-OEM fuzzy substitution remains forbidden.
+- Tandler STD EA1 cannot resolve to STD B1.
+- ABB/Nabtesco RV cannot enter ordinary gearbox_oil calculation.
+- ZIMM Z-50-SN cannot enter ordinary gearbox_oil calculation.
+- Manual actualLibraryEntryId remains authoritative.
+- Stale automatic bindings invalidate calculated quantities/sources while preserving user material/tool selections.

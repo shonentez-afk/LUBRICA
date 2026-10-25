@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm');global.window=global;global.SCOPE_LABELS={};global.taskKey=p=>p.taskId||p.id;
+let saved=null;
+const db={lines:[{id:'L1',name:'Линия 1'}],areas:[{id:'A1',lineId:'L1',name:'Упаковка'}],equipment:[{id:'E1',lineId:'L1',areaId:'A1',name:'Конвейер',externalCode:'100'}],nodes:[{id:'N1',equipmentId:'E1',name:'Привод'}],lubricationPoints:[{id:'LP1',equipmentId:'E1',nodeId:'N1',name:'Подшипник',category:'bearing'},{id:'LP2',equipmentId:'E1',nodeId:'N1',name:'Цепь',category:'chain'}],tasks:[{id:'T1',lubricationPointId:'LP1',operation:'Досмазывание',approvalStatus:'approved',schedule:{legacyText:'4 недели'}},{id:'T2',lubricationPointId:'LP2',operation:'Нанесение смазки',approvalStatus:'approved',schedule:{legacyText:'4 недели'}},{id:'T3',lubricationPointId:'LP2',operation:'Очистка',approvalStatus:'review',schedule:{legacyText:'4 недели'}}],routes:[]};
+global.LubricaCore={State:{getDatabase:()=>db,setDatabase:d=>{saved=d}},Database:{toLegacy:d=>({points:d.tasks.map(t=>({id:t.id,taskId:t.id,lubricationPointId:t.lubricationPointId,line:'Линия 1',area:'Упаковка',equipment:'Конвейер',unit:'Привод',position:'100',operation:t.operation,interval:t.schedule.legacyText,status:t.approvalStatus==='approved'?'ready':'review'}))})}};
+global.LubricaApp={refreshFromCore(){},showToast(){}};global.LubricaSystem={registerModule(){}};
+vm.runInThisContext(fs.readFileSync('routes/route-engine.js','utf8'),{filename:'route-engine.js'});
+const a=(x,m)=>{if(!x)throw new Error(m)};
+let x=LubricaRouteEngine.syncRoutes(db);a(x.created===1,'one route should be created');a(db.routes[0].taskIds.join(',')==='T1,T2','only approved tasks should enter route');a(!db.routes[0].taskIds.includes('T3'),'review task leaked');
+LubricaRouteEngine.updateRoute(db.routes[0].id,{name:'Маршрут упаковки',assignee:'Иванов',estimatedMinutesPerTask:7,fixedMinutes:12});a(saved===db,'route update not persisted');a(db.routes[0].name==='Маршрут упаковки','name not saved');
+LubricaRouteEngine.moveTask(db.routes[0].id,'T2',-1);a(db.routes[0].taskIds[0]==='T2','task order not changed');
+LubricaRouteEngine.excludeTask(db.routes[0].id,'T2');a(!db.routes[0].taskIds.includes('T2')&&db.routes[0].excludedTaskIds.includes('T2'),'exclude failed');
+LubricaRouteEngine.syncRoutes(db);a(!db.routes[0].taskIds.includes('T2'),'excluded task returned after sync');
+LubricaRouteEngine.restoreTask(db.routes[0].id,'T2');a(db.routes[0].taskIds.includes('T2'),'restore failed');
+const entries=LubricaRouteEngine.routeEntries(db);a(entries.length===1&&entries[0].points.length===2,'route projection failed');a(entries[0].estimatedMinutes===26,'duration calculation failed');
+console.log('STAGE 9.0 OPERATIONAL ROUTES TEST PASS');

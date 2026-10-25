@@ -1,0 +1,37 @@
+{
+  "release": "1.0.33.61",
+  "policy": "legacy Bonfiglioli reference fill for installed old gearboxes",
+  "source_database": "Филиал_завода__Техно__г._Юрга(20260918-095105).json",
+  "bonfiglioli_instances": 98,
+  "instances_with_available_fill": 96,
+  "verification_only_instances": 2,
+  "verification_only_designation": "A412/NR 1:28,3 B5 PAM 112",
+  "key_current_fleet_fills_l": {
+    "C412/P 1:25 B3 PAM100": 2.2,
+    "C412/P 1:31.4 B6 PAM100": 2.0,
+    "C412/P B7": 2.1,
+    "C413/P 1:31.2 B6 PAM100": 1.9,
+    "C312/P B7/B8": 1.4,
+    "A202/UH30 VB": 2.3,
+    "A412 B3": 3.8,
+    "A413 B3": 4.6,
+    "A503 B3": 5.1,
+    "A503 VA": 11.0,
+    "C512 B6": 3.0,
+    "C513 B3": 3.0,
+    "C612 B3": 4.2,
+    "F603 H1": 14.0
+  },
+  "safety": {
+    "final_level_check": "OEM level plug / sight glass / dipstick",
+    "cross_oem_guard_preserved": true,
+    "A412_NR_B5_not_guessed": true,
+    "stale_wrong_fill_migration": true
+  },
+  "tests": {
+    "targeted": "PASS",
+    "bonfiglioli_fleet_acceptance": "PASS",
+    "full_regression_checkpoints": "99/99 completed in two blocks",
+    "expected_source_xlsx_skip": true
+  }
+}

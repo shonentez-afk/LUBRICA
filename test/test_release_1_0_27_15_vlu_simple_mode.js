@@ -1,0 +1,10 @@
+const fs=require('fs'),assert=require('assert');
+const ui=fs.readFileSync(__dirname+'/../lubrication/task-editor.js','utf8');
+const calc=fs.readFileSync(__dirname+'/../bearings/calculator.js','utf8');
+assert(ui.includes('vluContamination'));
+assert(ui.includes('vluTemperatureC'));
+assert(ui.includes('INA / Schaeffler — определено по обозначению'));
+assert(ui.includes('procedureOnly'));
+assert(ui.includes("unit:'процедура'"));
+assert(calc.includes('Укажите температуру'));
+console.log('PASS 1.0.27.15 VLU simple mode completion UX');

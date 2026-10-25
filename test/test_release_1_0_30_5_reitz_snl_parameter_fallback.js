@@ -1,0 +1,21 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const ctx={console,window:{LubricaSystem:{registerModule(){}}}};ctx.window.window=ctx.window;vm.createContext(ctx);
+for(const f of ['bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
+const C=ctx.window.LubricaBearingCalculator;
+function ok(x,m){if(!x)throw new Error(m)}
+const fanLubrication={housingFamily:'SNL',rawHousingMarking:'SNL 522-619',internalBearings:['22222 K']};
+const base={designation:'22222 K',d:110,D:200,B:53,bearingType:'spherical_roller',manufacturer:'auto',fanManufacturer:'REITZ',rpm:1450,temperatureC:70,fanLubrication,snlFeedMethod:'side',snlServiceMode:'auto'};
+let r=C.calculate({...base,fullRenewalFallbackMode:'review'});
+ok(r.relube.value===100 && r.relubeInterval.value===460,'REITZ relube remains 100 g / 460 h');
+ok(r.fullRenewal.value===1100 && r.fullRenewal.sourceManufacturer==='REITZ','REITZ new refill is 1100 g');
+ok(r.renewalInterval.value==null && r.renewalInterval.fallbackAvailable===true,'SKF fallback is proposed but not silently applied');
+ok(r.renewalInterval.candidateValue===2300,'SKF fallback candidate is 5 actual relube cycles');
+ok(r.fullRenewalLifecycleState==='FALLBACK_AVAILABLE','lifecycle exposes fallback available');
+r=C.calculate({...base,fullRenewalFallbackMode:'skf_snl'});
+ok(r.fullRenewal.value===1100 && r.fullRenewal.sourceManufacturer==='REITZ','accepted fallback does not overwrite REITZ quantity');
+ok(r.renewalInterval.value===2300 && r.renewalInterval.sourceManufacturer==='SKF' && r.renewalInterval.fallbackApplied===true,'SKF only supplies accepted renewal period');
+ok(r.fullRenewalLifecycleState==='CALCULATED','accepted fallback completes cycle');
+const z=C.calculate({designation:'6316',d:80,D:170,B:39,bearingType:'deep_groove_ball',manufacturer:'auto',fanManufacturer:'REITZ',rpm:2980,temperatureC:70,fanLubrication:{housingFamily:'ZLG',rawHousingMarking:'ZLG316AA',portCount:2,internalBearings:['6316','6316']},zlgServiceMode:'reitz_kxe',zlgVariant:'AA'});
+ok(z.maintenancePolicy.id==='zlg_relube_only'&&z.maintenancePolicy.fullRenewal===false,'combined ZLG policy is not converted into SNL fallback flow');
+console.log('REITZ SNL PARAMETER FALLBACK TEST PASS');

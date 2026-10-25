@@ -1,0 +1,12 @@
+const fs=require('fs'),path=require('path');const root=path.resolve(__dirname,'..');
+const read=f=>fs.readFileSync(path.join(root,f),'utf8');const a=(x,m)=>{if(!x)throw new Error(m)};
+const index=read('index.html'),detail=read('structure/detail-ui.js'),dialogs=read('structure/entity-dialogs.js'),css=read('assets/app.css'),engine=read('oscillating/oscillating-linkage-arrangement.js'),manifest=JSON.parse(read('manifest.json'));
+a(index.includes('./oscillating/oscillating-linkage-arrangement.js'),'engine script included');
+a(index.indexOf('./oscillating/oscillating-linkage-arrangement.js')<index.indexOf('./import/candidate-finalizer.js'),'engine loads before candidate finalizer');
+a(detail.includes('data-oscillating-arrangement')&&detail.includes('КОНСТРУКЦИЯ СИСТЕМЫ КАЧАНИЯ'),'Structure entry card');
+a(dialogs.includes('value="oscillating_mechanism"')&&dialogs.includes('data-manual-oscillating'),'manual create parity entry');
+a(!engine.includes('data-mode=')&&!engine.includes('oscillating-mode-switch'),'constructor remains single-mode after later UX consolidation');
+a(engine.includes('Требует уточнения')&&engine.includes('Создать точки')&&engine.includes('Отмена'),'confirmation UX');
+a(css.includes('.oscillating-connection-row')&&css.includes('@media(max-width:640px)'),'responsive layout rules');
+const ver=v=>String(v).split('.').map(Number);const gte=(a,b)=>{const x=ver(a),y=ver(b);for(let i=0;i<Math.max(x.length,y.length);i++){if((x[i]||0)!==(y[i]||0))return (x[i]||0)>(y[i]||0)}return true};a(gte(manifest.appVersion,'1.0.33.48')&&gte(manifest.version,'1.0.33.48'),'version advanced');
+console.log('PASS oscillating UI integration + manual parity + responsive contract (single-mode constructor current contract)');

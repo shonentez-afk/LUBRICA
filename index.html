@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Конструктор карт и программ смазочного обслуживания оборудования" />
+  <title>LUBRICA — Конструктор карты смазки</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/lubrica-favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="./assets/icons/lubrica-favicon-64.png">
+  <link rel="icon" type="image/png" sizes="128x128" href="./assets/icons/lubrica-favicon-128.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/lubrica-favicon-180.png">
+  <link rel="stylesheet" href="./assets/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand brand-logo" aria-label="LUBRICA — управление смазочным обслуживанием"><img src="./assets/icons/lubrica-header-integrated.png" alt="LUBRICA"></div>
+      <div class="database-bar">
+        <div class="database-current"><span class="status-dot"></span><div><small>База</small><strong id="databaseName">Новая база</strong></div></div>
+        <button class="top-link" id="newDatabaseBtn">Новая база</button>
+        <button class="top-link" id="openJsonBtn">Открыть JSON</button>
+        <button class="top-link recovery-link" id="restoreRecoveryBtn" hidden>Восстановить автокопию</button>
+        <button class="top-link" id="saveJsonBtn">Сохранить JSON</button>
+        <input id="jsonFileInput" type="file" accept=".json,application/json" hidden>
+        <input id="backupJsonFileInput" type="file" accept=".json,application/json" hidden>
+      </div>
+      <div class="top-actions"><button class="system-status system-ok" id="systemStatusBtn" type="button" title="Состояние приложения"><span class="system-status-dot"></span><span data-system-label>Система: OK</span><b id="systemIssueCount" hidden>0</b></button><span class="save-state" id="saveState">○ Запуск приложения…</span><button class="btn secondary" id="importBtn">Импорт структуры</button><button class="btn primary" id="exportBtn">Финальный Excel</button></div>
+    </header>
+
+    <nav class="rail" aria-label="Основная навигация">
+      <button class="rail-item" data-view="structureView"><span>▤</span><small>Структура</small></button>
+      <button class="rail-item" data-view="candidatesView"><span>◎</span><small>Кандидаты</small></button>
+      <button class="rail-item active" data-view="workspace"><span>▦</span><small>Карта</small></button>
+      <button class="rail-item" data-view="routes"><span>⌁</span><small>Маршруты</small></button>
+      <button class="rail-item" data-view="dashboard"><span>▥</span><small>Дашборд</small></button>
+      <button class="rail-item" data-view="programQA"><span>✓</span><small>Контроль</small></button>
+      <button class="rail-item" data-view="materials"><span>◈</span><small>Материалы</small></button>
+      <button class="rail-item" data-view="bearings"><span>◉</span><small>Справочник</small></button>
+      <button class="rail-item" data-view="settings"><span>⚙</span><small>Настройки</small></button>
+    </nav>
+
+    <main id="structureView" class="main-view">
+      <section class="module-page structure-page">
+        <div class="module-header structure-header">
+          <div><span class="eyebrow">СТРУКТУРА ПРОЕКТА</span><h1>Структура оборудования</h1><p>Ручное создание завода, линии, участка, оборудования, узла, точки смазки и мероприятия.</p></div>
+          <div class="route-actions"><button class="btn ghost" id="importResultsBtn">Результаты импорта</button><button class="btn secondary" id="structureEditBtn">Изменить</button><button class="btn secondary" id="addPlantBtn">＋ Завод</button><button class="btn primary" id="structureAddBtn">＋ Добавить дочерний</button></div>
+        </div>
+        <div class="structure-summary" id="structureSummary"></div>
+        <div class="structure-layout">
+          <section class="structure-tree-card">
+            <div class="structure-toolbar"><div class="searchbox"><span>⌕</span><input id="structureSearch" placeholder="Найти в структуре…"></div><button class="btn ghost" id="structureCleanupBtn">Очистить рабочую структуру</button><button class="btn ghost" id="structureDomainToggleBtn">Полная структура</button><button class="btn ghost" id="structureExpandBtn">Развернуть всё</button></div>
+            <div id="structureTree" class="structure-tree"></div>
+          </section>
+          <aside class="structure-detail-card" id="structureDetail"></aside>
+        </div>
+      </section>
+    </main>
+
+
+    <main id="importResultsView" class="main-view">
+      <section class="module-page import-results-page">
+        <div class="module-header">
+          <div><span class="eyebrow">КОНТРОЛЬ ИМПОРТА</span><h1>Результаты импорта структуры</h1><p>Проверка оборудования, компонентов, изменений и проблемных связей до классификации точек смазки.</p></div>
+          <div class="route-actions"><button class="btn ghost" id="importResultsToStructure">К структуре</button><button class="btn secondary" id="importResultsToCandidates">Кандидаты</button><button class="btn primary" id="importResultsImport">＋ Импорт Excel</button></div>
+        </div>
+        <div id="importResultsContent"></div>
+      </section>
+    </main>
+
+    <main id="candidatesView" class="main-view">
+      <section class="module-page candidates-page">
+        <div class="module-header">
+          <div><span class="eyebrow">КЛАССИФИКАЦИЯ ТМЦ</span><h1>Кандидаты в точки смазки</h1><p>Автоматическая классификация компонентов. Электродвигатели, вентиляторы и редукторы рассматриваются как оборудование, а не как точки смазки.</p></div>
+          <div class="route-actions"><button class="btn ghost" id="candidatesToImport">Результаты импорта</button><button class="btn primary" id="candidatesReclassify">Переклассифицировать</button></div>
+        </div>
+        <div id="candidateContent"></div>
+      </section>
+    </main>
+
+    <main id="workspace" class="main-view active">
+      <section class="summary-strip">
+        <button class="metric metric-filter" data-metric-status="all" title="Показать все мероприятия"><span>Точки смазки</span><strong id="metricTotal">12</strong><small id="metricTasks">12 мероприятий</small></button>
+        <button class="metric metric-filter" data-metric-status="ready" title="Показать готовые точки"><span>Готово</span><strong class="good" id="metricReady">8</strong><small>67% проверено</small></button>
+        <button class="metric metric-filter" data-metric-status="review" title="Показать точки, требующие проверки"><span>Требуют проверки</span><strong class="warn" id="metricReview">3</strong><small>есть исходные данные</small></button>
+        <button class="metric metric-filter" data-metric-status="issue" title="Показать критичные пробелы"><span>Критичные пробелы</span><strong class="bad" id="metricIssues">1</strong><small>нет материала</small></button>
+        <div class="metric wide"><span>Расчётная потребность / месяц</span><strong id="metricDemand">—</strong><small id="metricMaterials">по заданным нормам</small></div>
+      </section>
+
+      <section class="workbench map-centric">
+        <section class="table-panel">
+          <div class="workspace-toolbar compact-map-toolbar">
+            <div class="compact-map-title"><h1>Карта смазки</h1><span id="mapLocationText">Все линии · Все участки</span><small><span id="visibleCount">12</span> мероприятий</small></div>
+            <div class="compact-map-controls">
+              <label>Линия<select id="lineScopeSelect"><option value="all">Все линии</option></select></label>
+              <label>Участок<select id="areaScopeSelect"><option value="all">Все участки</option></select></label>
+              <button class="btn ghost compact-reset" id="clearScopeBtn" title="Сбросить выбор линии и участка">Все</button>
+              <button class="btn ghost" id="openStructureBtn">Структура</button>
+              <button class="btn ghost" id="columnsBtn">Колонки</button>
+              <button class="btn secondary" id="bulkBtn">Групповое изменение</button>
+              <button class="btn primary" id="addPointBtn">＋ Точка смазки</button>
+            </div>
+          </div>
+          <div class="active-filter-bar" id="activeFilterBar"><span class="filter-context">Фильтры не применены</span></div><div class="filters">
+            <div class="searchbox"><span>⌕</span><input id="tableSearch" placeholder="Код, оборудование, узел, материал…" /></div>
+            <select id="typeFilter" aria-label="Тип точки"><option value="all">Все типы</option><option value="bearing">Подшипники качения</option><option value="linear_bearing">Линейные подшипники</option><option value="chain">Цепи</option><option value="gearbox_oil">Редукторное масло</option><option value="coupling">Муфты</option><option value="open_gear">Открытые передачи</option><option value="guide">Направляющие</option><option value="ball_screw">ШВП</option><option value="other">Прочие</option></select>
+            <select id="statusFilter" aria-label="Статус мероприятия"><option value="all">Все статусы</option><option value="ready">Готово</option><option value="review">Требует проверки</option><option value="issue">Требуются данные</option></select>
+            <button class="btn filter-reset" id="resetFilters">Сбросить</button>
+          </div>
+          <div class="table-wrap">
+            <table class="lubrication-map-table">
+              <thead><tr><th><input id="selectAll" type="checkbox" aria-label="Выбрать все видимые мероприятия"></th><th>Точка смазки</th><th>Линия / участок</th><th>Категория</th><th>Оборудование / узел</th><th>Мероприятие</th><th>Материал</th><th>Периодичность</th><th>Количество</th><th>Статус мероприятия</th></tr></thead>
+              <tbody id="pointsBody"></tbody>
+            </table>
+          </div>
+          <footer class="table-footer"><span id="footerText">Показано 12 из 12</span><span class="table-hint">Выберите строку — карточка откроется справа</span></footer>
+        </section>
+
+        <aside class="detail-panel" id="detailPanel">
+          <div class="detail-head"><div><span class="eyebrow">ТОЧКА СМАЗКИ · МЕРОПРИЯТИЕ</span><h2 id="detailId">LP-000001</h2><small id="detailOperation">Досмазывание</small></div><button class="icon-btn" id="closeDetail" title="Закрыть карточку">×</button></div><div class="task-sibling-bar" id="taskSiblingBar"></div><div class="detail-tabs detail-tabs-four" role="tablist"><button class="detail-tab active" data-detail-tab="point">Точка</button><button class="detail-tab" data-detail-tab="task">Мероприятие</button><button class="detail-tab" data-detail-tab="analysis">Анализ</button><button class="detail-tab" data-detail-tab="calc">Расчёт</button></div>
+          <div class="point-workflow-summary" id="pointWorkflowSummary" aria-live="polite">
+            <div class="workflow-state review" data-workflow-state><span>!</span><div><strong>Требует проверки</strong><small>Состояние текущего мероприятия</small></div></div>
+            <div class="workflow-steps">
+              <span data-workflow-save>1 · Данные сохранены</span>
+              <span data-workflow-calc>2 · Расчёт не применён</span>
+              <span data-workflow-plan>3 · Не участвует в плане</span>
+            </div>
+          </div>
+          <div class="detail-tab-pane active" data-detail-pane="point"><div class="detail-tab-purpose"><b>Точка</b><span>Что обслуживается и где находится. Здесь хранятся только физическая привязка, тип точки и фактически установленный элемент.</span></div>
+            <div class="form-section"><h3>Физическая точка</h3>
+              <label>Точка смазки<input id="fPointName" readonly></label>
+              <div class="form-grid"><label>Положение / местоположение<input id="fPointLocation" readonly></label><label>Код позиции<input id="fPosition" readonly></label></div>
+              <label>Оборудование<select id="fEquipment" disabled></select></label>
+              <label>Узел<select id="fUnit" disabled></select></label>
+              <div class="inline-actions"><button type="button" class="binding-link" id="changeBindingBtn">Изменить привязку</button><button type="button" class="binding-link" id="editEquipmentBtn">Редактировать оборудование</button></div>
+              <label>Категория точки смазки<select id="fType" disabled><option value="bearing">Подшипник</option><option value="linear_bearing">Линейный подшипник / направляющая качения</option><option value="chain">Цепь / шарнир цепи</option><option value="gearbox_oil">Редуктор</option><option value="coupling">Муфта</option><option value="open_gear">Открытая зубчатая передача</option><option value="guide">Направляющая</option><option value="joint">Шарнир</option><option value="bushing">Втулка</option><option value="screw">Винтовая передача</option><option value="ball_screw">ШВП / шарико-винтовая передача</option><option value="rope">Канат</option><option value="oil_system">Масляная система</option><option value="central_point">Точка подачи централизованной системы</option><option value="other">Прочая точка смазки</option></select></label>
+              <label>Статус точки<select id="fPointStatus"><option value="candidate">Кандидат</option><option value="review">На проверке</option><option value="confirmed">Подтверждена</option><option value="not_serviced">Не обслуживается</option><option value="retired">Выведена</option></select><small class="field-help">Состояние физической точки. Не заменяет утверждение конкретного мероприятия.</small></label>
+              <div class="point-component-binding" id="pointComponentBinding">
+                <h3>Элемент оборудования</h3>
+                <div class="binding-info-row"><span>Из структуры</span><b id="fSourceComponent">Не привязан</b></div>
+                <div class="binding-info-row"><span>Справочник</span><b id="fLibraryEntry">Не найден</b></div>
+                <div class="binding-info-row" id="fActualEntryRow" hidden><span>Фактически установлен</span><b id="fActualLibraryEntry">—</b></div>
+                <small class="field-help" id="fBindingHint">Технические данные наследуются из структуры и Справочника без повторного ввода.</small><button type="button" class="btn ghost" id="fEngineeringSourcesBtn">Источники и обоснование</button>
+              </div>
+              <div class="bearing-point-section" id="bearingPointSection" hidden>
+                <h3>Подшипник</h3>
+                <label>Обозначение по структуре<input id="fBearingStructural" placeholder="Например: 6205-2RS/C3"></label>
+                <label>Фактически установлен<input id="fBearingActual" placeholder="Если отличается от структуры"></label>
+                <div class="form-grid"><label>d, мм<input id="fBearingD" readonly></label><label>D, мм<input id="fBearingOD" readonly></label></div>
+                <div class="form-grid"><label>B, мм<input id="fBearingB" readonly></label><label>Исполнение<input id="fBearingSeal" readonly></label></div>
+                <label>Тип подшипника<input id="fBearingTypeDetected" readonly placeholder="Определяется по обозначению"></label>
+                <div class="bearing-resolution" id="bearingResolution">Подшипник не выбран</div>
+                <div class="inline-actions"><button type="button" class="binding-link" id="resolveBearingBtn">Распознать</button><button type="button" class="binding-link" id="openBearingsBtn">Открыть библиотеку</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-tab-pane" data-detail-pane="task"><div class="detail-tab-purpose"><b>Мероприятие</b><span>Что именно должен выполнить исполнитель: операция, материал, количество, инструмент и периодичность.</span></div><div class="form-section"><h3>Мероприятие</h3>
+            <label>Операция<select id="fOperation"></select></label>
+            <label>Использование материала<select id="fMaterialMode"><option value="explicit">Выбрать материал из справочника</option><option value="point_target">Наследовать TARGET точки (если задан)</option><option value="none">Материал не требуется</option></select></label>
+            <label id="materialSelectWrap">Смазочный материал<select id="fMaterial"></select></label>
+            <div class="form-grid"><label>Количество<input id="fQuantity"></label><label>Единица<select id="fUnitMeasure"><option>г</option><option>мл</option><option>см³</option><option>л</option><option>качков</option></select></label></div><small class="field-help" id="fQuantityHint"></small>
+            <label>Инструмент<select id="fTool"><option value="">Не назначен</option></select></label><small class="field-help" id="toolCalibrationHint"></small>
+            <div class="form-grid"><label>Стратегия<select id="fStrategy"><option>По календарю</option><option>По наработке</option><option>По состоянию</option></select></label><label>Периодичность<div class="schedule-inline"><input id="fInterval" inputmode="decimal" placeholder="4"><select id="fIntervalUnit" aria-label="Единица периодичности"><option value="hours">часы работы</option><option value="weeks">недели</option><option value="days">дни</option><option value="months">месяцы</option><option value="years">годы</option></select></div><small class="field-help" id="fIntervalHint">Укажите значение и единицу календарной периодичности.</small></label></div>
+            <div class="task-workflow-control"><label>Рабочее состояние<select id="fTaskStatus"><option value="draft">Требуются данные</option><option value="review">Требует проверки</option><option value="approved">Готово · включено в план</option><option value="disabled">Отключено</option></select><small class="field-help">Операционный статус: только утверждённые мероприятия участвуют в автоматическом формировании маршрутов. Сначала сохраните изменения, затем утвердите мероприятие.</small></label><button type="button" class="btn secondary" id="approveTaskBtn">Утвердить мероприятие</button></div>
+          </div></div>
+          <div class="detail-tab-pane" data-detail-pane="analysis"><div class="detail-tab-purpose"><b>Анализ</b><span>Сопоставление текущего, OEM и целевого материала. Здесь фиксируется инженерное обоснование выбора.</span></div><div class="form-section"><h3>Выбор смазочного материала</h3>
+            <label>AS IS — используется сейчас<select id="fCurrentMaterial"><option value="">Не задан</option></select></label>
+            <label>OEM — требование изготовителя<input id="fOemMaterial" placeholder="Марка или техническое требование"></label>
+            <label>TARGET — утверждённый материал точки<select id="fTargetMaterial"><option value="">Не задан</option></select></label>
+            <label>Обоснование решения<textarea id="fMaterialRationale" rows="4" placeholder="Почему выбран TARGET материал"></textarea></label>
+            <button type="button" class="btn ghost" id="openMaterialsBtn">Открыть справочник материалов</button>
+          </div></div>
+          <div class="detail-tab-pane" data-detail-pane="calc">
+            <div class="detail-tab-purpose"><b>Расчёт</b><span>Только итоговые рабочие значения. Формулы, коэффициенты и источники открываются отдельно по кнопке «Подробнее».</span></div>
+            <div class="calc-card compact-calc-card">
+              <div><span>Итог расчёта</span><strong id="calcText">Методика по категории точки</strong><small id="calcSummaryHint">Расчётные и утверждённые значения</small></div>
+              <button id="calcBtn" type="button">Подробнее</button>
+            </div>
+            <div class="bearing-calc-summary" id="bearingCalcSummary" hidden>
+              <div><span>Досмазывание · доза / период</span><strong id="bearingSummaryDose">—</strong><small id="bearingSummaryDoseApproved">Не утверждено</small></div>
+              <div><span>Полная замена · количество / период</span><strong id="bearingSummaryFullFill">—</strong><small id="bearingSummaryFullFillApproved">Не утверждено</small></div>
+              <div><span>Модель обслуживания</span><strong id="bearingSummaryInterval">—</strong><small id="bearingSummaryIntervalApproved">Не утверждено</small></div>
+            </div>
+            <div class="bearing-calc-summary-note" id="bearingCalcSummaryNote" hidden></div>
+            <div class="form-section calculation-module-summary" id="genericCalcSection"><h3 id="genericCalcTitle">Расчёт и утверждение</h3><p class="field-help" id="genericCalcText">Расчётная методика определяется категорией точки смазки.</p><div class="calculation-summary-values" id="genericCalcValues"></div></div>
+          </div>
+          <div class="detail-actions point-card-actions">
+  <button class="btn ghost" id="addTaskBtn">＋ Мероприятие</button>
+  <button class="btn primary" id="savePointBtn">Сохранить</button>
+  <details class="detail-more-menu" id="detailMoreMenu">
+    <summary class="btn ghost" title="Дополнительные действия" aria-label="Дополнительные действия">⋯</summary>
+    <div class="detail-more-popover">
+      <button class="detail-more-action" id="duplicateBtn" type="button">⧉ Дублировать мероприятие</button>
+      <button class="detail-more-action" id="fillFromAnalogBtn" type="button">↳ Заполнить по аналогу</button>
+      <button class="detail-more-action danger" id="deletePointBtn" type="button">Удалить мероприятие / точку</button>
+    </div>
+  </details>
+</div>
+        </aside>
+      </section>
+    </main>
+
+    <main id="dashboard" class="main-view">
+      <section class="module-page dashboard-page">
+        <div class="module-header dashboard-header">
+          <div><span class="eyebrow">УПРАВЛЕНЧЕСКИЙ ДАШБОРД</span><h1>Состояние системы смазочных работ</h1><p>План, выполнение, План / факт, ФРВ и аналитика маршрутов в единой рабочей области.</p></div>
+        </div>
+        <div id="managementDashboardView" class="management-dashboard-view"></div>
+      </section>
+    </main>
+
+    <main id="programQA" class="main-view">
+      <section class="module-page qa-page">
+        <div class="module-header qa-header">
+          <div><span class="eyebrow">ИНЖЕНЕРНЫЙ КОНТРОЛЬ</span><h1>Контроль программы смазки</h1><p>Автоматическая проверка структуры, точек, материалов, норм, периодичности, источников и маршрутов.</p></div>
+        </div>
+        <div id="programQaView" class="program-qa-view"></div>
+      </section>
+    </main>
+
+    <main id="routes" class="main-view placeholder-view"><div class="placeholder-card"><span>⌁</span><h1>Маршруты смазочного обслуживания</h1><p>Группировка точек по линии, участку, материалу и периодичности войдёт в следующий этап.</p><button class="btn primary backToMap">Вернуться к карте</button></div></main>
+    <main id="materials" class="main-view placeholder-view"><div class="placeholder-card"><span>◈</span><h1>Справочник материалов</h1><p>Карточки смазок и масел, совместимость, цветовая кодировка и нормы расхода.</p><button class="btn primary backToMap">Вернуться к карте</button></div></main>
+    <main id="bearings" class="main-view">
+      <section class="module-page bearing-library-page">
+        <div class="module-header">
+          <div><span class="eyebrow">СПРАВОЧНИК</span><h1>Справочник</h1><p>Элементы оборудования, технические параметры и подтверждённые OEM-данные.</p></div>
+          <div class="route-actions"><button class="btn secondary" id="bearingParseBtn">Распознать обозначение</button><button class="btn primary" id="bearingAddBtn">＋ Пользовательская запись</button></div>
+        </div>
+        <div id="bearingLibraryContent"></div>
+      </section>
+    </main>
+    <main id="settings" class="main-view placeholder-view"><div class="placeholder-card"><span>⚙</span><h1>Настройки</h1><p>Расчётные значения по умолчанию, база данных, резервное копирование и помощь.</p><button class="btn primary backToMap">Вернуться к карте</button></div></main>
+  </div>
+
+  <dialog id="importDialog"><form method="dialog"><div class="dialog-head"><div><span class="eyebrow">ИМПОРТ ДАННЫХ</span><h2>Добавить структуру оборудования</h2></div><button class="icon-btn">×</button></div><label class="dropzone"><input id="fileInput" type="file" accept=".xlsx,.xls,.csv" multiple><span>⇧</span><strong>Выберите файл или перетащите сюда</strong><small>Можно выбрать сразу несколько XLSX. Поддерживаются 4-листовые выгрузки и полный файл структуры.</small></label><div class="import-hints"><p><b>1</b> Определение формата Excel</p><p><b>2</b> Построение иерархии позиций и привязка ТМЦ</p><p><b>3</b> Предпросмотр перед записью в JSON</p></div><menu><button class="btn ghost" value="cancel">Отмена</button><button class="btn primary" id="processImport" value="default">Продолжить</button></menu></form></dialog>
+  <div class="toast" id="toast"></div>
+  <dialog id="bearingCalcDialog" class="bearing-calc-dialog"></dialog>
+  <dialog id="systemDialog" class="system-dialog"></dialog>
+  <dialog id="actionDialog"></dialog>
+  <dialog id="routeExecutionDialog" class="route-execution-dialog"></dialog>
+  <dialog id="routePlanningDialog" class="route-planning-dialog"></dialog>
+  <dialog id="structureDialog" class="structure-dialog"></dialog>
+  <dialog id="analogDialog" class="analog-dialog"></dialog>
+<dialog id="userGuideDialog" class="user-guide-dialog"></dialog>
+  <script src="./core/observability.js"></script>
+  <script src="./vendor/jszip.min.js"></script>
+  <script src="./core/database-schema.js"></script>
+  <script src="./core/database-normalizer.js"></script>
+  <script src="./core/database-migrations.js"></script>
+  <script src="./core/database.js"></script>
+  <script src="./core/migration.js"></script>
+  <script src="./core/database-safety.js"></script>
+  <script src="./core/storage.js"></script>
+  <script src="./core/ids.js"></script>
+  <script src="./core/state.js"></script>
+  <script src="./structure/context.js"></script>
+  <script src="./bearings/catalog-data.js"></script>
+  <script src="./bearings/multi-oem-data.js"></script>
+  <script src="./bearings/fleet-gap-data.js"></script>
+  <script src="./bearings/library.js"></script>
+  <script src="./components/starter-data.js"></script>
+  <script src="./components/gearbox-oem-data-1.0.33.60.js"></script>
+  <script src="./components/gearbox-oem-data-1.0.33.61.js"></script>
+  <script src="./components/gearbox-oem-data-1.0.33.66.js"></script>
+  <script src="./components/gearbox-oem-data-1.0.33.67.js"></script>
+  <script src="./components/fleet-linear-motion-data.js"></script>
+  <script src="./components/screw-jack-data.js"></script>
+  <script src="./bearings/offline-evidence.js"></script>
+  <script src="./bearings/source-registry.js"></script>
+  <script src="./motors/motor-oem-data.js"></script>
+  <script src="./motors/motor-method-resolver.js"></script>
+  <script src="./motors/motor-calculator.js"></script>
+  <script src="./motors/motor-ui.js"></script>
+  <script src="./components/registry.js"></script>
+  <script src="./components/category-schemas.js"></script>
+  <script src="./components/starter-adapter.js"></script>
+  <script src="./components/matcher.js"></script>
+  <script src="./components/binding.js"></script>
+  <script src="./components/bearing-adapter.js"></script>
+  <script src="./bearings/calculator.js"></script>
+  <script src="./calculations/linear-bearing-calculator.js"></script>
+  <script src="./calculations/gearbox-oil-calculator.js"></script>
+  <script src="./calculations/chain-calculator.js"></script>
+  <script src="./calculations/coupling-calculator.js"></script>
+  <script src="./calculations/grease-point-calculator.js"></script>
+  <script src="./calculations/ball-screw-calculator.js"></script>
+  <script src="./calculations/oil-system-calculator.js"></script>
+  <script src="./calculations/open-gear-calculator.js"></script>
+  <script src="./calculations/wire-rope-calculator.js"></script>
+  <script src="./calculations/central-lubrication-calculator.js"></script>
+  <script src="./calculations/material-integration.js"></script>
+  <script src="./calculations/engineering-sources.js"></script>
+  <script src="./calculations/engineering-sources-ui.js"></script>
+  <script src="./calculations/registry.js"></script>
+  <script src="./calculations/framework.js"></script>
+  <script src="./calculations/catalog.js"></script>
+  <script src="./structure/tree-ui.js"></script>
+  <script src="./structure/entity-dialogs.js"></script>
+  <script src="./structure/point-wizard.js"></script>
+  <script src="./structure/detail-ui.js"></script>
+  <script src="./structure/structure.js"></script>
+  <script src="./import/import-engine.js"></script>
+  <script src="./import/import-results.js"></script>
+  <script src="./import/lubrication-domain-cleanup.js"></script>
+  <script src="./import/component-classifier.js"></script>
+  <script src="./fans/fan-bearing-arrangement.js"></script>
+  <script src="./conveyors/conveyor-arrangement.js"></script>
+  <script src="./rotating/rotating-arrangement.js"></script>
+  <script src="./oscillating/oscillating-linkage-arrangement.js"></script>
+  <script src="./machines/izoteh-pp53736-arrangement.js"></script>
+  <script src="./import/candidate-finalizer.js"></script>
+  <script src="./import/candidates.js"></script>
+  <script src="./data/demo-data.js"></script>
+  <script src="./js/runtime.js"></script>
+  <script src="./ui/workspace.js"></script>
+  <script src="./routes/route-engine.js"></script>
+  <script src="./checklist/frv-engine.js"></script>
+  <script src="./checklist/checklist-engine.js"></script>
+  <script src="./routes/route-preparation.js"></script>
+  <script src="./routes/route-planning.js"></script>
+  <script src="./routes/route-planning-ui.js"></script>
+  <script src="./routes/route-plan-fact.js"></script>
+  <script src="./routes/route-analytics.js"></script>
+  <script src="./routes/management-dashboard.js"></script>
+  <script src="./qa/qa-engine.js"></script>
+  <script src="./qa/qa-ui.js"></script>
+  <script src="./ui/view-router.js"></script>
+  <script src="./routes/routes-ui.js"></script>
+  <script src="./ui/checks-settings.js"></script>
+  <script src="./ui/user-guide.js"></script>
+  <script src="./core/database-session-ui.js"></script>
+  <script src="./export/export-ui.js"></script>
+  <script src="./export/final-excel-template.js"></script>
+  <script src="./export/final-excel.js"></script>
+  <script src="./import/import-ui.js"></script>
+  <script src="./ui/column-dialog.js"></script>
+  <script src="./materials/library-ui.js"></script>
+  <script src="./bearings/library-ui.js"></script>
+  <script src="./components/library-ui.js"></script>
+  <script src="./calculations/ui-presenter.js"></script>
+  <script src="./lubrication/task-editor.js"></script>
+  <script src="./lubrication/analog-transfer.js"></script>
+  <script src="./motors/motor-adapter.js"></script>
+  <script src="./calculations/bearing-adapter.js"></script>
+  <script src="./calculations/linear-bearing-adapter.js"></script>
+  <script src="./calculations/non-bearing-provenance.js"></script>
+  <script src="./calculations/gearbox-architecture.js"></script>
+  <script src="./calculations/gearbox-oil-adapter.js"></script>
+  <script src="./calculations/chain-adapter.js"></script>
+  <script src="./calculations/coupling-adapter.js"></script>
+  <script src="./calculations/grease-point-adapter.js"></script>
+  <script src="./calculations/screw-jack-calculator.js"></script>
+  <script src="./calculations/screw-jack-adapter.js"></script>
+  <script src="./calculations/ball-screw-adapter.js"></script>
+  <script src="./calculations/simple-service-adapters.js"></script>
+  <script src="./calculations/source-integrity-audit.js"></script>
+  <script src="./ui/bulk-edit.js"></script>
+  <script src="./ui/workspace-enhancements.js"></script>
+  <script src="./js/app.js"></script>
+  <script src="./core/diagnostics.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const ctx={console,window:{LubricaSystem:{registerModule(){}}}};ctx.window.window=ctx.window;vm.createContext(ctx);
+for(const f of ['bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
+const C=ctx.window.LubricaBearingCalculator;const a=(x,m)=>{if(!x)throw new Error(m)};
+let r=C.calculate({designation:'6308',d:40,D:90,B:23,bearingType:'deep_groove_ball',fanManufacturer:'VENTAPP',fanLubrication:{housingFamily:'TROESTER',rawHousingMarking:'31 T 60 L',portIndex:1,portCount:2,internalBearings:['6308']},rpm:1500,temperatureC:85,shaftOrientation:'vertical',troesterBaseIntervalHours:4000,troesterBaseIntervalSource:'Tröster diagram p.7 / engineer verified'});
+a(r.relube.value===10.35,'Troester G=0.005DB');a(r.relubeInterval.value===1000,'Troester +15C and vertical corrections');a(r.methodPlan.relube.quantity==='TROESTER_BLOCK','Troester method plan');a(r.maintenancePolicy.fullRenewal===false,'Troester no invented scheduled full renewal');a(r.relube.sourceManufacturer==='Tröster','Troester provenance');
+r=C.calculate({designation:'6308',d:40,D:90,B:23,bearingType:'deep_groove_ball',fanManufacturer:'FERRARI',fanLubrication:{housingFamily:'TROESTER',rawHousingMarking:'31 T 60 L',portCount:2},rpm:1500,temperatureC:70,troesterBaseIntervalHours:4000,troesterBaseIntervalSource:'Tröster diagram p.7 / engineer verified'});a(r.relube.blocked&&r.relubeInterval.blocked,'Troester cross-OEM guard blocks non-Ventapp fan');
+// Ferrari own block, exact Chart 8-2 row: no interpolation and no SKF substitution.
+r=C.calculate({designation:'22222 EK',d:110,D:200,B:53,bearingType:'spherical_roller',fanManufacturer:'FERRARI',fanLubrication:{housingFamily:'FERRARI',rawHousingMarking:'SN 522 B-BL-C',internalBearings:['22222 EK']},ferrariMethodMode:'chart8_2',ferrariSupportType:'SN 522 B-BL-C',ferrariBearingSide:'pulley',rpm:1500,temperatureC:70});
+a(r.relube.value===50,'Ferrari Chart 8-2 dose');a(r.relubeInterval.value===710,'Ferrari Chart 8-2 exact interval');a(r.methodPlan.relube.quantity==='FERRARI_CHART82','Ferrari Chart 8-2 method plan');a(r.relube.sourceManufacturer==='Ferrari'&&r.relubeInterval.sourceManufacturer==='Ferrari','Ferrari Chart 8-2 provenance');
+r=C.calculate({designation:'22222 EK',d:110,D:200,B:53,bearingType:'spherical_roller',fanManufacturer:'FERRARI',fanLubrication:{housingFamily:'FERRARI',rawHousingMarking:'SN 522 B-BL-C',internalBearings:['22222 EK']},ferrariMethodMode:'chart8_2',ferrariSupportType:'SN 522 B-BL-C',ferrariBearingSide:'pulley',rpm:1450,temperatureC:70});
+a(r.relube.value===50,'Ferrari exact row keeps published dose');a(r.relubeInterval.value==null&&r.relubeInterval.blocked,'Ferrari Chart 8-2 does not interpolate rpm');
+// Ferrari fan with SKF SNL: component SKF method remains valid unless Ferrari CART01 explicitly overrides it.
+r=C.calculate({designation:'22222 K',d:110,D:200,B:53,bearingType:'spherical_roller',fanManufacturer:'FERRARI',fanLubrication:{housingFamily:'SNL',rawHousingMarking:'SNL 522-619',internalBearings:['22222 K']},snlFeedMethod:'side',rpm:1450,temperatureC:70});
+a(r.relube.value===53,'Ferrari+SNL falls through to SKF SNL dose');a(r.relube.sourceManufacturer==='SKF','Ferrari+SNL keeps SKF component provenance');a(r.methodPlan.relube.quantity==='SKF_SNL_SIDE','Ferrari+SNL component plan');
+r=C.calculate({designation:'22222 K',d:110,D:200,B:53,bearingType:'spherical_roller',fanManufacturer:'FERRARI',fanLubrication:{housingFamily:'SNL',rawHousingMarking:'SNL 522-619',internalBearings:['22222 K']},snlFeedMethod:'side',rpm:1450,temperatureC:70,ferrariCart01DoseG:75,ferrariCart01IntervalHours:1800});
+a(r.relube.value===75&&r.relubeInterval.value===1800,'Ferrari CART01 values override SNL operations');a(r.relube.sourceManufacturer==='Ferrari'&&r.relubeInterval.sourceManufacturer==='Ferrari','Ferrari CART01 provenance');a(r.methodPlan.relube.quantity==='FERRARI_CART01'&&r.methodPlan.renewal.quantity==='SKF_SNL_SIDE','operation-level cross-OEM plan');
+// Own Ferrari block without its own applicable data remains blocked.
+r=C.calculate({designation:'UNKNOWN',fanManufacturer:'FERRARI',fanLubrication:{housingFamily:'FERRARI',rawHousingMarking:'Ferrari custom'},rpm:1450,temperatureC:70});
+a(r.relube.value==null&&r.relube.blocked,'Ferrari own block blocks silent cross-OEM fallback');
+console.log('TROESTER + FERRARI CALCULATION 1.0.31.14 TEST PASS');

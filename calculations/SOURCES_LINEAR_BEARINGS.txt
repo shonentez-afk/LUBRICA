@@ -1,0 +1,20 @@
+Stage 8.3 — Linear Bearings calculation basis
+
+THK LM Guide:
+- General reference relubrication interval: approximately every 100 km of travel distance (three to six months).
+- Final lubrication interval and amount must be established on the actual machine.
+- Orientation and operating conditions affect lubricant distribution.
+
+HIWIN linear guideways:
+- Relubrication quantity is specified by guide series/size in manufacturer tables.
+- High loads, vibration and dirt shorten relubrication intervals.
+- For vertical, side or profile-rail-up installation, relubrication quantities are increased by approximately 50%.
+- Short stroke applications require special treatment; the HIWIN instruction references initial-lubrication procedures.
+
+Lubrica Stage 8.3 rules:
+1. No universal D×B or geometry formula is used for linear guides.
+2. Calculated relubrication quantity requires an OEM quantity per carriage / bushing.
+3. Total quantity = OEM quantity per unit × number of units × explicitly selected orientation factor.
+4. HIWIN +50% is applied only when the user explicitly selects the HIWIN orientation rule.
+5. THK 100 km / 3–6 months is an optional reference source, never an automatically approved interval.
+6. Calculated and approved values remain separate.

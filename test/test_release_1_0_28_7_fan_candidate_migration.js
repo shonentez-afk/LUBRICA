@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const base=path.join(__dirname,'..');
+const sandbox={window:{},console};sandbox.window.window=sandbox.window;vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(base,'core/database-schema.js'),'utf8'),sandbox);
+vm.runInContext(fs.readFileSync(path.join(base,'core/database-normalizer.js'),'utf8'),sandbox);
+const db={schemaVersion:'2.0',project:{name:'T'},equipment:[{id:'EQ1',maintenanceReviewedAt:'2026-09-09T00:00:00Z',maintenanceCreatedPointIds:['LP1'],fanBearingArrangement:{fanAssetComponentId:'CF'}}],components:[{id:'CF',equipmentId:'EQ1',name:'Вентилятор E TEST',candidateEquipmentType:'fan',candidateState:'equipment'},{id:'CM',equipmentId:'EQ1',name:'Электродвигатель M TEST',candidateEquipmentType:'motor',candidateState:'equipment'}],lines:[],areas:[],plants:[],nodes:[],lubricationPoints:[],tasks:[],materials:[],routes:[],checklistRuns:[],tools:[],imports:[],bearingOverrides:[],componentLibraryEntries:[]};
+const n=sandbox.window.LubricaCore.DatabaseNormalizer.normalize(db);
+assert.equal(n.components.find(c=>c.id==='CF').candidateState,'confirmed');
+assert.equal(n.components.find(c=>c.id==='CM').candidateState,'equipment','Motor Asset must stay separate');
+console.log('PASS 1.0.28.7 fan candidate migration');

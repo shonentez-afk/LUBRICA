@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');const root=path.resolve(__dirname,'..');const ctx={console,window:{LubricaSystem:{registerModule(){}}}};ctx.window.window=ctx.window;vm.createContext(ctx);for(const f of ['bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);const C=ctx.window.LubricaBearingCalculator;const a=(x,m)=>{if(!x)throw new Error(m)};
+const base={designation:'6215',d:75,D:130,B:25,bearingType:'deep_groove_ball',manufacturer:'auto',fanManufacturer:'VENTAPP',fanLubrication:{housingFamily:'TROESTER',rawHousingMarking:'31 T 60 L-3R',portIndex:1,portCount:2},rpm:2980,temperatureC:70,shaftOrientation:'horizontal',troesterBaseIntervalHours:2400,troesterBaseIntervalSource:'Tröster diagram p.7 / engineer verified'};
+let r=C.calculate({...base,ventappMachineDoseG:12,ventappMachineIntervalHours:1800,ventappGrease:'OEM grease X',ventappLubricationSource:'Fan V22040 lubrication plate'});
+a(r.relube.value===12&&r.relube.sourceManufacturer==='Ventapp','Ventapp dose must override Tröster');
+a(r.relubeInterval.value===1800&&r.relubeInterval.sourceManufacturer==='Ventapp','Ventapp interval must override Tröster');
+a(r.methodPlan.relube.quantity==='VENTAPP_MACHINE'&&r.methodPlan.relube.interval==='VENTAPP_MACHINE','Ventapp resolver priority');
+a(!r.warnings.some(x=>/Производитель не указан/.test(x)),'Unknown internal bearing brand must not downgrade Ventapp/Tröster OEM context');
+r=C.calculate({...base,ventappMachineDoseG:12,ventappLubricationSource:'Fan V22040 lubrication plate'});
+a(r.relube.value===12&&r.relube.sourceManufacturer==='Ventapp','Ventapp partial dose priority');
+a(r.relubeInterval.value===2400&&r.relubeInterval.sourceManufacturer==='Tröster','Missing Ventapp interval must fall back to Tröster');
+a(r.methodPlan.relube.quantity==='VENTAPP_MACHINE'&&r.methodPlan.relube.interval==='TROESTER_BLOCK','Per-parameter resolver priority');
+r=C.calculate({...base,ventappMachineDoseG:99,ventappMachineIntervalHours:999});
+a(r.relube.value===16.25&&r.relube.sourceManufacturer==='Tröster','Ventapp values without source must not be accepted');
+a(r.relubeInterval.value===2400&&r.relubeInterval.sourceManufacturer==='Tröster','Ventapp interval without source must not be accepted');
+console.log('PASS 1.0.31.16 Ventapp → Tröster priority');

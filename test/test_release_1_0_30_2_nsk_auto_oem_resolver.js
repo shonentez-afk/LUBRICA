@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const root=path.resolve(__dirname,'..'),w={LubricaSystem:{registerModule(){}}},c={window:w};vm.createContext(c);
+for(const f of ['bearings/catalog-data.js','bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),c);
+const C=w.LubricaBearingCalculator,O=w.LubricaBearingOEM;
+let r=C.calculate({designation:'UCP212',manufacturer:'NSK',bearingType:'bearing_unit',d:60,D:110,B:65.1,method:'auto_oem',rpm:300,temperatureC:70,greaseDensity:.9});
+assert.strictEqual(r.relube.method,'nsk_unit_guidance');assert.strictEqual(r.relube.value,null);assert.strictEqual(r.relube.numericUnavailable,true);assert.strictEqual(r.relube.sourceLevel,'oem_guidance');assert.strictEqual(r.maintenancePolicy.id,'housed_relube_only');assert.strictEqual(r.fullRenewal.notApplicable,true);assert(!r.relube.assumptions.join(' ').match(/NTN|SKF/i),'NSK relube guidance must not leak foreign-brand dose/source');
+r=C.calculate({designation:'6212C3',manufacturer:'NSK',bearingType:'deep_groove_ball',d:60,D:110,B:22,method:'auto_oem',rpm:1800,temperatureC:70});assert.strictEqual(r.relube.method,'oem_exact');assert.strictEqual(r.relube.value,12.1);
+r=C.calculate({designation:'UCP212',manufacturer:'NTN-SNR',bearingType:'bearing_unit',d:60,D:110,B:65.1,method:'auto_oem',rpm:300,temperatureC:70,greaseDensity:.9});assert.strictEqual(r.relube.method,'ntn_unit_exact');assert.strictEqual(r.relube.value,8.5);
+let gf=C.geometricBearingFill({designation:'UCP212',manufacturer:'NSK',bearingType:'bearing_unit',d:60,D:110,B:65.1,bearingMassKg:1.5,bearingMassKind:'insert',massManufacturer:'SKF',fillRatio:.25,greaseDensity:.9});assert.strictEqual(gf.massManufacturer,'NSK');assert.strictEqual(gf.source.title,'LUBRICA Universal Bearing Maintenance Method 3.2');assert(!/Schaeffler\/FAG engineering free-space/.test(gf.freeVolumeMethod));
+console.log('RELEASE 1.0.30.2 NSK AUTO-OEM RESOLVER AUDIT PASS');

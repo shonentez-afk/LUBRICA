@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const sandbox={window:{LubricaSystem:{registerModule(){}}}};sandbox.window.window=sandbox.window;vm.createContext(sandbox);
+for(const f of ['motors/motor-oem-data.js','motors/motor-method-resolver.js','motors/motor-calculator.js'])vm.runInContext(fs.readFileSync(f,'utf8'),sandbox,{filename:f});
+const O=sandbox.window.LubricaMotorOEM,C=sandbox.window.LubricaMotorCalculator;
+let p=O.resolve('Электродвигатель HQL 160L B5');assert.equal(p.manufacturer,'OEMER');assert.equal(p.policy,'NO_ROUTINE_RELUBE');assert.equal(p.bearingConstruction.de,'6312ZZC3');assert.equal(p.bearingConstruction.nde,'6311ZZC3');
+let r=C.calculate({motorText:'Электродвигатель HQL 160SL B5'});assert.equal(r.policy,'NO_ROUTINE_RELUBE');
+p=O.resolve('Мотор-барабан 138i N=0,75кВт, SL=450мм');assert.equal(p.manufacturer,'INTERROLL');assert.equal(p.policy,'NO_ROUTINE_RELUBE');
+r=C.calculate({motorText:'Мотор-барабан 138i N=1кВт, SL=600мм'});assert.equal(r.policy,'NO_ROUTINE_RELUBE');
+for(const x of ['Электродвигатель QCA 112M4 B5','Электродвигатель 71B4 B5','Электродвигатель KA7250M-CB01B-Z N=37кВт n=975мин-1','Мотор-барабан 165E N=0,37кВт'])assert.equal(O.resolve(x).policy,'REQUIRE_IDENTIFICATION',x);
+console.log('Remaining motor fleet coverage 1.0.33.5: PASS');

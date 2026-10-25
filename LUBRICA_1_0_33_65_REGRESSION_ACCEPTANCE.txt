@@ -1,0 +1,40 @@
+LUBRICA 1.0.33.65 — REGRESSION ACCEPTANCE
+Release: Izoteh PP-53736 Physical Roller Bearing Positions
+Date: 2026-09-23
+
+RESULT: PASS
+
+Scope fix:
+- PP-53736 roller-bearing TMC rows are treated as bearing TYPES, not as one physical lubrication point.
+- Drawing 53736 sheet 5/5: 28 lower rollers + 23 upper rollers = 51 rollers = 102 physical bearing-support positions.
+- Lower: 56 positions; upper: 46 positions.
+- Distribution used by the machine profile: FY30 = 47, SYF30 = 47, FY40 = 8.
+- 6015-2RS1 remains excluded from automatic routine relubrication.
+- Two shared tree nodes are used per machine: one bearing group per conveyor; no duplicate group node for every point.
+- Legacy 1.0.33.64 one-TMC/one-point machine-profile bearing entries are removed when the configuration is reapplied.
+- Manual and imported PP-53736 profiles use the same physical topology.
+
+Real-base acceptance:
+- Source DB: Филиал_завода__Техно__г._Юрга(20260923-023529).json
+- Line 1: 102 physical roller-bearing points; missing bearing representatives = 0.
+- Line 2 after safe structure repair/analog creation: 102 physical roller-bearing points; missing bearing representatives = 0.
+- 6015-2RS1 automatic roller-bearing points = 0 on both lines.
+
+Release-specific tests:
+- test_release_1_0_33_63_pp53736_constructor.js — PASS
+- test_release_1_0_33_63_pp53736_integration.js — PASS
+- test_release_1_0_33_64_pp53736_manual_parity.js — PASS
+- test_release_1_0_33_64_pp53736_manual_ui.js — PASS
+- test_release_1_0_33_65_pp53736_physical_bearing_positions.js — PASS
+- Stage 9.9 final UX/UI audit — PASS
+
+Full integration suite:
+- Checkpoints 1–49 completed successfully in the first run; execution wrapper timeout occurred only after checkpoint 49 had completed.
+- Checkpoints 50–99 were then executed as a continuation and all passed.
+- No FAIL / ERROR / AssertionError / Traceback markers were found in either log.
+- Expected source-dependent skips only:
+  * import integration source XLSX files not present — SKIP
+  * source XLSX audit source files not present — SKIP
+
+Conclusion:
+LUBRICA 1.0.33.65 is regression-safe for PP-53736 physical roller-bearing expansion and supersedes 1.0.33.64 for this machine profile.

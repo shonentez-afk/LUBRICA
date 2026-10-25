@@ -1,0 +1,162 @@
+{
+  "release": "1.0.33.66",
+  "scope": "PP-53736 real production database gearbox audit",
+  "sourceDatabase": "Филиал_завода__Техно__г._Юрга(20260923-023529).json",
+  "resolvedActualComponents": 10,
+  "falseMotorPoleMountingDetections": 0,
+  "tables": {
+    "K37": {
+      "M1": 0.5,
+      "M2": 1,
+      "M3": 1,
+      "M4": 1.4,
+      "M5": 1,
+      "M6": 1
+    },
+    "R77": {
+      "M3": 3.6,
+      "M4": 4.1,
+      "M5": 2.5,
+      "M6": 3.4,
+      "M1": 1.2,
+      "M2": 3.8
+    },
+    "KF37R17": {
+      "total": {
+        "M1": 0.75,
+        "M2": 1.65,
+        "M3": 1.45,
+        "M4": 2.05,
+        "M5": 1.35,
+        "M6": 1.35
+      },
+      "sections": [
+        {
+          "id": "KF37",
+          "label": "Основной редуктор KF37",
+          "mountingFillLiters": {
+            "M1": 0.5,
+            "M2": 1.1,
+            "M3": 1.1,
+            "M4": 1.5,
+            "M5": 1,
+            "M6": 1
+          }
+        },
+        {
+          "id": "R17",
+          "label": "Входная ступень R17",
+          "mountingFillLiters": {
+            "M1": 0.25,
+            "M2": 0.55,
+            "M3": 0.35,
+            "M4": 0.55,
+            "M5": 0.35,
+            "M6": 0.35
+          }
+        }
+      ]
+    },
+    "S37": {
+      "M1": 0.25,
+      "M2": 0.4,
+      "M3": 0.5,
+      "M4": 0.55,
+      "M5": 0.4,
+      "M6": 0.4
+    },
+    "TandlerA1": {
+      "fixedFillLiters": 0.6
+    }
+  },
+  "policies": {
+    "KF37R17SeparateCavities": true,
+    "S37LibraryReady": true,
+    "mountingPositionMustBeSelectedFromActualInstallation": true,
+    "pp53736FirstServiceHours": 500,
+    "pp53736ChangeHours": 5000
+  },
+  "resolved": [
+    {
+      "externalCode": "10108199",
+      "name": "Мотор-редуктор R77DRE132S4/TF/ES7C/V  i=23,37 N=4кВт",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-R77",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10208199",
+      "name": "Мотор-редуктор R77DRE132S4/TF/ES7C/V  i=23,37 N=4кВт",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-R77",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10108206",
+      "name": "Мотор-редуктор KF37R17DR63S4/TF",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-KF37R17",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10108212",
+      "name": "Мотор-редуктор KF37R17DR63S4/TF",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-KF37R17",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10208206",
+      "name": "Мотор-редуктор KF37R17DR63S4/TF",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-KF37R17",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10208212",
+      "name": "Мотор-редуктор KF37R17DR63S4/TF",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-KF37R17",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10108236",
+      "name": "Мотор-редуктор K37DRE100M4/TF",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-K37",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10208236",
+      "name": "Мотор-редуктор K37DRE100M4/TF",
+      "manufacturer": "SEW EURODRIVE",
+      "libraryEntryId": "STD-GBX-SEW-K37",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10108233",
+      "name": "Редуктор HW A1 1:1 III",
+      "manufacturer": "",
+      "libraryEntryId": "STD-GBX-TANDLER-HWA1",
+      "inferredMounting": ""
+    },
+    {
+      "externalCode": "10208233",
+      "name": "Редуктор HW A1 1:1 III",
+      "manufacturer": "",
+      "libraryEntryId": "STD-GBX-TANDLER-HWA1",
+      "inferredMounting": ""
+    }
+  ],
+  "importedRepresentativeComponents": {
+    "R77": 2,
+    "KF37R17": 4,
+    "K37": 2,
+    "TandlerA1": 2,
+    "S37": 0
+  },
+  "notes": [
+    "R77 imported rows are type representatives in the production structure; physical drive count remains an engineer-confirmed machine configuration (passport text describes 6 section drives, assembly BOM has more R77 positions).",
+    "No M1-M6 mounting position is guessed from motor designations; user selects actual installed orientation/nameplate."
+  ]
+}

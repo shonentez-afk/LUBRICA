@@ -1,0 +1,18 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const root=path.join(__dirname,'..');
+const fanCode=fs.readFileSync(path.join(root,'fans/fan-bearing-arrangement.js'),'utf8');
+const tree=fs.readFileSync(path.join(root,'structure/tree-ui.js'),'utf8');
+const finalizer=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),'utf8');
+const schema=fs.readFileSync(path.join(root,'core/database-schema.js'),'utf8');
+const demo=fs.readFileSync(path.join(root,'data/demo-data.js'),'utf8');
+const sandbox={window:{},console};vm.createContext(sandbox);vm.runInContext(fanCode,sandbox);
+const F=sandbox.window.LubricaFanBearingArrangement;
+assert.equal(F.shouldHideFanAsset({fanBearingArrangement:{driveType:'DIRECT_MOTOR_SHAFT',directOnMotorShaft:true,bearingArrangementType:'NO_SEPARATE_FAN_BEARINGS'}}),true);
+assert.equal(F.shouldHideFanAsset({fanBearingArrangement:{driveType:'COUPLING_DRIVE',directOnMotorShaft:false,bearingArrangementType:'MULTI_BEARING_BLOCK'}}),false);
+assert.ok(tree.includes('hideFanAsset'),'tree has direct-drive fan asset suppression');
+assert.ok(tree.includes('fanComp&&!hideFanAsset'),'fan asset is conditionally rendered');
+assert.ok(finalizer.includes('removeGeneratedFanArtifacts'),'direct drive cleans generated fan artifacts');
+assert.ok(finalizer.includes("equipment:${equipment.id}:fan_"),'cleanup scoped to fan-generated origin');
+assert.ok(/appVersion:'1\.0\.(?:28\.[0-9]+|29)'/.test(schema));
+assert.ok(/APP_VERSION="1\.0\.(?:28\.[0-9]+|29)"/.test(demo));
+console.log('PASS 1.0.28.4 Direct Drive Lubrication Domain UX');

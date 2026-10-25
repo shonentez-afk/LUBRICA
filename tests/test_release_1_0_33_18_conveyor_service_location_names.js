@@ -1,0 +1,11 @@
+const fs=require('fs'),assert=require('assert');
+const f=fs.readFileSync('import/candidate-finalizer.js','utf8');
+assert(f.includes("support.position,\n          'bearing'"),'bearing point name must be physical support location');
+assert(f.includes("a.category==='chain'?'Цепной привод':a.name"),'chain point must use physical service-location name');
+assert(f.includes("<span>Узел / ТМЦ</span>"),'constructor must show installed TMC separately');
+assert(f.includes("name:s.physicalSupport?s.position"),'save must not append bearing designation to point name');
+assert(f.includes("LubricaBearings.lookup(spec.sourceRef?.name||spec.name||'')"),'bearing technical lookup must use installed TMC designation');
+assert(f.includes("point.installedComponent={id:linkedComponent.id,name:linkedComponent.name"),'point must retain installed TMC separately');
+const m=fs.readFileSync('structure/entity-dialogs.js','utf8');
+assert(m.includes('Названия точек формируются автоматически по физическому месту'),'manual conveyor input must explain physical-location naming');
+console.log('1.0.33.18 conveyor service-location naming: OK');

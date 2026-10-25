@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const w={window:null,LubricaSystem:{registerModule(){}}};w.window=w;const s={window:w,console};vm.createContext(s);
+vm.runInContext(fs.readFileSync('motors/motor-oem-data.js','utf8'),s,{filename:'motor-oem-data.js'});
+let p=w.LubricaMotorOEM.resolve('Электродвигатель 1TZ9501-3AA43-4AB4-Z 315L IMB3 N=160кВт n=2982 мин-1');
+assert.equal(p.manufacturer,'LAMMERS');assert.equal(p.family,'1TZ9');assert.equal(p.frame,315);assert.equal(p.powerKw,160);assert.equal(p.rpm,2982);
+p=w.LubricaMotorOEM.resolve('Электродвигатель WK 160/2-215T N=37кВт n=9000об/мин');assert.equal(p.manufacturer,'EMOD');assert.equal(p.powerKw,37);assert.equal(p.rpm,9000);
+p=w.LubricaMotorOEM.resolve('Электродвигатель WK 160/2-215T правый N=30kW n=6700 об/мин');assert.equal(p.powerKw,30);assert.equal(p.rpm,6700);
+const ui=fs.readFileSync('motors/motor-ui.js','utf8');
+assert(ui.includes('Простой режим')&&ui.includes('Экспертный режим')&&ui.includes('Обоснование'));
+assert(ui.includes('data-abb-only')&&ui.includes("const isAbb=profile.manufacturer==='ABB'"));
+const css=fs.readFileSync('assets/app.css','utf8');
+assert(css.includes('#bearingCalcDialog:has(.motor-calc-dialog)')&&css.includes('.motor-calc-scroll')&&css.includes('grid-template-rows:auto auto minmax(0,1fr) auto'));
+console.log('Motor UX parity + Siemens/EMOD parsing: PASS');

@@ -1,0 +1,11 @@
+Release 1.0.12 — expanded bearing library sources
+
+Primary reference families:
+- SKF Spherical roller bearings — principal dimensions and product tables, including 222 series up to d=150 mm.
+- SKF tapered roller / NILOS reference table for 302 series principal dimensions.
+- SKF Insert bearing units / UC range — metric insert bearing units and UCP references.
+- JTEKT/Koyo Insert Bearing Units catalog — UC / UCP / UCF / UCFL / UCT families and large metric housed units.
+- JTEKT/Koyo cylindrical and tapered roller product data — boundary dimensions for common metric series.
+
+Engineering rule:
+The local library is a search/calculation aid, not a substitute for the exact manufacturer catalog. Variants, suffixes, internal clearance, seals, cages, housing geometry and grease paths must be checked against the installed bearing/unit before approval.

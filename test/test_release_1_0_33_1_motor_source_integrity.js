@@ -1,0 +1,6 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const w={LubricaSystem:{registerModule(){}},LubricaComponentStarterData:[]};w.window=w;const s={window:w,console};vm.createContext(s);
+for(const f of ['bearings/offline-evidence.js','bearings/source-registry.js'])vm.runInContext(fs.readFileSync(f,'utf8'),s,{filename:f});
+for(const id of ['MOTOR-ABB-LV-MANUAL','MOTOR-ABB-GPM-2004','MOTOR-ABB-STEEL-2003','MOTOR-ABB-M3AA-2022','MOTOR-ABB-MARINE-2005','MOTOR-SEW-DR','MOTOR-SEW-LEGACY-DR-DT-DV','MOTOR-OLI-MVE','MOTOR-SIEMENS-1LE','MOTOR-SIEMENS-D81-2023','MOTOR-LAMMERS-1TZ-2023','MOTOR-EMOD-WK-OFFICIAL','MOTOR-ABB-M2BAX-2024','MOTOR-OEMER-HQL-2024','MOTOR-INTERROLL-138I'])assert(w.LubricaBearingSources.getById(id),id);
+for(const id of ['MOTOR-ABB-L1-V1','MOTOR-ABB-CONSTRUCTION-V1','MOTOR-ABB-M2CA-BEARINGS-V1','MOTOR-ABB-M3AA-BEARINGS-V1','MOTOR-ABB-M2QA-CONSTRUCTION-V1','MOTOR-SEW-SEALED-V1','MOTOR-SEW-LEGACY-BEARINGS-V1','MOTOR-OLI-MVE-V1','MOTOR-SIEMENS-PLATE-V1','MOTOR-SIEMENS-D81-BEARINGS-V1','MOTOR-LAMMERS-1TZ-V1','MOTOR-EMOD-WK-GUARD-V1','MOTOR-ABB-M2BAX-BEARINGS-V1','MOTOR-OEMER-HQL160-BEARINGS-V1','MOTOR-INTERROLL-138I-V1'])assert(w.LubricaOfflineEvidence.get(id),id);
+console.log('Motor Source Registry + Offline Evidence: PASS');

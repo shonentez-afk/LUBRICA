@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm');
+const window={LubricaSystem:{registerModule(){}}};const ctx={window,console};vm.createContext(ctx);
+for(const f of ['bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
+const C=window.LubricaBearingCalculator,a=(x,m)=>{if(!x)throw new Error(m)};
+const base={designation:'UCP 212',manufacturer:'auto',bearingType:'bearing_unit',d:60,D:110,B:65.1,rpm:300,temperatureC:70,shaftOrientation:'horizontal',loadClass:'medium',contamination:'normal',vibration:'normal',method:'lubrica_unified',intervalSource:'unified_auto'};
+const hours=x=>C.calculate({...base,...x}).interval.value;
+a(hours({})===2250,'baseline 2250');
+a(hours({contamination:'moderate'})===1800,'moderate contamination must recalc');
+a(hours({contamination:'heavy'})===1125,'heavy contamination must recalc');
+a(hours({contamination:'severe'})===563,'severe contamination must recalc');
+a(hours({loadClass:'heavy'})===1575,'heavy load must recalc');
+a(hours({loadClass:'light'})===2475,'light load must recalc');
+a(hours({vibration:'high'})===1350,'high vibration must recalc');
+a(hours({contamination:'heavy',loadClass:'heavy',vibration:'high'})===473,'combined conditions must recalc multiplicatively');
+console.log('1.0.32.14 operating-condition recalculation PASS');

@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const root=path.resolve(__dirname,'..');const w={LubricaSystem:{registerModule(){}}};const c={window:w};vm.createContext(c);
+for(const f of ['bearings/catalog-data.js','bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),c);
+assert(w.LubricaBearingCatalogData.length>=440,'catalog expanded');
+const counts={};for(const x of w.LubricaBearingCatalogData)counts[x.bearingType]=(counts[x.bearingType]||0)+1;
+assert(counts.angular_contact_ball>=50,'angular contact added');assert(counts.self_aligning_ball>=40,'self aligning added');
+let r=w.LubricaBearingCalculator.calculate({designation:'NU212',manufacturer:'NSK',bearingType:'cylindrical_roller',d:60,D:110,B:22,method:'auto_oem',rpm:1800,temperatureC:70,loadRatioPC:0.1,bearingMassKg:0.8,fillRatio:0.4,greaseDensity:0.9});
+assert.strictEqual(r.relube.value,12.1);assert.strictEqual(r.interval.value,4961);assert.strictEqual(r.relube.sourceLevel,'oem_exact');
+r=w.LubricaBearingCalculator.calculate({designation:'6212',manufacturer:'NSK',bearingType:'deep_groove_ball',d:60,D:110,B:22,method:'auto_oem',rpm:1800,temperatureC:85,loadRatioPC:0.13,bearingMassKg:0.78,fillRatio:0.4,greaseDensity:0.9});
+assert.strictEqual(r.relube.value,12.1);assert(r.interval.value<4961,'NSK temperature/load correction');
+r=w.LubricaBearingCalculator.calculate({designation:'22212',manufacturer:'NTN-SNR',bearingType:'spherical_roller',d:60,D:110,B:28,method:'auto_oem',baseHours:2300,rpm:1500,temperatureC:90,contamination:'heavy',vibration:'normal',shaftOrientation:'horizontal',bearingMassKg:1,fillRatio:0.25,greaseDensity:0.9});
+assert.strictEqual(r.relube.value,15.4);assert(r.interval.value<2300,'NTN condition factors applied');
+const fill=w.LubricaBearingCalculator.fillRecommendation({manufacturer:'NSK',rpm:1000,limitingRpm:4000});assert(fill&&fill.min===0.5&&fill.max>0.66);
+console.log('MULTI OEM BEARING 1.0.26 PASS',counts,r.interval);

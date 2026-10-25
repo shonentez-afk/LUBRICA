@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+global.window=global;window.LubricaSystem={registerModule(){}};window.LubricaBearingCatalogData=[];
+vm.runInThisContext(fs.readFileSync(__dirname+'/../bearings/multi-oem-data.js','utf8'));
+vm.runInThisContext(fs.readFileSync(__dirname+'/../bearings/calculator.js','utf8'));
+const C=window.LubricaBearingCalculator;
+const base={designation:'UCP212',bearingType:'bearing_unit',d:60,D:110,B:65.1,method:'auto_oem',fillRatio:.25,greaseDensity:.9,rpm:300,temperatureC:70};
+let r=C.calculate({...base,manufacturer:'SKF',bearingMassKg:1.5,bearingMassKind:'insert',massManufacturer:'SKF'});assert.equal(r.relube.value,35.8);assert.equal(r.relube.confidenceCode,'B');
+r=C.calculate({...base,manufacturer:'NSK',bearingMassKg:null,bearingMassKind:'insert'});assert.equal(r.relube.value,null);assert.equal(r.relube.numericUnavailable,true);assert.equal(r.relube.confidenceCode,'B');
+r=C.calculate({...base,manufacturer:'FAG',bearingMassKg:null});assert.equal(r.relube.value,null);assert.equal(r.relube.confidenceCode,'X');
+r=C.calculate({...base,manufacturer:'NTN-SNR',bearingMassKg:null});assert.equal(r.relube.value,35.8);assert.equal(r.relube.confidenceCode,'B');assert(/Lubsolution/.test(r.relube.source.title));
+r=C.calculate({...base,manufacturer:'TIMKEN',bearingMassKg:null});assert.equal(r.relube.value,null);assert.equal(r.relube.confidenceCode,'X');
+console.log('PASS 1.0.26.9 OEM user matrix');

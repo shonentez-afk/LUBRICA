@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const sandbox={window:{LubricaSystem:{registerModule(){}}}};sandbox.window.window=sandbox.window;vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(root,'components/starter-data.js'),'utf8'),sandbox);
+const row=sandbox.window.LubricaComponentStarterData.find(r=>r.id==='STD-GBX-ROSSI-MRV63-16');
+if(!row)throw new Error('Rossi MRV63 row missing');
+if(row.manufacturer!=='ROSSI')throw new Error('MRV63 manufacturer must be ROSSI');
+if(row.technicalData.mountingFillLiters.B3!==0.8||row.technicalData.mountingFillLiters.B8!==0.8)throw new Error('MRV63 fill must be 0.8 L for B3/B8');
+if(row.lubricationData.rossiSyntheticChangeHours.normal!==18000)throw new Error('Rossi normal interval missing');
+vm.runInContext(fs.readFileSync(path.join(root,'calculations/gearbox-architecture.js'),'utf8'),sandbox);
+const ctx=sandbox.window.LubricaGearboxArchitecture.buildContext({entry:row,input:{mountingPosition:'B3',oilBaseType:'synthetic'}});
+if(ctx.family!=='ROSSI')throw new Error('Rossi family resolver failed');
+if(!sandbox.window.LubricaGearboxArchitecture.sourceIdsForContext(ctx).includes('ROSSI-A-GEARBOX-FILL'))throw new Error('Rossi fill source missing');
+console.log('PASS 1.0.33.36 Rossi MRV63 OEM fill/interval');

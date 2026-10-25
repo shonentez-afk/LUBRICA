@@ -1,0 +1,32 @@
+LUBRICA 1.0.33.62 — REGRESSION ACCEPTANCE
+==========================================
+
+Defect fixed:
+- Legacy Bonfiglioli calculated fill was written to the oil-change task and then immediately cleared by component binding reconciliation because gearbox-oil-adapter.js did not persist the active fillRevisionId.
+
+Fix:
+- gearbox-oil-adapter.js now persists technicalData.fillRevisionId into point.gearboxOil.calculation.fillRevisionId on explicit «Применить расчёт».
+
+Targeted regression:
+- PASS 1.0.33.55 gearbox-oil tc scope hotfix
+- PASS 1.0.33.56 Bonfiglioli C412/P structured recognition + safe migration
+- PASS 1.0.33.57 gearbox fleet completion + cross-OEM guard + stale binding migration
+- PASS 1.0.33.58 persisted gearbox binding migration + task invalidation + activate lifecycle
+- PASS 1.0.33.59 full gearbox OEM dataset
+- PASS 1.0.33.60 current-fleet gearbox OEM coverage
+- PASS 1.0.33.60 current fleet acceptance
+- PASS 1.0.33.61 legacy Bonfiglioli reference fills + stale fill migration
+- PASS 1.0.33.61 Bonfiglioli fleet acceptance
+- PASS 1.0.33.62 Bonfiglioli apply quantity persistence
+
+Full integration:
+- Checkpoints 1–71 PASS in the primary run.
+- Checkpoint 72 started when the primary command reached the execution timeout; no FAIL/ERROR was recorded.
+- Checkpoints 72–99 were rerun as a continuation block and PASS.
+- Source XLSX audit remains the expected SKIP because source XLSX files are not included in the release archive.
+- No FAIL / ERROR / AssertionError / Traceback in either regression log.
+
+Exact accepted scenario:
+C412/P 1:25 B3 PAM100 -> 2.2 L -> Apply calculation -> State.setDatabase()/binding reconcile -> task quantity remains 2.2 L; interval remains 8000 h / 12 months.
+
+STATUS: ACCEPTED

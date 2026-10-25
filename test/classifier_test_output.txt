@@ -1,0 +1,448 @@
+{
+  "components": {
+    "total": 5650,
+    "candidates": 884,
+    "review": 851,
+    "equipment": 686,
+    "excluded": 659,
+    "unclassified": 2570
+  },
+  "equipment": {
+    "total": 1196,
+    "review": 56,
+    "equipment": 101,
+    "unclassified": 1039,
+    "templates": 157
+  }
+}
+EQ_CATS {
+  unclassified: 1038,
+  spindle: 32,
+  fan: 75,
+  rotating_shaft: 12,
+  pump: 2,
+  connecting_rod: 4,
+  axis: 2,
+  crank: 2,
+  motor_gearbox: 4,
+  motor: 22,
+  roller: 1,
+  hydraulic_station: 2
+}
+
+pump 2
+[
+  {
+    code: '10107162',
+    name: 'Станция насосная',
+    state: 'review',
+    template: 'pump_oem_check',
+    summary: undefined,
+    evidence: 0
+  },
+  {
+    code: '10207162',
+    name: 'Станция насосная',
+    state: 'review',
+    template: 'pump_oem_check',
+    summary: undefined,
+    evidence: 0
+  }
+]
+
+screw_jack 0
+[]
+
+rotating_shaft 12
+[
+  {
+    code: '10107028',
+    name: 'Вал приводной',
+    state: 'review',
+    template: 'two_support_rotating',
+    summary: 'Найдены фактические опоры: 2. Не создавать виртуальные дубликаты.',
+    evidence: 2
+  },
+  {
+    code: '10107038',
+    name: 'Вал натяжной',
+    state: 'review',
+    template: 'two_support_rotating',
+    summary: 'Найдена одна фактическая опора. Вторую сторону требуется проверить.',
+    evidence: 1
+  },
+  {
+    code: '10107048',
+    name: 'Вал ведомый',
+    state: 'review',
+    template: 'two_support_rotating',
+    summary: 'Найдены фактические опоры: 2. Не создавать виртуальные дубликаты.',
+    evidence: 2
+  },
+  {
+    code: '10107100',
+    name: 'Вал донный',
+    state: 'review',
+    template: 'two_support_rotating',
+    summary: 'Найдена одна фактическая опора. Вторую сторону требуется проверить.',
+    evidence: 1
+  },
+  {
+    code: '10107111',
+    name: 'Вал прижимной',
+    state: 'review',
+    template: 'two_support_rotating',
+    summary: 'Найдена одна фактическая опора. Вторую сторону требуется проверить.',
+    evidence: 1
+  }
+]
+
+roller 1
+[
+  {
+    code: '10212005',
+    name: 'Ролик нагревательный',
+    state: 'unclassified',
+    template: undefined,
+    summary: undefined,
+    evidence: undefined
+  }
+]
+
+drum 0
+[]
+
+hydraulic_station 2
+[
+  {
+    code: '10109105',
+    name: 'Гидростанция',
+    state: 'review',
+    template: 'oil_system',
+    summary: undefined,
+    evidence: 0
+  },
+  {
+    code: '10209105',
+    name: 'Гидростанция',
+    state: 'review',
+    template: 'oil_system',
+    summary: undefined,
+    evidence: 0
+  }
+]
+
+compressor 0
+[]
+
+cardan 0
+[]
+
+crank 2
+[
+  {
+    code: '10107363',
+    name: 'Механизм кривошипно-шатунный основной',
+    state: 'review',
+    template: 'crank',
+    summary: undefined,
+    evidence: 4
+  },
+  {
+    code: '10107373',
+    name: 'Механизм кривошипно-шатунный дополнительный',
+    state: 'review',
+    template: 'crank',
+    summary: undefined,
+    evidence: 3
+  }
+]
+
+spindle 32
+[
+  {
+    code: '10106003',
+    name: 'Шпиндели',
+    state: 'review',
+    template: 'spindle',
+    summary: undefined,
+    evidence: 0
+  },
+  {
+    code: '10106004',
+    name: 'Шпиндель №1',
+    state: 'review',
+    template: 'spindle',
+    summary: undefined,
+    evidence: 2
+  },
+  {
+    code: '10106027',
+    name: 'Шпиндель №2',
+    state: 'review',
+    template: 'spindle',
+    summary: undefined,
+    evidence: 2
+  },
+  {
+    code: '10106050',
+    name: 'Шпиндель №3',
+    state: 'review',
+    template: 'spindle',
+    summary: undefined,
+    evidence: 2
+  },
+  {
+    code: '10106073',
+    name: 'Шпиндель №4',
+    state: 'review',
+    template: 'spindle',
+    summary: undefined,
+    evidence: 2
+  }
+]
+TEST Насос плунжерный NP25/25-250 => {
+  state: 'review',
+  confidence: 0.88,
+  kind: 'equipment_template',
+  equipmentType: 'pump',
+  equipmentSubtype: 'plunger',
+  label: 'Насос · плунжерный',
+  template: {
+    id: 'pump_oem_check',
+    title: 'Проверить собственную систему смазки насоса',
+    items: [ [Object], [Object], [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    pumpSubtype: 'plunger',
+    oilSumpLikelihood: 'повышенная',
+    note: 'Наличие собственного масла определяется паспортом/OEM. Рабочая жидкость насоса не считается автоматически отдельной заменяемой смазкой.'
+  },
+  reason: 'Насос требует проверки OEM на собственный картер, подшипники и способ смазывания'
+}
+TEST Насос шестеренный TFP100/4.3 D CO01 => {
+  state: 'review',
+  confidence: 0.88,
+  kind: 'equipment_template',
+  equipmentType: 'pump',
+  equipmentSubtype: 'gear',
+  label: 'Насос · шестерённый',
+  template: {
+    id: 'pump_oem_check',
+    title: 'Проверить собственную систему смазки насоса',
+    items: [ [Object], [Object], [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    pumpSubtype: 'gear',
+    oilSumpLikelihood: 'не определена',
+    note: 'Наличие собственного масла определяется паспортом/OEM. Рабочая жидкость насоса не считается автоматически отдельной заменяемой смазкой.'
+  },
+  reason: 'Насос требует проверки OEM на собственный картер, подшипники и способ смазывания'
+}
+TEST Насос винтовой XYZ => {
+  state: 'review',
+  confidence: 0.88,
+  kind: 'equipment_template',
+  equipmentType: 'pump',
+  equipmentSubtype: 'screw',
+  label: 'Насос · винтовой',
+  template: {
+    id: 'pump_oem_check',
+    title: 'Проверить собственную систему смазки насоса',
+    items: [ [Object], [Object], [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    pumpSubtype: 'screw',
+    oilSumpLikelihood: 'возможна',
+    note: 'Наличие собственного масла определяется паспортом/OEM. Рабочая жидкость насоса не считается автоматически отдельной заменяемой смазкой.'
+  },
+  reason: 'Насос требует проверки OEM на собственный картер, подшипники и способ смазывания'
+}
+TEST Насос лопастной ABC => {
+  state: 'review',
+  confidence: 0.88,
+  kind: 'equipment_template',
+  equipmentType: 'pump',
+  equipmentSubtype: 'vane',
+  label: 'Насос · лопастной',
+  template: {
+    id: 'pump_oem_check',
+    title: 'Проверить собственную систему смазки насоса',
+    items: [ [Object], [Object], [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    pumpSubtype: 'vane',
+    oilSumpLikelihood: 'возможна',
+    note: 'Наличие собственного масла определяется паспортом/OEM. Рабочая жидкость насоса не считается автоматически отдельной заменяемой смазкой.'
+  },
+  reason: 'Насос требует проверки OEM на собственный картер, подшипники и способ смазывания'
+}
+TEST Вал приводной => {
+  state: 'review',
+  confidence: 0.93,
+  kind: 'equipment_template',
+  equipmentType: 'rotating_shaft',
+  equipmentSubtype: 'drive',
+  label: 'Вал / вращающийся узел',
+  template: {
+    id: 'two_support_rotating',
+    title: 'Вал: проверить две опоры',
+    items: [ [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    expectedSupports: 2,
+    note: 'Сначала используются фактические дочерние подшипники/ТМЦ; виртуальные левая/правая опоры предлагаются только при отсутствии подтверждённых компонентов.'
+  },
+  reason: 'Вал распознан как вращающийся узел с предполагаемыми левой/правой опорами'
+}
+TEST Вал натяжной => {
+  state: 'review',
+  confidence: 0.93,
+  kind: 'equipment_template',
+  equipmentType: 'rotating_shaft',
+  equipmentSubtype: 'tension',
+  label: 'Вал / вращающийся узел',
+  template: {
+    id: 'two_support_rotating',
+    title: 'Вал: проверить две опоры',
+    items: [ [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    expectedSupports: 2,
+    note: 'Сначала используются фактические дочерние подшипники/ТМЦ; виртуальные левая/правая опоры предлагаются только при отсутствии подтверждённых компонентов.'
+  },
+  reason: 'Вал распознан как вращающийся узел с предполагаемыми левой/правой опорами'
+}
+TEST Вал ведомый => {
+  state: 'review',
+  confidence: 0.93,
+  kind: 'equipment_template',
+  equipmentType: 'rotating_shaft',
+  equipmentSubtype: 'driven',
+  label: 'Вал / вращающийся узел',
+  template: {
+    id: 'two_support_rotating',
+    title: 'Вал: проверить две опоры',
+    items: [ [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    expectedSupports: 2,
+    note: 'Сначала используются фактические дочерние подшипники/ТМЦ; виртуальные левая/правая опоры предлагаются только при отсутствии подтверждённых компонентов.'
+  },
+  reason: 'Вал распознан как вращающийся узел с предполагаемыми левой/правой опорами'
+}
+TEST Ролик приводной => {
+  state: 'review',
+  confidence: 0.82,
+  kind: 'equipment_template',
+  equipmentType: 'roller',
+  label: 'Ролик',
+  template: {
+    id: 'two_support_rotating',
+    title: 'Ролик: проверить две опоры',
+    items: [ [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    expectedSupports: 2,
+    note: 'Сначала используются фактические дочерние подшипники/ТМЦ; виртуальные левая/правая опоры предлагаются только при отсутствии подтверждённых компонентов.'
+  },
+  reason: 'Приводной/натяжной ролик может иметь две обслуживаемые опоры'
+}
+TEST Ролик конвейерный Interroll S1700 => {
+  state: 'unclassified',
+  confidence: 0.35,
+  kind: 'equipment_template',
+  equipmentType: 'roller',
+  label: 'Ролик',
+  template: null,
+  reason: 'Обычный ролик часто герметичный/необслуживаемый; не поднимать в список обязательной проверки без дополнительных признаков'
+}
+TEST Барабан натяжной => {
+  state: 'review',
+  confidence: 0.9,
+  kind: 'equipment_template',
+  equipmentType: 'drum',
+  equipmentSubtype: 'tension',
+  label: 'Барабан',
+  template: {
+    id: 'two_support_rotating',
+    title: 'Барабан: проверить две опоры',
+    items: [ [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    expectedSupports: 2,
+    note: 'Сначала используются фактические дочерние подшипники/ТМЦ; виртуальные левая/правая опоры предлагаются только при отсутствии подтверждённых компонентов.'
+  },
+  reason: 'Приводной/натяжной барабан обычно имеет две опоры; сверить фактические подшипники'
+}
+TEST Домкрат винтовой M42VT => {
+  state: 'review',
+  confidence: 0.96,
+  kind: 'equipment_template',
+  equipmentType: 'screw_jack',
+  label: 'Винтовой домкрат',
+  template: {
+    id: 'screw_jack',
+    title: 'Проверить винтовой домкрат',
+    items: [ [Object], [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    note: 'Состав точек зависит от исполнения домкрата и указаний изготовителя.'
+  },
+  reason: 'Винтовой домкрат может иметь редукторную часть, винт/гайку и опорные подшипники'
+}
+TEST Кардан 71.G4.090.090 => {
+  state: 'review',
+  confidence: 0.9,
+  kind: 'equipment_template',
+  equipmentType: 'cardan',
+  label: 'Карданная передача',
+  template: {
+    id: 'cardan',
+    title: 'Кардан: проверить крестовины/шлицевое соединение',
+    items: [],
+    requiresEngineerConfirmation: true
+  },
+  reason: 'Кардан может содержать несколько обслуживаемых шарниров'
+}
+TEST Механизм кривошипно-шатунный основной => {
+  state: 'review',
+  confidence: 0.85,
+  kind: 'equipment_template',
+  equipmentType: 'crank',
+  label: 'Кривошипно-шатунный механизм',
+  template: {
+    id: 'crank',
+    title: 'Кривошипно-шатунный механизм: проверить шарниры/втулки/подшипники',
+    items: [],
+    requiresEngineerConfirmation: true
+  },
+  reason: 'Механизм содержит потенциально обслуживаемые пары трения'
+}
+TEST Компрессор №1 => {
+  state: 'review',
+  confidence: 0.9,
+  kind: 'equipment_template',
+  equipmentType: 'compressor',
+  label: 'Компрессор',
+  template: {
+    id: 'compressor_oem',
+    title: 'Компрессор: проверить маслосистему и подшипники',
+    items: [],
+    requiresEngineerConfirmation: true
+  },
+  reason: 'Компрессор может иметь собственную маслосистему; требуется OEM'
+}
+TEST Гидростанция GA0504 S11 => {
+  state: 'review',
+  confidence: 0.97,
+  kind: 'equipment_template',
+  equipmentType: 'hydraulic_station',
+  label: 'Гидростанция',
+  template: {
+    id: 'oil_system',
+    title: 'Гидростанция',
+    items: [ [Object], [Object], [Object], [Object] ],
+    requiresEngineerConfirmation: true,
+    note: 'Конкретные элементы создаются после проверки схемы станции.'
+  },
+  reason: 'Гидростанция содержит масляный бак и обслуживаемые элементы системы'
+}
+TEST Рукав фильтровальный D=124 => {
+  state: 'unclassified',
+  confidence: 0.15,
+  kind: 'equipment_review',
+  equipmentType: null,
+  label: 'Не классифицировано',
+  reason: 'Нет надёжных признаков смазочного оборудования'
+}

@@ -1,0 +1,12 @@
+const fs=require('fs'),assert=require('assert');
+const dialogs=fs.readFileSync('structure/entity-dialogs.js','utf8');
+const classifier=fs.readFileSync('import/component-classifier.js','utf8');
+const machine=fs.readFileSync('machines/izoteh-pp53736-arrangement.js','utf8');
+assert(dialogs.includes("name=\\\"machineProfilePreset")||dialogs.includes("'machineProfilePreset'"),'manual equipment dialog must expose machine profile preset');
+assert(dialogs.includes('Izoteh PP-53736 · гофрировщик-подпрессовщик'));
+assert(dialogs.includes('prepareManualRoot'),'manual equipment save must prepare PP53736 structure');
+assert(dialogs.includes('externalCode.required=!pp'),'PP53736 manual profile must not require an invented external code');
+assert(classifier.includes('pp[-\\s]?53736'),'classifier must recognize PP-53736 designation after normalization, not only Russian name');
+assert(machine.includes('ensureManualStructure'));
+assert(machine.includes('manualMachineProfileComponent'));
+console.log('PASS 1.0.33.64 PP53736 manual UI/integration');

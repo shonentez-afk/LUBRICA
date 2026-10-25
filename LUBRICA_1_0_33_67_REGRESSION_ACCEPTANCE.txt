@@ -1,0 +1,36 @@
+LUBRICA 1.0.33.67 — REGRESSION ACCEPTANCE
+Release: PP-53736 Gearbox Persistence & Interval Evidence
+Date: 2026-09-23
+
+RESULT: PASS
+
+Final full integration suite after all 1.0.33.67 changes:
+- Checkpoints 1–40: PASS.
+- Checkpoints 41–70: PASS.
+- Checkpoints 71–99: PASS.
+- ALL INTEGRATION TESTS PASS.
+- Expected source-dependent XLSX skips remain expected and are not product failures.
+
+Release-specific checks:
+- PASS 1.0.33.63 PP53736 constructor.
+- PASS 1.0.33.63 PP53736 integration.
+- PASS 1.0.33.64 PP53736 manual parity.
+- PASS 1.0.33.64 PP53736 manual UI/integration.
+- PASS 1.0.33.65 PP53736 physical bearing positions.
+- PASS 1.0.33.66 PP53736 gearbox data regression under current interval semantics.
+- PASS 1.0.33.67 PP53736 persistence/interval migration.
+- PASS Stage 9.9 file protocol, E2E, UX/UI, documentation and legacy regression.
+
+Latest production DB acceptance:
+- Source DB: Филиал_завода__Техно__г._Юрга(20260923-051134).json
+- Source updatedAt: 2026-09-23T05:01:56.974Z.
+- Both PP-53736 roots: r77Count=8, s37State=installed.
+- Repeated apply/reconcile is idempotent: entity counts remain 1188 equipment / 5659 components / 501 points / 517 tasks.
+- Machine-profile duplicate origin keys: 0 on both lines.
+- False persisted S37 M4 from DRE80 M4: 2 in source DB -> 0 after reconcile.
+- Old auto-approved R77 M1 3.0 L: 8 in source DB -> invalidated after OEM revision reconcile.
+- PP-53736 gearbox schedules after reconcile: 5000 h; raw 5000/500 h retained; no automatic first-change 500 h event.
+- Line 1 R77 #5-#8: persisted M1 conflicts with drawing hint M3; 4 points are explicitly flagged for engineer confirmation and are not silently overwritten.
+
+Conclusion:
+LUBRICA 1.0.33.67 is regression-safe for PP-53736 gearbox OEM data, persistence migrations, line parity and machine-interval handling. Four Line 1 R77 physical mounting positions remain an explicit engineering confirmation item before approving their final oil quantities.

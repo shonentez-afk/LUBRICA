@@ -1,0 +1,59 @@
+{
+  "release": "1.0.33.63",
+  "profile": "IZOTEH-PP53736",
+  "sourceDatabase": "Филиал_завода__Техно__г._Юрга(20260923-023529).json",
+  "line1": {
+    "rootId": "EQ-000493",
+    "rootCode": "10108190",
+    "evidence": {
+      "r77": 1,
+      "k37": 1,
+      "kf37": 2,
+      "tandler": 1,
+      "s37": 0,
+      "jacks": 1,
+      "chainRows": 1,
+      "bearingsServiceable": 7,
+      "sealedBearings": 1,
+      "openGears": 2
+    },
+    "safeDefaultCreated": 25,
+    "unresolved": [
+      "Подтвердить фактическое количество приводов R77 (паспортное описание и сборочная спецификация расходятся).",
+      "Подтвердить наличие привода наклона S37 DRE80 M4/TF."
+    ]
+  },
+  "line2": {
+    "rootExistedBefore": false,
+    "rootCreated": "EQ-001199",
+    "rootCode": "10208190",
+    "repair": {
+      "reparented": 3,
+      "componentsLinked": 10
+    },
+    "evidence": {
+      "r77": 1,
+      "k37": 1,
+      "kf37": 2,
+      "tandler": 1,
+      "s37": 0,
+      "jacks": 1,
+      "chainRows": 1,
+      "bearingsServiceable": 7,
+      "sealedBearings": 1,
+      "openGears": 2
+    },
+    "safeDefaultCreated": 25,
+    "unresolved": [
+      "Подтвердить фактическое количество приводов R77 (паспортное описание и сборочная спецификация расходятся).",
+      "Подтвердить наличие привода наклона S37 DRE80 M4/TF."
+    ]
+  },
+  "guards": {
+    "chainPhysicalPointsLine1": 8,
+    "screwPhysicalPointsLine1": 4,
+    "sealed6015RoutinePoints": 0,
+    "r77AutoCreatedWithoutConfirmation": 0,
+    "s37AutoCreatedWithoutConfirmation": 0
+  }
+}

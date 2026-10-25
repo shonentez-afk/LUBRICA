@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+global.window=global;window.LubricaSystem={registerModule(){}};window.LubricaBearingCatalogData=[];
+vm.runInThisContext(fs.readFileSync(__dirname+'/../bearings/multi-oem-data.js','utf8'));
+vm.runInThisContext(fs.readFileSync(__dirname+'/../bearings/calculator.js','utf8'));
+const O=window.LubricaBearingOEM,C=window.LubricaBearingCalculator;
+assert.strictEqual(O.methodRecommendation({manufacturer:'NTN-SNR',designation:'UCP212'}).relubeMethod,'ntn_snr_standard');
+let r=C.calculate({designation:'UCP212',manufacturer:'NTN-SNR',bearingType:'bearing_unit',d:60,D:110,B:65.1,method:'auto_oem',bearingMassKg:null,fillRatio:.25,greaseDensity:.9,rpm:300,temperatureC:70});
+assert.strictEqual(r.relube.value,35.8); assert.strictEqual(r.relube.confidenceCode,'B');
+assert.strictEqual(r.initialFill.massG,null,'cross-brand/absent mass must not invent initial fill');
+assert.strictEqual(r.interval.value,null,'interval without OEM/base must stay unresolved');
+assert(/Lubsolution/.test(r.relube.source.title),'NTN relube source must be Lubsolution');
+const ui=fs.readFileSync(__dirname+'/../lubrication/task-editor.js','utf8');
+assert(ui.includes('const sourceApi=window.LubricaBearingSources'),'source button must use window API');
+assert(!ui.includes('const sourceApi=global.LubricaBearingSources'),'broken global reference must be removed');
+assert(ui.includes('allowCrossBrandMass'),'cross-brand mass must require explicit opt-in');
+assert(ui.includes('Готовность расчёта'),'guided readiness UI required');
+console.log('PASS 1.0.26.9 calculator UX/logic');

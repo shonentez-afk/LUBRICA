@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),path=require('path'),assert=require('assert');
+const root=path.join(__dirname,'..');
+const finalizer=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),'utf8');
+assert(finalizer.includes("['gearbox','motor_gearbox'].includes(x.equipmentType)"),'separate gearbox is not included in conveyor service specs');
+assert(finalizer.includes("a.equipmentType==='gearbox'?'Редуктор':'Мотор-редуктор'"),'service location normalization missing');
+const sandbox={window:{}};sandbox.window.window=sandbox.window;
+sandbox.window.LubricaCore={IDs:{nextFrom(arr,prefix,digits){let n=1;while((arr||[]).some(x=>x.id===`${prefix}-${String(n).padStart(digits,'0')}`))n++;return `${prefix}-${String(n).padStart(digits,'0')}`}}};
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(root,'conveyors/conveyor-arrangement.js'),'utf8'),sandbox);
+const db={components:[]},eq={id:'EQ-1',externalCode:'MAN-C1',origin:'manual'};
+sandbox.window.LubricaConveyorArrangement.ensureManualComponents(db,eq,{driveMode:'separate',gearboxName:'Редуктор MRV 63U03A 1:16',motorName:'Электродвигатель M2AA 132S4 B3',driveLeftBearing:'UCPA 210',driveRightBearing:'UCPA 210',returnLeftBearing:'UKHA 212',returnRightBearing:'UKHA 212'});
+const g=db.components.find(x=>x.manualConveyorRole==='drive_gearbox'&&x.status==='active');
+const m=db.components.find(x=>x.manualConveyorRole==='drive_motor'&&x.status==='active');
+assert(g&&g.candidateEquipmentType==='gearbox','manual separate gearbox not created/classified');
+assert(m&&m.candidateEquipmentType==='motor','manual separate motor not created/classified');
+assert.equal(eq.manualConveyorSetup.driveMode,'separate');
+console.log('PASS 1.0.33.34 conveyor separate gearbox auto point + manual parity');

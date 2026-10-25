@@ -1,0 +1,12 @@
+const fs=require('fs');const assert=require('assert');
+const p='/mnt/data/lubrica_1_0_33_29/calculations/gearbox-oil-adapter.js';
+const s=fs.readFileSync(p,'utf8');
+assert(s.includes('bearing-calc-modal-grid cols-3'),'gearbox simple result uses 3-card grid');
+assert(s.includes('bearing-calc-modal-section expert-only')&&s.includes('<h3>Редуктор</h3>'),'identification section is expert-only');
+assert(s.includes('mountingFillChoice'),'ambiguous OEM fills have explicit selection');
+assert(s.includes("form.elements.approvedFillLiters.value=''"),'mounting change invalidates stale approved fill');
+assert(s.includes('applyCatalogFill();\n form.elements.mountingPosition'),'catalog fill is applied on open');
+assert(s.includes("calculationVersion:'8.6'"),'new gearbox calculation version');
+const css=fs.readFileSync('/mnt/data/lubrica_1_0_33_29/assets/app.css','utf8');
+assert(css.includes('.bearing-calc-modal-grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}'),'three column CSS exists');
+console.log('OK 1.0.33.29 gearbox mounting position UX');

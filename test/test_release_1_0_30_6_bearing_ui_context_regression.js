@@ -1,0 +1,20 @@
+const fs=require('fs');
+const s=fs.readFileSync('lubrication/task-editor.js','utf8');
+function ok(x,m){if(!x){console.error('FAIL:',m);process.exit(1)}}
+ok(s.includes("const resolvedHousingFamily=explicitHousingFamily||"),'explicit housing family resolver exists');
+ok(s.includes("const isZLG=resolvedHousingFamily==='ZLG'"),'ZLG uses resolved family');
+ok(s.includes("const isSNL=resolvedHousingFamily==='SNL'"),'SNL uses resolved family');
+ok(s.includes("const snlRawMarking=isSNL?"),'SNL raw marking is gated by SNL context');
+ok(s.includes("const fanEquipment=lp.fanLubrication?"),'all fan-bearing contexts resolve equipment manufacturer');
+ok(s.includes("housingFamilyCode==='FERRARI'?'Ferrari'"),'Ferrari integrated unit manufacturer is represented independently');
+ok(s.includes('data-ui-context="ZLG"'),'ZLG has dedicated expert context');
+ok(s.includes('Совмещённый блок ZLG'),'ZLG is shown as combined block context');
+ok(s.includes('Выбор способа подачи SKF SNL к этому узлу не применяется'),'ZLG explicitly rejects SNL feed UI');
+ok(s.includes('data-ui-context="SNL"'),'SNL has dedicated expert context');
+ok(s.includes('Способ подачи смазки<select name="snlFeedMethod"'),'SNL keeps feed-method selector');
+ok(s.includes('data-ui-context="GENERIC_FAN"'),'Ferrari/Tröster/other fan blocks use generic fan context, not SNL/ZLG UI');
+ok(s.includes("lp.fanLubrication?'Подшипниковый узел':'Подшипник'"),'ordinary bearings do not masquerade as housed fan units in simple overview');
+ok(s.includes("(isSNL||isZLG||isSlewingRing)?'<label class=\"expert-only\">':'<label>'"),'ZLG/VLU do not expose manufacturer selector in simple mode unnecessarily');
+ok(s.includes('связь позиции с конкретной маслёнкой берётся из подтверждённой конструкции блока'),'ZLG UI does not equate bearing position and grease nipple globally');
+ok(s.includes("multi-oem-1.0.30.6-bearing-ui-context-regression"),'calculation version updated');
+console.log('BEARING UI CONTEXT REGRESSION 1.0.30.6 PASS');

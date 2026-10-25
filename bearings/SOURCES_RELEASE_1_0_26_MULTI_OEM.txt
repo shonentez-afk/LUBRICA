@@ -1,0 +1,36 @@
+LUBRICA 1.0.26 — Multi-OEM bearing calculation sources
+
+NSK
+- NSK Electric Motor Handbook — Grease Relubrication Guidelines, Deep Groove Ball Bearings 6200 series and Cylindrical Roller Bearings N/NJ/NU 200 series.
+  https://www.nsk.com/content/dam/nsk/am/en_us/documents/bearings-americas/Electric-Motor-Handbook.pdf
+- NSK Grease Lubrication / Bearing ABCs — fill guidance, temperature and P/C correction.
+  https://www.nsk.com/tools-resources/abc-bearings/grease-lubrication/
+- NSK product/calculation pages — d/D/B, Cr/C0r, grease/oil limiting speed, mass for specific designations when available.
+  https://www.nsk.com/engineering/calculation/
+
+FAG / Schaeffler
+- Rolling Bearing Lubrication WL 81 115 — relubrication quantities by D x B and engineering free-space method.
+  https://www.schaeffler.com/remotemedien/media/_shared_media/08_media_library/01_publications/schaeffler_2/publication/downloads_18/wl_81115_4_de_en.pdf
+
+NTN-SNR
+- Industry Lubrication / Lubsolution — G=0.005 x D x B, 20–30% free-space guidance, relubrication frequency framework.
+  https://www.ntn-snr.com/sites/default/files/2018-05/doc.i_lubsolution_cat2.gba_web.pdf
+- SNR General Catalogue — Fc=Fb x Te x Ta x Tt correction framework and factors for environment/application/temperature.
+  https://www.ntn-snr.com/sites/default/files/2017-05/snr_general_catalogue_en.pdf
+- Current Lubrication documentation / SNR Bearing Calculator references.
+  https://www.ntn-snr.com/documents?section=77
+
+Timken
+- Timken Grease Lubrication Calculator and Help Guide — initial fill and relubrication quantity/frequency use geometry, mass, type, load, speed, temperature and environment.
+  https://engineering.timken.com/engineering-tool/grease-lubrication-tool/
+  https://engineering.timken.com/wp-content/uploads/2024/08/Grease-Lubrication-Tool-Help-Guide.pdf
+
+SKF
+- Existing LUBRICA SKF bearing and insert-bearing references remain in the project. SKF generic side/groove relubrication methods are retained as selectable methods and engineering fallback when no exact OEM dataset exists.
+
+IMPORTANT
+- LUBRICA never treats a generic/standard envelope as manufacturer-specific OEM internal geometry.
+- Exact OEM data are marked OEM exact.
+- Manufacturer method without an exact per-bearing table is marked OEM method.
+- Geometry/mass free-space estimation is marked Engineering fallback.
+- Final approval remains an engineering action.

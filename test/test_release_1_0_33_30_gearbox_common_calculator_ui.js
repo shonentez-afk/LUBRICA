@@ -1,0 +1,15 @@
+const fs=require('fs');const assert=require('assert');const path=require('path');
+const root=path.resolve(__dirname,'..');
+const s=fs.readFileSync(path.join(root,'calculations/gearbox-oil-adapter.js'),'utf8');
+assert(s.includes('calc-simple-overview simple-only'),'gearbox uses common simple overview');
+assert(s.includes('calc-primary-result'),'gearbox uses common primary result');
+assert(s.includes('calc-simple-context'),'gearbox uses common context strip');
+assert(s.includes('bearing-simple-approval calculation-step'),'gearbox uses common result/approval block');
+assert(s.includes('simple-approval-grid')&&s.includes('simple-approval-card'),'gearbox uses common result cards');
+assert(s.includes('<h3>Редуктор</h3>')&&s.includes('name="mountingPosition"'),'simple mode keeps essential gearbox input');
+assert(s.includes('data-gearbox-fill-ambiguity')&&!s.includes("className='gearbox-fill-ambiguity expert-only'"),'ambiguous OEM fill choice is available in simple mode');
+assert(s.includes('data-save-simple')&&s.includes('saveCalculation'),'simple mode can apply calculation directly');
+assert(s.includes("form.elements.approvedFillLiters.value=''"),'mounting change invalidates stale approved fill');
+assert(s.includes("calculationVersion:'8.7'"),'gearbox calculation version updated');
+const schema=fs.readFileSync(path.join(root,'core/database-schema.js'),'utf8');assert(schema.includes("appVersion:'1.0.33.39'"));
+console.log('PASS 1.0.33.30 gearbox common calculator UI');

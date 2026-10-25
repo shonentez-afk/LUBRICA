@@ -1,0 +1,14 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.resolve(__dirname,'..');
+const ui=fs.readFileSync(path.join(root,'lubrication/task-editor.js'),'utf8');
+const src=fs.readFileSync(path.join(root,'bearings/source-registry.js'),'utf8');
+const css=fs.readFileSync(path.join(root,'assets/app.css'),'utf8');
+assert(ui.includes("sourceApi.openRegistry({host:dialog"),'calculator must open registry inside current dialog host');
+assert(src.includes('bearing-source-inline-overlay'),'source registry must support inline overlay');
+assert(css.includes('#bearingCalcDialog .bearing-source-inline-overlay'),'inline source overlay CSS missing');
+assert(ui.includes("if(calcMode==='expert'){for(const [valueName,sourceName,label] of approvalPairs)"),'approval-source blocking must be expert-only');
+assert(ui.includes('legacyUnverifiedApprovals'),'legacy approvals without sources must be audited, not treated as approved');
+assert(ui.includes("calculationVersion:'multi-oem-1.0.26.8'"),'calculation version missing');
+assert(ui.includes("if(form.elements.intervalSource)form.elements.intervalSource.value='auto_oem'"),'manufacturer change must reset stale interval OEM source');
+assert(ui.includes("nskStrip.style.display='none'"),'NSK strip must be force-hidden for non-NSK selection');
+console.log('RELEASE 1.0.26.8 BEARING CALCULATOR SAVE/SOURCE HOTFIX PASS');

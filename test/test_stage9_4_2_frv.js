@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm');
+const db={checklistRuns:[{id:'RUN1',status:'in_progress',frvEntries:[]}]};
+global.window=global;global.LubricaCore={State:{getDatabase:()=>db,setDatabase:()=>{}}};
+let times=['2026-09-04T08:00:00Z','2026-09-04T08:00:00Z','2026-09-04T08:10:00Z'];
+const RealDate=Date;global.Date=class extends RealDate{constructor(...a){super(...(a.length?a:[times[0]]))}static now(){return RealDate.parse(times[0])}};
+vm.runInThisContext(fs.readFileSync('checklist/frv-engine.js','utf8'));
+const F=global.LubricaFRV,a=(x,m)=>{if(!x)throw Error(m)};
+let r=F.start('RUN1','preparation',{note:'Подготовка'});a(r.ok,'start');a(!F.start('RUN1','waiting').ok,'single active');
+db.checklistRuns[0].frvEntries[0].endedAt='2026-09-04T08:10:00Z';db.checklistRuns[0].frvEntries[0].durationMinutes=10;
+db.checklistRuns[0].frvEntries.push({id:'2',categoryId:'waiting',categoryLabel:'Ожидание',productive:false,startedAt:'2026-09-04T08:10:00Z',endedAt:'2026-09-04T08:15:00Z',durationMinutes:5});
+const s=F.summary(db.checklistRuns[0]);a(s.observedMinutes===15&&s.productiveMinutes===10&&s.lossMinutes===5,'summary');a(Math.abs(s.productivePercent-66.7)<.1,'percent');
+console.log('STAGE 9.4.2 FRV ENGINE TEST PASS');

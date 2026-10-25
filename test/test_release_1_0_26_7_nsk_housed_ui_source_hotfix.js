@@ -1,0 +1,11 @@
+const fs=require('fs');
+const assert=require('assert');
+const src=fs.readFileSync('bearings/source-registry.js','utf8');
+const ui=fs.readFileSync('lubrication/task-editor.js','utf8');
+assert(src.includes("bearingSourceRegistryDialog"),'source registry must use dedicated dialog');
+assert(!src.includes("const dlg=document.getElementById('actionDialog');if(!dlg)return"),'source registry must not reuse actionDialog');
+assert(/const CURRENT_CALC_VERSION='multi-oem-[^']+'/.test(ui)&&ui.includes('calculationVersion:CURRENT_CALC_VERSION'),'current calculation version contract missing');
+assert(ui.includes("doseEl.textContent='По процедуре NSK'"),'NSK procedure state must be explicit');
+assert(ui.includes('catalogStrip.hidden=true')&&ui.includes("sel==='NSK'&&up"),'foreign catalog strip must hide when NSK OEM profile is active');
+assert(ui.includes("sourceApi.openRegistry"),'calculator source button must invoke registry');
+console.log('RELEASE 1.0.26.7 NSK HOUSED UI/SOURCE HOTFIX PASS');

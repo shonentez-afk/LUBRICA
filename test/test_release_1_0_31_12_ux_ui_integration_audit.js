@@ -1,0 +1,15 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.resolve(__dirname,'..');
+const src=fs.readFileSync(path.join(root,'bearings/source-registry.js'),'utf8');
+const ui=fs.readFileSync(path.join(root,'calculations/ui-presenter.js'),'utf8');
+const jack=fs.readFileSync(path.join(root,'calculations/screw-jack-adapter.js'),'utf8');
+assert(src.includes('SUPPORT_LABELS'),'source supports must be human-readable');
+assert(src.includes("SOURCES.filter(s=>!Array.isArray(options.sourceIds)"),'context registry OEM filter must only contain relevant sources');
+assert(src.includes('aria-label="Закрыть реестр источников"'),'source close button accessibility missing');
+assert(src.includes('aria-label="Поиск по источникам"'),'source search accessibility missing');
+assert(src.includes("e.key==='Escape'"),'inline source overlay must close with Escape');
+assert(src.includes("trigger?.focus?.()"),'inline source overlay must restore focus');
+assert(ui.includes('unifyCalculatorShell')&&ui.includes('Простой режим')&&ui.includes('Экспертный режим'));
+assert(!jack.includes('OEM FRANCIA задаёт процедуру и факторы, но не одно фиксированное число.'),'FRANCIA/LUBRICA provenance copy must not attribute engineering factors to OEM');
+assert(jack.includes('числовые коэффициенты среды/интенсивности и интервал являются инженерной рекомендацией LUBRICA'));
+console.log('PASS 1.0.31.12 UX/UI/integration audit fixes');

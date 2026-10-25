@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),root=__dirname+'/..';
+const css=fs.readFileSync(root+'/assets/app.css','utf8');
+assert(css.includes('#offlineEvidenceDialog'));assert(css.includes('.offline-evidence-table-scroll'));assert(css.includes('overflow:auto'));assert(css.includes('position:sticky'));
+const html=fs.readFileSync(root+'/index.html','utf8');assert(html.includes('calculations/non-bearing-provenance.js'));
+const ctx={window:{},console};ctx.window.window=ctx.window;ctx.window.LubricaSystem={registerModule(){}};vm.createContext(ctx);vm.runInContext(fs.readFileSync(root+'/calculations/non-bearing-provenance.js','utf8'),ctx);
+let p=ctx.window.LubricaNonBearingProvenance.gearbox({manufacturer:'SEW-EURODRIVE'});assert.equal(p.sourceId,'SEW-GEARBOX-FILL');assert.equal(p.datasetId,'SEW-GEARBOX-FILL-V1');
+p=ctx.window.LubricaNonBearingProvenance.gearbox({manufacturer:'FRANCIA'});assert.equal(p.sourceId,'FRANCIA-SCREW-JACK');
+const c=ctx.window.LubricaNonBearingProvenance.chain({designation:'12B-2'});assert.equal(c.parameterOwnership.relubeQuantity,false);assert.equal(c.parameterOwnership.relubeInterval,false);
+const adapter=fs.readFileSync(root+'/calculations/gearbox-oil-adapter.js','utf8');assert(adapter.includes('LubricaNonBearingProvenance'));assert(adapter.includes('provenance,effectiveFillLiters'));
+console.log('PASS 1.0.31.5 offline table UX + non-bearing provenance');

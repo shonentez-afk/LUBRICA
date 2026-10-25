@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');const root=path.resolve(__dirname,'..');
+let database={materials:[{id:'M1',code:'GR-001',name:'Grease'}],tools:[{id:'TL1',code:'GUN-001',name:'Шприц №1'}],equipment:[],nodes:[],lubricationPoints:[{id:'LP1',legacyId:'LP-001',name:'Подшипник',category:'bearing',targetMaterialId:'M1'}],tasks:[{id:'T1',lubricationPointId:'LP1',activityType:'regrease',operation:'Досмазывание',materialMode:'point_target',toolId:'TL1',quantity:{approved:'25',unit:'г',calculatedStrokes:4}}],checklistRuns:[{id:'CHK-1',routeId:'M-001',status:'completed',date:'2026-09-04',performer:'Иванов',shift:'1',comments:'ОК',taskResults:{T1:{done:true,observations:'Без замечаний'}}}]};
+const window={LubricaSystem:{registerModule(){}},LubricaCore:{State:{getDatabase:()=>database,setDatabase:d=>database=d}},taskKey:p=>p.taskId||p.id};window.window=window;
+const ctx={window,console,Blob:function(){},JSZip:function(){}};ctx.taskKey=window.taskKey;vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(root,'checklist/checklist-engine.js'),'utf8'),ctx);
+vm.runInContext(fs.readFileSync(path.join(root,'export/export-ui.js'),'utf8'),ctx);
+const route={id:'M-001',name:'Маршрут',line:'Линия 1',area:'Упаковка',assignee:'Смазчик',interval:'4 недели',estimatedMinutes:15,points:[{taskId:'T1',pointDisplayId:'LP-001',equipment:'Конвейер',position:'678543',unit:'Приводной вал',operation:'Досмазывание',material:'Grease',materialId:'M1',type:'bearing'}]};
+const xml=ctx.buildChecklistSheet91(route);const a=(x,m)=>{if(!x)throw new Error(m)};
+a(xml.includes('СПИСОК ЗАДАЧ'),'task list title');a(xml.includes('Наименование точки смазки'),'point name column');a(xml.includes('Код смазки'),'grease code column');a(xml.includes('Код смазочного оборудования'),'tool code column');a(xml.includes('GR-001'),'material code content');a(xml.includes('GUN-001'),'tool code content');a(xml.includes('25 г')&&xml.includes('4 кач.'),'quantity + strokes');a(xml.includes('678543'),'equipment number');a(xml.includes('Без замечаний'),'saved observation');a(xml.includes('Иванов'),'performer');
+console.log('STAGE 9.1 EXCEL CHECKLIST TEST PASS');

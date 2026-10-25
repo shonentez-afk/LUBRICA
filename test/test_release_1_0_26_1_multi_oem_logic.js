@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const root=path.resolve(__dirname,'..');const w={LubricaSystem:{registerModule(){}}};const c={window:w};vm.createContext(c);
+for(const f of ['bearings/catalog-data.js','bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),c);
+const C=w.LubricaBearingCalculator,O=w.LubricaBearingOEM;
+let r=C.calculate({designation:'UCP212',manufacturer:'NSK',bearingType:'bearing_unit',d:60,D:110,B:65.1,method:'auto_oem',bearingMassKg:1.5,bearingMassKind:'insert',massManufacturer:'SKF',massSource:'SKF UC212',fillRatio:0.25,greaseDensity:0.9});
+assert.strictEqual(r.relube.value,null,'NSK UCP212 must not auto-fall back to SKF');assert.strictEqual(r.relube.confidenceCode,'B');assert.strictEqual(r.relube.numericUnavailable,true,'NSK unit uses OEM procedure without invented grams');
+let gf=C.geometricBearingFill({designation:'UCP212',manufacturer:'NSK',bearingType:'bearing_unit',d:60,D:110,B:65.1,bearingMassKg:1.5,bearingMassKind:'insert',massManufacturer:'SKF',massSource:'SKF UC212',fillRatio:0.25,greaseDensity:0.9});assert.strictEqual(gf.confidenceCode,'C');assert.strictEqual(gf.massManufacturer,'NSK');assert.strictEqual(gf.bearingMassKg,1.46);assert.strictEqual(gf.insertDesignation,'UC212D1');assert(!gf.assumptions.some(x=>/межбрендовая/i.test(x)),'SKF mass must be replaced by exact NSK insert mass');assert.strictEqual(r.maintenancePolicy.id,'housed_relube_only');assert.strictEqual(r.fullRenewal.notApplicable,true);
+r=C.calculate({designation:'6212C3',manufacturer:'NSK',bearingType:'deep_groove_ball',d:60,D:110,B:22,method:'auto_oem',rpm:1800,temperatureC:70,loadRatioPC:0.1,bearingMassKg:0.78,fillRatio:0.4,greaseDensity:0.9});
+assert.strictEqual(r.relube.value,12.1,'NSK suffix normalization');assert.strictEqual(r.relube.confidenceCode,'A');
+r=C.calculate({designation:'6212ZZ',manufacturer:'NSK',bearingType:'deep_groove_ball',d:60,D:110,B:22,method:'auto_oem',rpm:1800,temperatureC:70,loadRatioPC:0.1,bearingMassKg:0.78,fillRatio:0.4,greaseDensity:0.9});assert.strictEqual(r.relube.value,12.1);
+r=C.calculate({designation:'22212',manufacturer:'FAG',bearingType:'spherical_roller',d:60,D:110,B:28,method:'auto_oem'});assert.strictEqual(r.relube.value,null,'FAG auto must require service cadence');
+let sp=C.speedAssessment({d:60,D:110,rpm:2941.176470588,bearingType:'cylindrical_roller',loadClass:'medium'});assert(sp.ndm<sp.limit,'raw ndm below limit');assert(sp.speedFactor>sp.limit,'type-adjusted factor above limit');assert(sp.ratio>1,'ratio uses adjusted factor');
+let i=C.adjustedInterval({manufacturer:'NSK',designation:'UCP212',rpm:1800,baseHours:10000,intervalSource:'ntn',temperatureC:90,contamination:'heavy',vibration:'normal',shaftOrientation:'horizontal'});assert.strictEqual(i.sourceManufacturer,'NTN-SNR');assert.strictEqual(i.confidenceCode,'B');
+assert.strictEqual(O.baseDesignation('NSK-6212DDU'),'6212');
+console.log('MULTI OEM BEARING 1.0.26.1 LOGIC PASS');

@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+let database={materials:[],tools:[],equipment:[],nodes:[],lubricationPoints:[{id:'LP1',legacyId:'LP-1',name:'Подшипник',category:'bearing'},{id:'LP2',legacyId:'LP-2',name:'Редуктор',category:'gearbox_oil'}],tasks:[{id:'T1',lubricationPointId:'LP1',activityType:'regrease',operation:'Досмазывание',quantity:{approved:'10',unit:'г'}},{id:'T2',lubricationPointId:'LP2',activityType:'oil_level_check',operation:'Проверка уровня'}],checklistRuns:[]};
+const window={LubricaSystem:{registerModule(){}},LubricaCore:{State:{getDatabase:()=>database,setDatabase:d=>database=d}},taskKey:p=>p.taskId||p.id};window.window=window;
+const ctx={window,console};vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(root,'checklist/checklist-engine.js'),'utf8'),ctx);
+const E=window.LubricaChecklistEngine,a=(x,m)=>{if(!x)throw new Error(m)};
+const route={id:'M-UX',name:'Маршрут UX',line:'Линия 1',area:'Участок',interval:'1 неделя',estimatedMinutes:20,points:[{taskId:'T1',pointDisplayId:'LP-1',equipment:'Машина 1',position:'100',unit:'Подшипник',operation:'Досмазывание',type:'bearing'},{taskId:'T2',pointDisplayId:'LP-2',equipment:'Машина 2',position:'200',unit:'Редуктор',operation:'Проверка уровня',type:'gearbox_oil'}]};
+let s=E.lifecycleState(route.id,route);a(s.state==='not_started'&&s.canStart&&!s.canComplete&&!s.canCancel,'not started state');
+let r=E.createRun(route.id,{route,date:'2026-09-04',performer:'Иванов И.И.',shift:'1'});s=E.lifecycleState(route.id,route);a(s.state==='in_progress'&&s.active.id===r.id&&s.canCancel&&!s.canComplete,'started state');
+E.updateTask(r.id,'T1',{done:true});s=E.lifecycleState(route.id,route);a(s.progress.percent===50&&!s.canComplete,'partial state');
+E.updateTask(r.id,'T2',{done:true});s=E.lifecycleState(route.id,route);a(s.progress.percent===100&&s.canComplete,'ready to finish state');
+let done=E.completeRun(r.id,route);s=E.lifecycleState(route.id,route);a(done.status==='completed'&&s.state==='completed'&&s.canStart&&!s.canCancel,'completed state');
+let next=E.createRun(route.id,{route,date:'2026-09-05',performer:'Петров П.П.',shift:'2'});a(next.executionNo===2,'next execution number');
+E.updateTask(next.id,'T1',{done:true,observations:'Частично'});let cancelled=E.cancelRun(next.id,{reason:'Нет доступа'});s=E.lifecycleState(route.id,route);a(cancelled.status==='cancelled'&&cancelled.cancelReason==='Нет доступа'&&s.state==='cancelled'&&s.canStart,'cancelled state');
+a(E.routeRuns(route.id).length===2,'history contains completed and cancelled');
+let stale=E.createRun(route.id,{route,date:'2026-09-06',performer:'Сидоров',shift:'1'});database.checklistRuns.push({id:'CHK-OLD',routeId:route.id,status:'in_progress',startedAt:'2020-01-01T00:00:00.000Z',updatedAt:'2020-01-01T00:00:00.000Z',taskResults:{}});s=E.lifecycleState(route.id,route);a(s.active.id===stale.id&&database.checklistRuns.find(x=>x.id==='CHK-OLD').status==='superseded','stale active normalized');
+console.log('STAGE 9.1.5 LIFECYCLE MATRIX PASS');

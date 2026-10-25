@@ -1,0 +1,48 @@
+[1] oscillating A-P core
+PASS 1.0.33.48 oscillating/linkage engine: classification + line1/line2 assembly + no virtual points + idempotency + recreate
+[2] oscillating UI/manual
+PASS 1.0.33.48 oscillating UI integration + manual parity + responsive contract
+[3] classifier
+OK ШВП 32x10 => ball_screw
+OK Линейный подшипник LM25UU => linear_bearing
+OK Подшипник 6205-2RS1 => bearing
+OK Насос плунжерный NP25/25-250 => pump
+OK Насос шестеренный TFP100/4.3 D CO01 => pump
+OK Насос винтовой XYZ => pump
+OK Вал приводной => rotating_shaft
+OK Вал натяжной => rotating_shaft
+OK Ролик приводной => roller
+OK Барабан натяжной => drum
+OK Домкрат винтовой M42VT => screw_jack
+OK Кардан 71.G4.090.090 => cardan
+OK Механизм кривошипно-шатунный основной => crank
+OK Компрессор №1 => compressor
+OK Гидростанция GA0504 S11 => hydraulic_station
+CLASSIFIER TEST PASS
+[4] candidate lifecycle
+CANDIDATE FINALIZATION TEST PASS
+[5] conveyor 1.0.33.47
+PASS 1.0.33.47 chain/scraper conveyor: import recognition + 4 supports + chain + manual parity
+[6] manual conveyor
+PASS 1.0.33.14 manual conveyor parity: 4 supports + chain + motor-gearbox
+[7] conveyor bearings
+PASS 1.0.33.15 conveyor bearing assignment + manual four-support input
+[8] unified constructor cards
+PASS 1.0.33.16 unified fan/conveyor constructor cards
+[9] rotating arrangement
+PASS 1.0.33.22 rotating arrangement
+[10] rotating dedup
+PASS 1.0.33.23 rotating task dedup
+[11] bearing calculator
+BEARING CALCULATOR TEST PASS
+[12] UC/UK housed
+RELEASE 1.0.33.20 HOUSED UNITS PASS
+[13] universal housed
+RELEASE 1.0.33.21 UNIVERSAL HOUSED LOGIC PASS
+[14] conveyor SNL context
+OK 1.0.33.43 conveyor SNL housing context
+[15] preflight
+PREFLIGHT PASS
+[16] file protocol
+STAGE 9.9 EDGE FILE PROTOCOL STATIC TEST PASS {'no fetch': True, 'no xhr': True, 'no dynamic import': True, 'no service worker': True, 'no remote scripts': True, 'no remote styles': True, 'relative scripts': True, 'file mode shown': True, 'save picker fallback': True, 'directory picker fallback': True}
+TARGETED_ACCEPTANCE_PASS 16/16

@@ -1,0 +1,45 @@
+LUBRICA 1.0.33.63 — REGRESSION ACCEPTANCE
+Release: Izoteh PP-53736 Lubrication Constructor
+Date: 2026-09-23
+
+RESULT: PASS
+
+Preflight:
+- python3 test/preflight.py — PASS
+
+Full integration suite:
+- 99/99 checkpoints completed successfully.
+- First full run completed checkpoints 1–57 before the execution wrapper timeout while checkpoint 58 was starting.
+- Checkpoints 58–99 were then executed as a continuation and all passed.
+- No FAIL / ERROR / AssertionError / Traceback markers were found in either log.
+
+Expected source-dependent skips:
+- Import integration source XLSX files not present — SKIP.
+- Source XLSX audit source files not present — SKIP.
+These are pre-existing source-file-dependent skips and are not product failures.
+
+Release-specific checks:
+- PASS 1.0.33.63 PP53736 constructor.
+- PASS 1.0.33.63 PP53736 integration.
+- Existing gearbox regression 1.0.33.55–1.0.33.62 — PASS.
+- Stage 9.9 Edge file protocol — PASS.
+- Stage 9.9 end-to-end contract — PASS.
+- Stage 9.9 final UX/UI audit — PASS.
+- Production documentation — PASS.
+- Structure detail interaction/static contract — PASS.
+
+Real-base acceptance:
+- Source DB: Филиал_завода__Техно__г._Юрга(20260923-023529).json
+- Line 1 PP-53736 root: 10108190.
+- Line 2 PP-53736 root: created safely as 10208190 in acceptance clone.
+- Line 2 repair: 3 branch groups reparented; 10 orphaned root components linked.
+- Safe default service points: 25 per line.
+- Physical chain circuits: 8.
+- Physical screw-jack screw positions: 4.
+- Sealed 6015-2RS1 automatic routine relubrication points: 0.
+- R77 auto-created without engineer confirmation: 0.
+- S37 auto-created without engineer confirmation: 0.
+- Remaining required engineer decisions: actual R77 drive count and S37 presence.
+
+Conclusion:
+LUBRICA 1.0.33.63 is accepted as a regression-safe release candidate for the Izoteh PP-53736 lubrication constructor.

@@ -1,0 +1,17 @@
+LUBRICA 1.0.16 — источники перепроверки полной набивки подшипников
+
+1. SKF Rolling bearings, B.4 Lubrication — free volume in bearings:
+   V = π/4 × B × (D² − d²) × 10^-3 − M/(7.8 × 10^-3)
+   https://www.skf.com/binaries/pub12/Images/0901d196802809de-Rolling-bearings---17000_1-EN_tcm_12-121486.pdf
+
+2. SKF Grease relubrication procedures — replenishment quantities:
+   Gp = 0.005 D B (from bearing side), Gp = 0.002 D B (through annular groove/holes).
+   https://cdn.skfmediahub.skf.com/api/public/0901d1968024f02a/pdf_preview_medium/0901d1968024f02a_pdf_preview_medium.pdf
+
+3. SKF Y-bearings and Y-bearing units — relubrication procedure for housed/Y bearings: slowly pump grease into running bearing until fresh grease escapes; avoid excessive pressure/overfilling.
+   https://www.skf.com/binaries/pub12/Images/0901d196802a2b8f-13728-EN-Y-bearing-and-Y-b-units_tcm_12-129182.pdf
+
+4. SKF YAR 212-2F dimensions/mass reference: d=60 mm, D=110 mm, B=65.1 mm, mass 1.30 kg. This is a manufacturer-specific reference and is not silently applied to generic UCP212 records.
+   https://cdn.skfmediahub.skf.com/api/public/0901d196802a2b8f/pdf_preview_medium/0901d196802a2b8f_pdf_preview_medium.pdf
+
+Engineering rule in LUBRICA: generic housed units UCP/UCF/UCFL/UCT do not receive an automatic full-fill mass from d/D/B. OEM/approved value is required.

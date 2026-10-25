@@ -1,0 +1,10 @@
+const fs=require('fs');
+const html=fs.readFileSync('index.html','utf8');
+const css=fs.readFileSync('assets/app.css','utf8');
+if(!html.includes('class="lubrication-map-table"')) throw new Error('map table class missing');
+if(!html.includes('Статус мероприятия</th>')) throw new Error('task status header not clarified');
+if(!html.includes('Состояние физической точки. Не заменяет утверждение конкретного мероприятия.')) throw new Error('point status hint missing');
+if(!html.includes('только утверждённые мероприятия участвуют в автоматическом формировании маршрутов')) throw new Error('task status hint missing');
+if(!css.includes('.lubrication-map-table th:nth-child(2)')||!css.includes('min-width:180px')) throw new Error('point column width missing');
+if(!css.includes('.lubrication-map-table th:nth-child(3)')||!css.includes('min-width:230px')) throw new Error('location column width missing');
+console.log('RELEASE 1.0.27.10 STATUS/TABLE UX PASS');

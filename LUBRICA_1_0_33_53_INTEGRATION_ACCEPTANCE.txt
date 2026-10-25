@@ -1,0 +1,28 @@
+LUBRICA 1.0.33.53 — UKF211 Housed Bearing Unit Library Hotfix
+
+TARGETED:
+PASS 1.0.33.53 UKF211 built-in lookup/search
+PASS spaced alias UKF 211
+PASS geometry 50 x 100 x 59 mm
+PASS insert UK211 + adapter sleeve H2311
+PASS NSK profile UK211D1 + H2311X + unit mass 3.6 kg
+PASS housed-unit code 211 and existing anti-overgreasing reference path
+PASS SKF BS2-2208-2CS/VT143 regression
+PASS Bearing Library regression
+PASS NSK bearing units / housed-unit regression
+PASS Universal housed-unit logic
+PASS Bearing Calculator
+PASS Real-base safety 1.0.33.50
+PASS Oscillating single-mode UX 1.0.33.51
+PASS preflight
+PASS Edge file:// static protocol
+
+REAL PRODUCTION BASE:
+8/8 lubrication points with effectiveDesignation=UKF211 resolve to the built-in UKF211 record.
+The source JSON is not modified or bundled into the release.
+
+INTEGRATION GATE:
+Stages 1-70: PASS except Stage 60 Source XLSX audit = SKIP (source XLSX files not present in test environment).
+Full monolithic run reached stage 71 before environment timeout with no FAIL.
+Stages 71-99 were rerun independently: PASS, including Stage 92 with the new UKF211 test.
+Effective result: 98 PASS / 0 FAIL / 1 SKIP.

@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const ctx={window:{}};ctx.window.window=ctx.window;vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(__dirname+'/import/component-classifier.js','utf8'),ctx);
+const db=JSON.parse(fs.readFileSync('/mnt/data/Филиал_завода__Техно__г._Юрга(20260914-063204).json','utf8'));
+const API=ctx.window.LubricaClassifier;
+db.components=db.components.map(c=>API.classifyComponent(c));
+const eq=db.equipment.find(e=>String(e.externalCode)==='10207255');
+assert(eq,'real conveyor 10207255 missing');
+const ev=API.conveyorEvidence(db,eq);
+assert(ev.supportLayout,'support layout should exist for two physical generic shafts');
+assert.strictEqual(ev.supportLayout.supports.length,4,'must expose 4 physical support locations');
+assert.strictEqual(ev.supportLayout.shaftRolesNeedConfirmation,true,'generic shafts must require engineer role assignment');
+assert.strictEqual(ev.supportLayout.shaftCandidates.length,2,'idler roller must not be offered as shaft role');
+assert.strictEqual(ev.supportLayout.supports.map(x=>x.position).join('|'),'Приводной вал · левая опора|Приводной вал · правая опора|Ведомый/натяжной вал · левая опора|Ведомый/натяжной вал · правая опора');
+console.log('PASS 1.0.33.19 generic conveyor shafts => 4 physical supports with role confirmation');

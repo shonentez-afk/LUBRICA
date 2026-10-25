@@ -1,0 +1,22 @@
+const fs=require('fs'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const read=f=>fs.readFileSync(path.join(root,f),'utf8');
+const a=(x,m)=>{if(!x)throw new Error(m)};
+const engine=read('oscillating/oscillating-linkage-arrangement.js');
+const css=read('assets/app.css');
+const calc=read('calculations/ui-presenter.js');
+const manifest=JSON.parse(read('manifest.json'));
+
+a(!engine.includes('Простой режим'),'oscillating constructor must not expose simple mode');
+a(!engine.includes('Экспертный режим'),'oscillating constructor must not expose expert mode');
+a(!engine.includes('data-mode='),'oscillating constructor must not contain mode switch controls');
+a(!engine.includes('data-open-source-registry'),'oscillating constructor must not contain calculation justification button');
+a(!engine.includes('oscillating-expert-only'),'oscillating constructor must not carry hidden expert blocks');
+a(!engine.includes('simple-mode')&&!engine.includes('expert-mode'),'oscillating constructor form must be single-mode');
+a(!css.includes('.oscillating-mode-switch')&&!css.includes('.oscillating-constructor.simple-mode')&&!css.includes('.oscillating-constructor.expert-mode'),'obsolete oscillating mode CSS removed');
+a(engine.includes('Точка создаётся только по фактическому обслуживаемому элементу.'),'factual construction guard preserved');
+a(engine.includes('Создать точки')&&engine.includes('Отмена'),'constructor actions preserved');
+a(engine.includes('Фактическая конструкция')&&engine.includes('Найденный ТМЦ'),'core constructor fields preserved');
+a(calc.includes('Простой режим')&&calc.includes('Экспертный режим'),'simple/expert modes remain in lubrication calculation UI');
+const ver=String(manifest.appVersion||manifest.version||''); a(/^1\.0\.33\.(?:5[1-9]|[6-9]\d|\d{3,})$/.test(ver),'version 1.0.33.51+');
+console.log('PASS 1.0.33.51 oscillating constructor single-mode UX; calculation modes preserved');

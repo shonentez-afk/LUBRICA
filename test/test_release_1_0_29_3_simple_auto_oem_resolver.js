@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const ctx={console,window:{LubricaSystem:{registerModule(){}}}};ctx.window.window=ctx.window;vm.createContext(ctx);
+for(const f of ['bearings/multi-oem-data.js','bearings/calculator.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
+const C=ctx.window.LubricaBearingCalculator;
+const a=(x,m)=>{if(!x)throw new Error(m)};
+const fanLubrication={housingFamily:'ZLG',rawHousingMarking:'ZLG316AA',portIndex:1,portCount:2,zoneMappingConfirmed:true,internalBearings:['6316']};
+let r=C.calculate({designation:'6316',d:80,D:170,B:39,bearingType:'deep_groove_ball',manufacturer:'NTN-SNR',rpm:2980,temperatureC:70,fanLubrication,zlgServiceMode:'guarded_auto',fanManufacturer:'REITZ'});
+a(r.relube.value===96,'simple REITZ auto dose');
+a(r.relubeInterval.value===2760,'simple REITZ auto interval');
+a(r.relube.sourceManufacturer==='REITZ','REITZ is source owner');
+r=C.calculate({designation:'6316',d:80,D:170,B:39,bearingType:'deep_groove_ball',manufacturer:'NTN-SNR',rpm:2980,temperatureC:70,fanLubrication,zlgServiceMode:'guarded_auto',fanManufacturer:''});
+a(r.relube.blocked===true,'unknown fan manufacturer remains guarded');
+a(/простом режиме/i.test(r.relube.error||''),'guarded message points to simple mode');
+console.log('SIMPLE AUTO OEM RESOLVER TEST PASS');

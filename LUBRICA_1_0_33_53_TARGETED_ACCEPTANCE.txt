@@ -1,0 +1,14 @@
+PASS 1.0.33.53 UKF211 housed bearing unit library
+PASS 1.0.33.52 SKF BS2-2208-2CS/VT143 library
+BEARING LIBRARY TEST PASS
+NSK BEARING UNITS 1.0.26.5 PASS
+RELEASE 1.0.26.6 NSK FULL HOUSED + ALL OEM SOURCE AUDIT PASS
+RELEASE 1.0.27.5 HOUSED ANTI-OVERGREASING PASS
+RELEASE 1.0.33.20 HOUSED UNITS PASS
+RELEASE 1.0.33.21 HOUSED UNIT FLEET COVERAGE PASS
+RELEASE 1.0.33.21 UNIVERSAL HOUSED LOGIC PASS
+BEARING CALCULATOR TEST PASS
+PASS 1.0.33.50 real-base safety: exclusions + TLK400 + sealed bearing guard + SNH context
+PASS 1.0.33.51 oscillating constructor single-mode UX; calculation modes preserved
+PREFLIGHT PASS
+STAGE 9.9 EDGE FILE PROTOCOL STATIC TEST PASS {'no fetch': True, 'no xhr': True, 'no dynamic import': True, 'no service worker': True, 'no remote scripts': True, 'no remote styles': True, 'relative scripts': True, 'file mode shown': True, 'save picker fallback': True, 'directory picker fallback': True}

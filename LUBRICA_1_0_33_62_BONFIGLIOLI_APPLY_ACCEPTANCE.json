@@ -1,0 +1,23 @@
+{
+  "release": "1.0.33.62",
+  "scenario": "Legacy Bonfiglioli C412/P 1:25 B3 PAM100 apply-to-task persistence",
+  "input": {
+    "gearbox": "C412/P 1:25 B3 PAM 100",
+    "manufacturer": "BONFIGLIOLI",
+    "mountingPosition": "B3",
+    "workingFillLiters": 2.2,
+    "changeHours": 8000,
+    "changeMonths": 12,
+    "fillRevisionId": "bonfiglioli-legacy-1.0.33.61"
+  },
+  "expectedAfterApplyAndReconcile": {
+    "point.approvedFillLiters": 2.2,
+    "point.effectiveFillLiters": 2.2,
+    "point.appliedFillLiters": 2.2,
+    "task.quantity.approved": "2.2",
+    "task.quantity.unit": "л",
+    "task.schedule.runtimeHours": 8000
+  },
+  "result": "PASS",
+  "regressionTest": "test/test_release_1_0_33_62_bonfiglioli_apply_quantity_persistence.js"
+}

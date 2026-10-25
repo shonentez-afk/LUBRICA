@@ -1,0 +1,43 @@
+LUBRICA Motor OEM Calculation Engine — primary references
+Verified: 2026-09-14
+
+ABB
+1) ABB Low Voltage Motors manual — L1 relubrication quantities and intervals
+https://library.e.abb.com/public/70a30c0d0999feacc1257dd90035cf07/LVStdMotorsManual_EN_01_2009.pdf
+2) ABB Low Voltage General Purpose Motors — bearing construction / lubrication policy
+https://library.e.abb.com/public/367c91cdc1dee017c1257b130057111e/Catalogue%20GenPurpMotors_GB_12_2004%20RevA.pdf
+
+SEW-EURODRIVE
+3) DR.71–315 AC Motors Operating Instructions — 2Z/2RS closed bearings and relubrication options
+https://download.sew-eurodrive.com/download/pdf/20074549.pdf
+
+OLI
+4) MVE Standard Range — Greased for life = Zero maintenance
+https://www.olivibra.com/products/mve-standard-range/
+5) MVE 1700/15E-60A0 technical sheet — Greased for life: Yes; NJ2308
+https://app.olivibra.com/en/technical-sheets/EE40170060A0JA0000/unit/D
+
+Siemens / Innomotics
+6) 1LE1 / 1FP / 1PC Operating Instructions — regreasing amount/interval/grease from lubricant plate
+https://cache.industry.siemens.com/dl/files/362/32182362/att_1163295/v1/EN_1LE1_1FP1_1FP3_1PC1_1PC3_op_Instr_1123.pdf
+
+Rules:
+- Machine-specific lubrication plate / exact motor instructions override family-level rules.
+- No numeric value is invented for EMOD WK, QCA/QL/HQL, BA/BN, Ercole Marelli or generic unidentified motors.
+- Cross-OEM substitution is prohibited.
+
+
+ABB fleet mapping extension — 1.0.33.2
+7) ABB General Purpose Motors, Steel GB 09-2003 — M2CA 280/315 DE/NDE and standard regreasing nipples
+https://library.e.abb.com/public/65562a840eb9c8a1c1257b13005710ed/General%20Purpose%20Motors%20Steel%20GB%20092003.pdf
+8) ABB Process performance aluminum motors, 9AKK105944 EN 02-2022 — M3AA 160–280 bearings and lubrication policy
+https://library.e.abb.com/public/d9a943265d1e43f9979a2173edf666f3/9AKK105944%20Process%20performance%20EN%2002_2022.pdf
+9) ABB Low Voltage Marine Motors EN 12-2005 — M2QA sealed 2RS construction
+https://library.e.abb.com/public/7456205e0b6fe42cc1257b130056f57c/Low%20Voltage%20Marine%20Motors%20EN%2012_2005.pdf
+
+1.0.33.2 rules:
+- Exact DE/NDE is localized only where the cited ABB table supports the family/frame/pole combination.
+- M2CA 280/315 uses standard regreasing policy from ABB steel catalogue; L1 values are then selected from the ABB motor manual.
+- M3AA 160–250 is treated as permanently lubricated shielded construction in the cited 2022 catalogue; M3AA 280 is regreasable.
+- M2QA 71–132 is treated as sealed 2RS construction; exact bearing designation is still read from the rating plate.
+- Machine-specific rating plate and special variant always override family mapping.

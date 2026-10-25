@@ -1,0 +1,98 @@
+{
+  "release": "1.0.33.67",
+  "scope": "PP-53736 gearbox OEM, persistence and machine-interval acceptance",
+  "sourceDatabase": "Филиал_завода__Техно__г._Юрга(20260923-051134).json",
+  "sourceDatabaseUpdatedAt": "2026-09-23T05:01:56.974Z",
+  "result": "PASS_WITH_ENGINEERING_CONFIRMATION_ITEMS",
+  "machineOem": {
+    "manufacturer": "Izoteh d.o.o.",
+    "model": "PP-53736-YU1",
+    "drawing": "53736",
+    "gearboxIntervalRaw": "5000/500 h",
+    "workingOilChangeHours": 5000,
+    "meaningOf500": "unresolved; preserved as source text and not scheduled as first service"
+  },
+  "oemTables": {
+    "SEW_K37": {"M1": 0.5, "M2": 1.0, "M3": 1.0, "M4": 1.4, "M5": 1.0, "M6": 1.0},
+    "SEW_R77_standalone": {"M1": 1.2, "M2": 3.8, "M3": 3.6, "M4": 4.1, "M5": 2.5, "M6": 3.4},
+    "SEW_KF37R17": {
+      "twoIndependentOilCavities": true,
+      "KF37": {"M1": 0.5, "M2": 1.1, "M3": 1.1, "M4": 1.5, "M5": 1.0, "M6": 1.0},
+      "R17": {"M1": 0.25, "M2": 0.55, "M3": 0.35, "M4": 0.55, "M5": 0.35, "M6": 0.35},
+      "planningTotalOnly": {"M1": 0.75, "M2": 1.65, "M3": 1.45, "M4": 2.05, "M5": 1.35, "M6": 1.35}
+    },
+    "SEW_S37": {"M1": 0.25, "M2": 0.4, "M3": 0.5, "M4": 0.55, "M5": 0.4, "M6": 0.4},
+    "Tandler_A1_HW_A1": {"referenceFillLiters": 0.6, "machineOilClass": "ISO VG46"}
+  },
+  "parserAndMigration": {
+    "motorPoleTokensDoNotSetGearboxMountingPosition": ["DRE100M4", "DRE80M4", "DR63S4"],
+    "falsePersistedS37M4FoundInSourceDatabase": 2,
+    "falsePersistedS37M4RemainingAfterReconcile": 0,
+    "staleR77ApprovedFill3LFoundInSourceDatabase": 8,
+    "staleR77ApprovedFillRemainingAfterReconcile": 0,
+    "oldGenericCalendar36MonthR77SchedulesFound": 8,
+    "gearboxTasksOutsideMachine5000hAfterReconcile": 0,
+    "firstChange500SchedulesAfterReconcile": 0
+  },
+  "realDatabaseAcceptance": {
+    "beforeCounts": {"equipment": 1188, "components": 5659, "points": 501, "tasks": 517},
+    "afterFirstApplyCounts": {"equipment": 1188, "components": 5659, "points": 501, "tasks": 517},
+    "afterSecondApplyCounts": {"equipment": 1188, "components": 5659, "points": 501, "tasks": 517},
+    "repeatedApplyIdempotent": true,
+    "lines": [
+      {
+        "line": "Линия 1",
+        "rootExternalCode": "10108190",
+        "configuration": {"r77Count": 8, "s37State": "installed"},
+        "machineProfilePoints": 131,
+        "machineProfileTasks": 131,
+        "categories": {"gearbox_oil": 13, "chain": 8, "screw": 4, "open_gear": 2, "bearing": 104},
+        "gearboxes": {"KF37R17": 2, "K37": 1, "TandlerA1": 1, "R77": 8, "S37": 1},
+        "duplicateMachineOriginKeys": 0,
+        "r77DrawingPositionHints": {"R77_1_to_4": "M1", "R77_5_to_8": "M3"},
+        "r77PersistedSelectionConflictsFlagged": 4
+      },
+      {
+        "line": "Линия 2",
+        "rootExternalCode": "10208190",
+        "configuration": {"r77Count": 8, "s37State": "installed"},
+        "machineProfilePoints": 131,
+        "machineProfileTasks": 131,
+        "categories": {"gearbox_oil": 13, "chain": 8, "screw": 4, "open_gear": 2, "bearing": 104},
+        "gearboxes": {"KF37R17": 2, "K37": 1, "TandlerA1": 1, "R77": 8, "S37": 1},
+        "duplicateMachineOriginKeys": 0,
+        "r77DrawingPositionHints": {"R77_1_to_4": "M1", "R77_5_to_8": "M3"},
+        "r77PersistedSelectionConflictsFlagged": 0
+      }
+    ]
+  },
+  "physicalTopologyPreserved": {
+    "rollerBearingPositionsPerMachine": 102,
+    "bearingTypes": {"FY30": 47, "SYF30": 47, "FY40": 8},
+    "sealed6015_2RS1AutomaticRelubrication": false,
+    "chainCircuitsPerMachine": 8,
+    "lastChainLengthM": 5.786,
+    "liftScrewsPerMachine": 4
+  },
+  "manualAddParity": true,
+  "line1AndLine2Parity": true,
+  "crossOemGuard": {
+    "TandlerA1DoesNotMatchB1": true,
+    "TandlerEA1DoesNotMatchB1": true
+  },
+  "engineeringConfirmationItems": [
+    "Линия 1: R77 №5–№8 имеют сохранённый выбор M1, а сборочный чертёж 53736 лист 4/5 даёт подсказку M3 для второй группы. LUBRICA не перезаписывает выбор автоматически; четыре точки помечаются для проверки фактического монтажного положения.",
+    "Для K37, KF37R17 и S37 фактическое M1–M6 выбирается по установленному редуктору/шильдику; M4 в обозначении двигателя не используется как монтажное положение.",
+    "Значение 500 в записи PP-53736 5000/500 h не получило доказанной трактовки; оно сохранено в обосновании без отдельного автоматического события."
+  ],
+  "tests": {
+    "fullRegression": "99/99 PASS in three final continuation blocks",
+    "pp53736_33_63_constructor": "PASS",
+    "pp53736_33_63_integration": "PASS",
+    "pp53736_33_64_manualParity": "PASS",
+    "pp53736_33_64_manualUI": "PASS",
+    "pp53736_33_65_physicalBearings": "PASS",
+    "pp53736_33_66_gearboxDataRegression": "PASS under current interval semantics",
+    "pp53736_33_67_persistenceInterval": "PASS"
+  }
+}

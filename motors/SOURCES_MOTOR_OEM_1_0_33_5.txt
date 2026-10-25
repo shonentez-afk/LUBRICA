@@ -1,0 +1,18 @@
+LUBRICA 1.0.33.5 — Remaining Motor Fleet OEM Sources
+
+1. OEMER QL/HQL/HQLa catalogue
+URL: https://oemerspa.com/OEMER%20Download%20Center/Catalogues/7.1.0_QL_HQL_HQLa.pdf
+Use: HQL 160 standard bearing construction. Catalogue bearing table lists DE 6312ZZC3 and NDE 6311ZZC3 for HQL 160. Exploded view for HQL 80–160 does not show grease valves; larger HQL/HQLa 180–280 exploded view explicitly shows grease valves. LUBRICA therefore treats the standard HQL160 configuration as a construction-based no-routine-relube policy. Special bearing options require exact motor evidence.
+Evidence class: B/C — OEM product construction + explicit LUBRICA maintenance inference.
+
+2. Interroll Drum Motor catalogue — 138i
+URL: https://www.interroll.com/fileadmin/user_upload/Downloads__PDF_/Drives___Controls/Drum_Motors/Drum_Motor_Catalog_EN.pdf
+Use: Interroll 138i is stated as maintenance-free and lifetime lubricated. No routine bearing relubrication task is generated.
+Evidence class: A — explicit OEM product data.
+
+Guarded / not auto-resolved in 1.0.33.5:
+- QCA 90 / QCA 112: no sufficiently reliable primary OEM identification located.
+- generic 71B4 / 100LB4: designation is not manufacturer-unique.
+- KA7250M-CB01B-Z: no verified primary OEM lubrication document located.
+- motor-drum 165E: manufacturer not proven; not mapped to Interroll by similarity.
+- Siemens 1LG exact numeric relubrication remains plate/manual guarded where exact official product evidence is not available.

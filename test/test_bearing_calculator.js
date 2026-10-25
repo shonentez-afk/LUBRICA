@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const ctx={console,window:{LubricaSystem:{registerModule(){}}}};ctx.window.window=ctx.window;vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(root,'bearings/calculator.js'),'utf8'),ctx);
+const C=ctx.window.LubricaBearingCalculator;const a=(x,m)=>{if(!x)throw new Error(m)};
+let r=C.relubeQuantity({D:52,B:15,method:'skf_side'});a(r.value===3.9,'SKF side 6205');
+r=C.relubeQuantity({D:52,B:15,method:'skf_groove'});a(r.value===1.56,'SKF groove 6205');
+r=C.relubeQuantity({D:52,B:15,method:'schaeffler_monthly'});a(r.value===2.34,'Schaeffler monthly');
+let f=C.geometricBearingFill({d:25,D:52,B:15,bearingMassKg:0.129,fillRatio:1,greaseDensity:0.9,bearingType:'deep_groove_ball'});a(f.massG>0&&f.envelopeVolumeCm3>0&&f.freeVolumeCm3>0,'SKF mass based free volume');
+let f2=C.geometricBearingFill({d:25,D:52,B:15,greaseDensity:0.9,bearingType:'deep_groove_ball'});a(f2.envelopeVolumeCm3>0&&f2.massG===null&&/массу подшипника/.test(f2.error),'mass required; envelope is not grease');
+let u=C.geometricBearingFill({d:60,D:110,B:65.1,fillRatio:1,greaseDensity:0.9,bearingType:'bearing_unit'});a(u.blocked===true&&u.massG===null&&Math.abs(u.envelopeVolumeCm3-434.6)<0.1,'UCP full-fill auto calc blocked');
+let i=C.adjustedInterval({baseHours:8000,temperatureC:85,shaftOrientation:'vertical',conditionFactor:0.5});a(i.value===1200,'interval adjustments');
+let sp=C.speedAssessment({d:25,D:52,rpm:1500,bearingType:'deep_groove_ball',loadClass:'medium'});a(sp.dm===38.5&&sp.ndm===57750&&sp.limit===400000,'speed assessment');
+const uw=C.warnings({d:60,D:110,B:65.1,bearingType:'bearing_unit',method:'skf_side'});a(uw.some(x=>/Производитель не указан/.test(x)),'unknown manufacturer warning');a(C.maintenancePolicy({d:60,D:110,B:65.1,bearingType:'bearing_unit'}).id==='housed_relube_only','bearing unit relube-only policy');
+console.log('BEARING CALCULATOR TEST PASS');
