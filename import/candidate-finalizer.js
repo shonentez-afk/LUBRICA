@@ -330,25 +330,35 @@ function open(source,id,decisionContext=null){
     global.LubricaRotatingArrangement.open(source,id);
     return;
   }
-  // 1.0.33.17: rebuild conveyor evidence every time the constructor opens.
-  // Old classified records may retain a stale pre-1.0.33.15 template.
+  // Stage 5B: opening a constructor is read-only, even for old classified templates.
+  let previewRecord=record;
   if(source==='equipment' && (record.maintenanceEquipmentType==='conveyor' || record.equipmentType==='conveyor' || record.maintenanceTemplate?.id==='conveyor_arrangement')){
+    const identity=global.LubricaClassifier?.conveyorIdentity?.(record.name,record.equipmentType,record);
+    if(identity?.role==='group'||identity?.role==='ancillary'){
+      global.LubricaApp?.showToast?.('Это группа или обслуживающая подсистема. Откройте конкретный конвейер.','warn');
+      return;
+    }
     const ev=global.LubricaClassifier?.conveyorEvidence?.(database,equipment);
     if(ev){
-      const layoutBits=ev.supportLayout?.supports?.length===4?['подшипниковые точки: 4 (2 вала × 2 опоры)']:[];
       const bits=[];
-      if(ev.byCategory?.chain)bits.push(`цепи: ${ev.byCategory.chain}`);
-      if(ev.assets?.length)bits.push(`приводные агрегаты: ${ev.assets.length}`);
-      if(ev.byCategory?.coupling)bits.push(`муфты: ${ev.byCategory.coupling}`);
-      record.maintenanceEquipmentType='conveyor';
-      record.maintenanceTemplate={...(record.maintenanceTemplate||{}),id:'conveyor_arrangement',title:(record.maintenanceEquipmentSubtype==='chain_scraper'||record.maintenanceTemplate?.conveyorSubtype==='chain_scraper')?'Цепной / скребковый конвейер':'Ленточный конвейер',requiresEngineerConfirmation:true,evidence:ev,mode:ev.count||ev.assets?.length?'use_actual':'needs_components',summary:(layoutBits.length||bits.length)?`Фактически найдено: ${[...layoutBits,...bits].join(' · ')}`:'Обслуживаемые ТМЦ автоматически не найдены — виртуальные точки не создаются.',note:'Подшипниковые места задаются физической схемой валов; найденные ТМЦ назначаются на конкретные опоры инженером.'};
+      if(ev.supportLayout?.supports?.length===4)bits.push('два подтверждённых вала: 4 места для проверки подшипников');
+      if(ev.byCategory?.bearing)bits.push('подшипники: '+ev.byCategory.bearing);
+      if(ev.byCategory?.chain)bits.push('цепи: '+ev.byCategory.chain);
+      if(ev.assets?.length)bits.push('приводные агрегаты: '+ev.assets.length);
+      const subtype=identity?.subtype||'unknown',title=identity?.label||'Конвейер: подтвердите конструкцию';
+      previewRecord={...record,maintenanceEquipmentType:'conveyor',maintenanceEquipmentSubtype:subtype,
+        maintenanceTemplate:{...(record.maintenanceTemplate||{}),id:'conveyor_arrangement',title,
+          conveyorSubtype:subtype,requiresEngineerConfirmation:true,evidence:ev,
+          mode:ev.count||ev.assets?.length?'use_actual':'needs_components',
+          summary:bits.length?'Фактически найдено: '+bits.join(' · '):'Обслуживаемые ТМЦ не найдены — точки не создаются.',
+          note:ev.supportLayout?'Укажите физические подшипники для каждого места двухвального механизма.':'Не определена двухвальная схема: доступны только реальные ТМЦ и подтверждённые места обслуживания.'}};
     }
   }
-  const template=source==='equipment'?record.maintenanceTemplate:record.candidateTemplate;
-  const specs=specsFor(record,source);
+  const template=source==='equipment'?previewRecord.maintenanceTemplate:previewRecord.candidateTemplate;
+  const specs=specsFor(previewRecord,source);
   const dlg=document.getElementById('structureDialog');
   if(!dlg)return;
-  const title=source==='equipment'?(record.maintenanceLabel||record.name):(record.candidateLabel||record.name||'Кандидат');
+  const title=source==='equipment'?(previewRecord.maintenanceLabel||previewRecord.name):(previewRecord.candidateLabel||previewRecord.name||'Кандидат');
   dlg.classList.add('candidate-finalize-dialog');
   dlg.innerHTML=`<form method="dialog" class="structure-form">
     <div class="dialog-head"><div><span class="eyebrow">ИНЖЕНЕРНОЕ ПОДТВЕРЖДЕНИЕ</span><h2>${esc(title)}</h2></div><button type="button" class="icon-btn" data-cancel>×</button></div>
