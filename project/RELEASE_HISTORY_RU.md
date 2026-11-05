@@ -1,5 +1,16 @@
 # История релизов LUBRICA
 
+## 1.0.33.70 RC — Engineer Candidate Decisions (Stage 2)
+
+- четыре инженерных решения по импортированным ТМЦ во вкладке «Контроль»;
+- обязательные reason/evidence и physical confirmation;
+- создание точек через существующий CandidateFinalizer;
+- provenance, history, preview/transaction, safe undo, import/source drift;
+- Stage 2 targeted + full regression;
+- `releases/RELEASE_1_0_33_70_CANDIDATE_DECISIONS_STAGE2.md`;
+- `acceptance/LUBRICA_1_0_33_70_REGRESSION_ACCEPTANCE.txt`.
+
+
 ## 1.0.33.69 RC — Plant Point Safety & Candidate Review Queue (Stage 1)
 
 - инженерные read-only проверки условно обслуживаемых SKF sealed spherical и master-data материалов;

@@ -22,7 +22,7 @@
 
 ## 2. Текущая база
 
-Текущий release candidate: **LUBRICA 1.0.33.69 — Plant Point Safety & Review Queue (Stage 1)**. Принятый predecessor: 1.0.33.68. Полный рабочий план — `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
+Текущий release candidate: **LUBRICA 1.0.33.70 — Engineer Candidate Decisions (Stage 2)**. Программный predecessor: 1.0.33.69; последний ZIP: 1.0.33.68. Полный рабочий план — `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
 
 После проектной памяти прочитай последние release note и regression/engineering acceptance, относящиеся к задаче.
 
@@ -106,8 +106,11 @@
 
 ## Продолжение после 1.0.33.68
 
-Текущий функциональный этап: **Plant Lubrication Point Completion** (1.0.33.69 Stage 1 в `main` после PR #15; дальнейшая работа — Issues #11–#14). Перед следующими изменениями прочитать `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
+Текущий функциональный этап: **Plant Lubrication Point Completion** (Stage 1 PR #15 слит в main; Stage 2 PR #16; дальнейшая работа — Issues #11–#14). Перед следующими изменениями прочитать `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
 
 Важный OEM-вывод: SKF sealed spherical roller 2CS/VT143 **может** требовать досмазывания, но не по универсальной формуле открытого подшипника без проверки grease life, доступа к каналам, совместимости материала и SKF OEM; автоматический запрет любой релубрикации тоже неверен.
 
 Первоочередное продолжение: инженерное подтверждение кандидатов оборудования через «Контроль», не создавать виртуальные опоры. Пользовательское руководство и скриншоты отложены до функциональной завершённости.
+
+
+Stage 2 вводит `qa/engineering-decisions.js`, расширяет `qa/qa-ui.js` и переиспользует `import/candidate-finalizer.js`. Четыре решения: точка / контекст / не смазывается / требует уточнения, с предпросмотром, источником, историей и защищённой отменой. Не создавать виртуальные узлы. Полный актуальный план: `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.

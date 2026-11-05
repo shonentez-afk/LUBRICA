@@ -55,6 +55,10 @@ const REVIEW_PRIORITY={bearing:5,linear_bearing:5,gearbox_oil:5,chain:4,screw_dr
 function candidateQueue(database=db()){
  const d=database||{},equipment=mapBy(d.equipment),lines=mapBy(d.lines),areas=mapBy(d.areas),groups=new Map(),byCategory={};
  const linked=new Set(arr(d.lubricationPoints).map(p=>clean(p?.componentBinding?.sourceComponentId)).filter(Boolean));
+ for(const p of arr(d.lubricationPoints)){
+  const m=clean(p?.candidateOriginKey).match(/^component:([^:]+):/);
+  if(m)linked.add(m[1]);
+ }
  let totalCandidates=0,alreadyLinked=0;
  for(const part of arr(d.components)){
   const category=clean(part.candidateCategory),state=clean(part.candidateState).toLowerCase();
@@ -66,12 +70,18 @@ function candidateQueue(database=db()){
   if(!groups.has(groupId))groups.set(groupId,{equipmentId:groupId,equipmentName:clean(e.name)||groupId,lineId:String(e.lineId||''),lineName:clean(line?.name)||String(e.lineId||''),areaName:clean(area?.name)||String(e.areaId||''),count:0,priority:0,byCategory:{},items:[]});
   const g=groups.get(groupId);g.count++;g.priority+=REVIEW_PRIORITY[category]||1;g.byCategory[category]=(g.byCategory[category]||0)+1;
   // A component is evidence for a possible service location, not a service point.
-  g.items.push({id:String(part.id),name:clean(part.name),category,state});
+  g.items.push({id:String(part.id),name:clean(part.name),externalCode:clean(part.externalCode),category,state,decision:part.engineeringDecision?.action||'',decisionReason:clean(part.engineeringDecision?.reason)});
   byCategory[category]=(byCategory[category]||0)+1;
  }
  const result=Array.from(groups.values()).sort((a,b)=>b.priority-a.priority||b.count-a.count||a.equipmentName.localeCompare(b.equipmentName,'ru'));
  const lineOptions=Array.from(new Map(result.map(g=>[g.lineId,{id:g.lineId,name:g.lineName}])).values()).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
- return {totalCandidates,alreadyLinked,unlinked:result.reduce((n,g)=>n+g.count,0),byCategory,groups:result,lines:lineOptions,categoryLabels:REVIEW_CATEGORY_LABELS};
+ const resolved=arr(d.components).filter(c=>c.engineeringDecision?.action&&equipment.has(clean(c.equipmentId)))
+ .map(c=>{const e=equipment.get(clean(c.equipmentId)),line=lines.get(clean(e.lineId)),decision=c.engineeringDecision;
+   return{componentId:String(c.id),componentName:clean(c.name),externalCode:clean(c.externalCode),equipmentId:String(e.id),
+    equipmentName:clean(e.name),lineId:clean(e.lineId),lineName:clean(line?.name),action:clean(decision.action),
+    reason:clean(decision.reason),sourceReference:clean(decision.sourceReference),confirmedAt:clean(decision.confirmedAt),
+    createdPointIds:arr(decision.createdPointIds).map(String)};}).sort((a,b)=>b.confirmedAt.localeCompare(a.confirmedAt)||a.componentName.localeCompare(b.componentName,'ru'));
+ return {totalCandidates,alreadyLinked,unlinked:result.reduce((n,g)=>n+g.count,0),byCategory,groups:result,lines:lineOptions,categoryLabels:REVIEW_CATEGORY_LABELS,resolved};
 }
 function skfSealedSpherical(p){
  const bearing=p?.bearing||{},calc=bearing.calculation||{},designation=clean(bearing.effectiveDesignation||bearing.actualDesignation||bearing.structuralDesignation).toUpperCase().replace(/\s+/g,'');
@@ -84,6 +94,17 @@ function audit(database=db()){
  const materialByName=new Map(arr(d.materials).flatMap(m=>[[clean(m.name).toLowerCase(),m],[clean(m.code).toLowerCase(),m]]).filter(x=>x[0]));
  const routes=arr(d.routes),issues=[],b=createBucket();
  function check(category,ok,problem){b[category].applicable++;if(ok){b[category].passed++;return}b[category].issues++;if(problem)issues.push(problem)}
+ // Engineer decisions must not silently remain trusted after a source component changes on re-import.
+ for(const c of arr(d.components)){
+  const prior=c.engineeringDecision?.identity;if(!prior)continue;
+  const current={equipmentId:clean(c.equipmentId),externalCode:clean(c.externalCode),
+   name:clean(c.name),category:clean(c.candidateCategory)};
+  const drift=Object.keys(current).some(key=>current[key]!==clean(prior[key]));
+  check('structure',!drift,issue('ENGINEERING_DECISION_SOURCE_CHANGED','structure','warn','component',c.id,
+   'Изменился исходный ТМЦ после инженерного решения',
+   c.id+' · '+(c.name||'ТМЦ')+': изменена идентичность, категория или оборудование. Перепроверьте ранее сохранённое инженерное решение и его доказательство.',
+   'Открыть оборудование'));
+ }
  // STRUCTURE: equipment and points must resolve through the current hierarchy.
  for(const p of lps.values()){
    const e=eq.get(String(p.equipmentId||'')),n=nodes.get(String(p.nodeId||''));

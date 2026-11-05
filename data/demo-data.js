@@ -1,5 +1,5 @@
 "use strict";
-const APP_VERSION="1.0.33.69";
+const APP_VERSION="1.0.33.70";
 const TYPE_LABELS={bearing:"Подшипник",chain:"Цепь",gearbox_oil:"Редукторное масло",coupling:"Муфта",open_gear:"Открытая зубчатая передача",guide:"Направляющая",joint:"Шарнир",bushing:"Втулка",screw:"Винтовая передача",rope:"Канат",oil_system:"Масляная система",central_point:"Централизованная подача",other:"Прочая точка"};
 const TYPE_ICONS={bearing:"◉",chain:"⛓",gearbox_oil:"⬡",coupling:"◌",open_gear:"⚙",guide:"↔",joint:"◇",bushing:"○",screw:"↻",rope:"〰",oil_system:"◒",central_point:"◎",other:"◆"};
 const STATUS_LABELS={ready:"Готово",review:"Требует проверки",issue:"Требуются данные"};

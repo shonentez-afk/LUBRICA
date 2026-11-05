@@ -1,6 +1,6 @@
 # LUBRICA 1.0.33.69 — Plant Lubrication Point Completion
 
-**Статус:** Stage 1 (read-only QA + очередь) слит в `main` через PR #15, CI PASS; последующие этапы Issues #11–#14 остаются открытыми. Production predecessor: **1.0.33.68**. Основной продукт: автономный desktop / Edge / `file://`.
+**Статус:** Stage 1 (read-only QA + очередь) слит в `main` через PR #15; Stage 2 (engineer decisions) реализован в PR #16 / 1.0.33.70 RC и ожидает финальной CI и ручной приёмки. Issues #11–#14 остаются открытыми. Production predecessor: **1.0.33.68**. Основной продукт: автономный desktop / Edge / `file://`.
 
 ## Цель
 
@@ -75,3 +75,14 @@
 ## Текущая итерация (начата)
 
 P0: инженерные QA checks + read-only кандидатная очередь P1 (первый проход) + targeted test + regression; без переписывания калькуляторов и без изменения исходных production-data.
+
+
+## Stage 2 (engineer decisions) — реализованный контракт
+
+- `qa/engineering-decisions.js`: решения `point/context/not_lubricated/clarify`, причина и источник для физически значимых действий, read-only preview, idempotent commit, guarded undo.
+- `qa/qa-ui.js`: разворачивание ТМЦ по оборудованию, постраничный список, модальный предпросмотр, история решений и защищённая отмена.
+- `import/candidate-finalizer.js`: прежний мастер точек применяется транзакционно к подтверждённым source components; новые мероприятия остаются `review`.
+- Provenance: `component.engineeringDecision`, `engineeringDecisionHistory`, `point.engineeringSources.physical`.
+- Изменение ТМЦ после повторного импорта отмечается в QA, а старые решения не передаются автоматически иному физическому узлу.
+- Очередь кандидатов не равна числу будущих точек, физические опоры без проверки не создавать.
+- Edge `file://` и recovery на новой пользовательской базе — ручная приёмка, после неё можно закрывать Issue #12.
