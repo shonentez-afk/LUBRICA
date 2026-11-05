@@ -80,6 +80,7 @@ const src=d.lubricationPoints[0],target=d.lubricationPoints[1],proof={
 };
 d.tasks[1].approvalStatus='review';d.tasks[1].materialId=null;d.tasks[1].quantity.approved='';d.tasks[1].schedule.legacyText='';
 const fields={technical:true,material:true,tasks:true,quantity:true,schedule:true,sources:true};
+target.status='confirmed';
 const sourceOriginal=JSON.stringify(src),targetCalc=JSON.stringify(target.bearing);
 const p=ANALOG.previewTransfer(d,target,src,fields,proof);
 assert.equal(p.ok,true,'same physical bearing plus evidence permits suggestions');
@@ -92,6 +93,7 @@ assert(!ANALOG.previewTransfer(d,target,src,fields,{physicalConfirmed:true,reaso
 const out=ANALOG.applyTransfer(d,target,src,fields,proof);
 assert(out.ok&&out.reviewRequired);
 assert.equal(target.currentMaterialId,'MAT2','actual installed material must not be copied');
+assert.equal(target.status,'confirmed','physical point confirmation must not be downgraded');
 assert.equal(target.targetMaterialId,'MAT1','target lubricant suggested for empty target');
 assert.equal(JSON.stringify(target.bearing),targetCalc,'actual geometry and OEM calculation kept');
 assert.equal(target.id,'LP2');assert.equal(target.nodeId,'N2');assert.equal(target.equipmentId,'E2');
@@ -115,6 +117,9 @@ d.tasks[1].approvalStatus='review';
 d.routes=[{id:'R1',taskIds:['TASK-000002']}];
 assert(!ANALOG.previewTransfer(d,target,src,fields,proof).ok,'route reference blocks overwrite');
 d.routes=[];
+d.tasks[1].approvalStatus='disabled';
+assert(!ANALOG.previewTransfer(d,target,src,fields,proof).ok,'disabled task must not be activated by analog');
+d.tasks[1].approvalStatus='review';
 d.nodes=d.nodes.filter(n=>n.id!=='N2');
 assert(!ANALOG.previewTransfer(d,target,src,fields,proof).ok,'unbound virtual node cannot receive analog');
 d.nodes.push({id:'N2',equipmentId:'E2',name:'Опора'});
