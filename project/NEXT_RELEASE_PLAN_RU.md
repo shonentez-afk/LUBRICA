@@ -34,14 +34,9 @@
 - repeated apply;
 - reload/reconcile.
 
-Результат: **PASS_WITH_BLOCKERS**. Runtime-hour planning реализован в этой же ветке. Для окончательного field acceptance остаётся Issue #1.
+Результат: **PASS_WITH_BLOCKERS**. Runtime-hour planning реализован в этой же ветке. PP-53736 full-machine acceptance завершена; отдельных field blockers больше нет.
 
-## Шаг 3. Закрыть полевые подтверждения PP-53736
-
-- подтвердить R77 №5–№8 Line 1: M1 или M3;
-- после этого обновить production DB/provenance и выпустить окончательный acceptance PP-53736.
-
-## Шаг 4. Документация
+## Шаг 3. Документация
 
 Перед новым production baseline:
 - сверить встроенное руководство с текущим UI;
@@ -49,7 +44,7 @@
 - проверить developer guide;
 - обновить PROJECT_STATE, MODULE_STATUS, ROADMAP и OPEN_QUESTIONS.
 
-## Шаг 5. Следующее расширение
+## Шаг 4. Следующее расширение
 
 После закрытия PP-53736 выбирать следующий модуль только из реального производственного парка.
 

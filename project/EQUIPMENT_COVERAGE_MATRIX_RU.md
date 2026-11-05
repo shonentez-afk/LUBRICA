@@ -25,7 +25,7 @@
 | Производитель/семейство | Статус | Что уже есть | Что осталось |
 |---|---|---|---|
 | SEW K37 | READY | OEM fill table M1–M6; пользователь выбирает монтажное положение при конфигурации, объём подставляется автоматически; interval handling | расширять только по новым исполнениям/OEM-источникам |
-| SEW R77 standalone | READY/PARTIAL | OEM fill table, revision invalidation, PP-53736 hints | Line 1 R77 #5–#8 подтвердить физически |
+| SEW R77 standalone | READY | OEM fill table, revision invalidation, PP-53736 drawing hints; M1–M6 выбирается пользователем при конфигурации | сохранять hint как предупреждение, не как автоматическую подмену |
 | SEW KF37R17 | READY | две независимые oil cavities; M1–M6 выбирается при конфигурации; объёмы полостей подставляются автоматически; planning total only | сохранять раздельную заливку двух полостей |
 | SEW S37 | READY | OEM fill table M1–M6; выбор положения при конфигурации; motor-token protection | расширять только по новым исполнениям/OEM-источникам |
 | Bonfiglioli | READY/PARTIAL | recognition, fill/interval fixes | расширять по реальному парку |
@@ -60,7 +60,7 @@
 | Generic conveyor | READY/PARTIAL | arrangement engine, 4 supports, manual parity | field-specific extensions |
 | Chain scraper conveyor | READY/PARTIAL | dedicated constructor | expand from real equipment |
 | Fan arrangements | READY/PARTIAL | no virtual supports, OEM-specific rules | add new manufacturers modularly |
-| Izoteh PP-53736 | READY/PARTIAL | full machine profile; programmatic full-machine acceptance PASS; 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points; routes/runtime planning/export verified; 5000/500 h resolved; M1–M6 handled by configuration workflow | field-close Issue #1 |
+| Izoteh PP-53736 | READY | full machine profile; full-machine acceptance PASS; 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points; routes/runtime planning/export verified; 5000/500 h resolved; all SEW M1–M6 handled by configuration workflow | расширять только при изменении реальной машины/документации |
 
 ## Правило обновления
 
