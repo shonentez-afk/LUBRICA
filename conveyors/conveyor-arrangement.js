@@ -30,14 +30,22 @@ function ensureManualComponents(db,equipment,setup={}){
   // Only explicitly identified drive / chain assets are allowed; bearings need real TMCs.
   if(!['belt','chain_scraper'].includes(subtype)){
     const driveMode=clean(setup.driveMode)||'none';
-    if(driveMode==='motor_gearbox')upsert('drive',clean(setup.driveName),'motor_gearbox');
-    else if(driveMode==='gearbox')upsert('drive_gearbox',clean(setup.gearboxName),'gearbox');
-    else if(driveMode==='separate'){
-      upsert('drive_motor',clean(setup.motorName),'motor');
-      upsert('drive_gearbox',clean(setup.gearboxName),'gearbox');
+    const upsertDrive=(role,value,kind)=>upsert(role,value,kind);
+    if(driveMode==='motor_gearbox'){
+      upsertDrive('drive',clean(setup.driveName),'motor_gearbox');
+      upsertDrive('drive_motor','','motor');upsertDrive('drive_gearbox','','gearbox');
+    }else if(driveMode==='gearbox'){
+      upsertDrive('drive_gearbox',clean(setup.gearboxName),'gearbox');
+      upsertDrive('drive','','motor_gearbox');upsertDrive('drive_motor','','motor');
+    }else if(driveMode==='separate'){
+      upsertDrive('drive_motor',clean(setup.motorName),'motor');
+      upsertDrive('drive_gearbox',clean(setup.gearboxName),'gearbox');
+      upsertDrive('drive','','motor_gearbox');
+    }else{
+      upsertDrive('drive','','motor_gearbox');upsertDrive('drive_motor','','motor');upsertDrive('drive_gearbox','','gearbox');
     }
     // A family name does not prove the presence of any lubricated chain or oil cavity.
-    if(setup.chainEnabled!==false&&clean(setup.chainName))upsert('chain',clean(setup.chainName),'chain');
+    upsert('chain',setup.chainEnabled!==false?clean(setup.chainName):'','chain');
     const prev=equipment.manualConveyorSetup||{};
     equipment.manualConveyorSetup={...prev,version:'1.0.33.72',conveyorSubtype:subtype,
       layout:'ACTUAL_COMPONENTS_ONLY',chainEnabled:setup.chainEnabled!==false,
