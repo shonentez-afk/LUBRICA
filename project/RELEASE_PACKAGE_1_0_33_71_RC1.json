@@ -1,0 +1,17 @@
+{
+  "version": "1.0.33.71",
+  "channel": "rc1",
+  "tag": "v1.0.33.71-rc1",
+  "prerelease": true,
+  "source_sha": "c9cea6ff228c247ca30d3bfc2bc01bea80822bc4",
+  "zip_file": "LUBRICA_RELEASE_1_0_33_71_RC1.zip",
+  "zip_bytes": 19171371,
+  "zip_sha256": "61d012e5273b9de1fbf53fcf12149bb1decac66b04d8377880e2e2a1929fb5f7",
+  "checksum_file": "LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256",
+  "asset_names": [
+    "LUBRICA_RELEASE_1_0_33_71_RC1.zip",
+    "LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256"
+  ],
+  "release_url": "https://github.com/shonentez-afk/LUBRICA/releases/tag/v1.0.33.71-rc1",
+  "verified_at": "2026-11-05T06:47:50.552031+00:00"
+}
