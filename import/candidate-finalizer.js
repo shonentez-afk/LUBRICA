@@ -398,6 +398,24 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Подтвердить и создать</button>':''}</menu>
   </form>`;
   const form=dlg.querySelector('form');
+  if(template?.id==='conveyor_arrangement'&&form.elements.conveyorSubtypeChoice){
+    form.elements.conveyorSubtypeChoice.onchange=()=>{
+      const selected=form.elements.conveyorSubtypeChoice.value;
+      if(selected===template.conveyorSubtype)return;
+      if((database.lubricationPoints||[]).some(p=>p.equipmentId===equipment.id)){
+        global.LubricaApp?.showToast('На оборудовании уже есть физические точки. Изменение типа требует отдельного инженерного пересмотра.','warn');
+        form.elements.conveyorSubtypeChoice.value=template.conveyorSubtype||'unknown';
+        return;
+      }
+      if((database.components||[]).some(c=>c.equipmentId===equipment.id&&c.status!=='retired'&&c.manualConveyorSupport)){
+        global.LubricaApp?.showToast('Для ручного оборудования сначала проверьте ранее введённые опоры. Переход между схемами через этот мастер заблокирован.','warn');
+        form.elements.conveyorSubtypeChoice.value=template.conveyorSubtype||'unknown';
+        return;
+      }
+      dlg.classList.remove('candidate-finalize-dialog');dlg.close();
+      open(source,id,decisionContext,selected);
+    };
+  }
 
   specs.forEach((s,i)=>{
     bindCustomVisibility(form,i);
