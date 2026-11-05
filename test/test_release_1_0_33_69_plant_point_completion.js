@@ -45,6 +45,12 @@ d.tasks[0].approvalStatus='review';d.lubricationPoints[0].bearing.calculation.se
 d.lubricationPoints[0].bearing.calculation.sealedRelubeSource='SKF sealed spherical bearing procedure + physical grease feed confirmed';
 d.lubricationPoints[0].bearing.calculation.relubeMethod='skf_sealed';
 r=QA.audit(d);assert(!r.issues.some(x=>x.code==='SKF_SEALED_RELUBE_REVIEW'),'explicit evidence can resolve warning');
+
+const foreign=fixture();
+foreign.lubricationPoints[0].bearing.calculation.manufacturer='NSK';
+foreign.lubricationPoints[0].bearing.calculation.oemSource='NSK only';
+foreign.lubricationPoints[0].bearing.catalogId='BRG-OTHER';
+assert(!QA.audit(foreign).issues.some(x=>x.code==='SKF_SEALED_RELUBE_REVIEW'),'SKF-specific checks must not transfer to another OEM just by designation');
 let q=QA.candidateQueue(d);
 assert.equal(q.totalCandidates,3);assert.equal(q.alreadyLinked,1);assert.equal(q.unlinked,2);
 assert.equal(q.groups.length,2);assert.equal(q.byCategory.chain,1);assert.equal(q.byCategory.bushing,1);
