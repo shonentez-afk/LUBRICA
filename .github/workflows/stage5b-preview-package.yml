@@ -10,6 +10,7 @@ on:
       - 'structure/entity-dialogs.js'
       - 'structure/detail-ui.js'
       - 'test/test_release_1_0_33_73_conveyor_families.js'
+      - 'test/test_release_1_0_33_75_composite_conveyor_ui.js'
       - '.github/workflows/stage5b-preview-package.yml'
   workflow_dispatch:
 
@@ -37,6 +38,7 @@ jobs:
           node --check structure/detail-ui.js
           node test/test_release_1_0_33_73_conveyor_families.js
           node test/test_release_1_0_33_74_conveyor_header.js
+          node test/test_release_1_0_33_75_composite_conveyor_ui.js
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
           node tests/test_release_1_0_33_14_manual_conveyor_parity.js
           node tests/test_release_1_0_33_15_conveyor_bearing_assignment.js
