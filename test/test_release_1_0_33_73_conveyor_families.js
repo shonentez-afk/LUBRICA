@@ -145,4 +145,55 @@ assert(finalizer.includes('conveyorSubtypeChoice'),'all conveyor subtypes select
 assert(finalizer.includes('Сохранить тип без точек'),'subtype can be stored without virtual service points');
 assert(finalizer.includes('previewConveyorSubtype'),'subtype change rebuilds read-only evidence');
 
-console.log('PASS Stage 5B conveyor families: 12 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
+
+// Real-site screenshot regression: 10108276, upper lamella conveyor (Nov 05).
+// Two identical bearing designations are two distinct TMC records, not a single
+// service point, and their actual service positions still need confirmation.
+const upper=equipment('LAM-10108276','Конвейер ламельный верхний');
+upper.externalCode='10108276';
+const cooling=equipment('COOL-10108276','Система охлаждения привода конвейера ламельного верхнего',upper.id);
+const upperDb={equipment:[upper,cooling],components:[],lubricationPoints:[],tasks:[],routes:[],checklistRuns:[],routePlanItems:[],nodes:[]};
+upperDb.components.push(
+ component('CHAIN-1524',upper.id,'Цепь тяговая P=152,4','chain'),
+ component('BEARING-DRIVE',upper.id,'23234 CCK/W33','bearing'),
+ component('BEARING-RETURN',upper.id,'23234 CCK/W33','bearing'),
+ component('SHAFT-DRIVE',upper.id,'Вал КП верхний приводной усиленный L=3763 мм',null,'rotating_shaft'),
+ component('SHAFT-RETURN',upper.id,'Вал КП верхний холостой L=3553 мм',null,'rotating_shaft'),
+ component('MOTOR-1',upper.id,'Электродвигатель HQL 160SL B5',null,'motor'),
+ component('GEARBOX',upper.id,'Редуктор SL8504FAR 1:233,5 EPIC PAM 200',null,'gearbox'),
+ component('MOTOR-2',upper.id,'Электродвигатель M2AA 080A4 B5',null,'motor')
+);
+for(const [i,name] of ['Втулка закрепительная H 2334','Втулка закрепительная H 2330',
+ 'Звездочка P=152,4 Z=21 D=235','Болт M18x1,5x45 8.8 DIN 961',
+ 'Гайка M18x1,5 8 V M DIN 980'].entries()){
+ const x=component('PASSIVE-'+i,upper.id,name);
+ x.candidateState='excluded';
+ upperDb.components.push(x);
+}
+const beforeUpper=JSON.stringify(upperDb);
+const upperClass=C.classifyEquipment(upperDb,upper),upperEv=upperClass.maintenanceTemplate.evidence;
+assert.equal(upperClass.maintenanceEquipmentSubtype,'lamella','10108276 is lamella');
+assert.equal(upperEv.byCategory.bearing,2,'two distinct bearing records preserved');
+assert.equal(upperEv.byCategory.chain,1,'one imported chain TMC; not a count of physical strands');
+assert.equal(upperEv.context.length,2,'two installed shafts are context, not extra bearing points');
+assert.equal(upperEv.assets.length,3,'two motors and one reducer');
+assert.equal(upperEv.ancillary.length,1,'drive cooling system is ancillary');
+assert.equal(upperEv.ancillary[0].id,'COOL-10108276');
+assert.equal(upperEv.excluded.length,5,'fasteners, sprocket and sleeves are not points');
+assert.equal(upperEv.supportLayout,null,'lamella cannot inherit 2x2 supports');
+const upperCompose=Arr.composeEvidence(upperClass.maintenanceTemplate);
+assert.equal(upperCompose.createsPoints,false,'visualization is read-only');
+for(const [role,count] of [['bearings',2],['chains',1],['shafts',2],['drives',3],['ancillary',1]]){
+ assert.equal(upperCompose.sections.find(x=>x.role===role).count,count,'10108276 '+role);
+}
+const upperSpecs=F.specsFor(upperClass,'equipment');
+const bearingSpecs=upperSpecs.filter(x=>x.category==='bearing');
+assert.equal(bearingSpecs.length,2,'one proposal per actual bearing source record');
+assert.notEqual(bearingSpecs[0].key,bearingSpecs[1].key,'identical catalog designation cannot collapse two bearings');
+assert.deepEqual(new Set(bearingSpecs.map(x=>x.sourceRef.id)),
+ new Set(['BEARING-DRIVE','BEARING-RETURN']));
+assert(upperSpecs.every(x=>x.selected===false),'no unconfirmed automatic grease/oil actions');
+assert(!upperSpecs.some(x=>x.sourceRef?.id==='COOL-10108276'),'cooling system is not a lubrication point');
+assert.equal(JSON.stringify(upperDb),beforeUpper,'read-only analysis cannot modify site structure');
+
+console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
