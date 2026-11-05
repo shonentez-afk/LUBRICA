@@ -262,29 +262,44 @@ chainDb.components.push(
  component('CHAIN-GUIDE-2',chainOne.id,'Направляющая 15x50x600 PA 6-G OILAMID','guide'),
  component('CHAIN-GUIDE-3',chainOne.id,'Направляющая 35x50x1050 PA 6-G OILAMID','guide')
 );
+// Local engineer confirmed: all OILAMID guides in this conveyor require NO external lubricant.
+for(const g of chainDb.components.filter(x=>x.name.includes('OILAMID'))){
+ assert.equal(C.isNonLubricatedOilamidGuide(g.name),true);
+ const classified=C.classifyComponentText(g.name);
+ assert.equal(classified.state,'excluded','OILAMID component classification');
+ assert.equal(classified.category,null,'OILAMID is no longer grease-point category');
+ const upgraded=C.classifyComponent(g);
+ assert.equal(upgraded.candidateState,'excluded','old candidate updates on reclassification');
+ assert.equal(upgraded.candidateCategory,null,'no stale guide category after reclassification');
+}
+assert.equal(C.classifyComponentText('Направляющая рельсовая подшипниковая').state,'review',
+ 'do not exclude generic guides or linear bearings');
+assert.equal(C.classifyComponentText('Направляющая PA 6 G + Oil').state,'excluded',
+ 'the alternative PA 6 G + Oil spelling must be supported');
 const chainBefore=JSON.stringify(chainDb);
 const chainTyped=C.classifyEquipment(chainDb,chainOne),chainEv=chainTyped.maintenanceTemplate.evidence;
 assert.equal(chainTyped.maintenanceEquipmentSubtype,'chain','10109145 is chain, not KTR-specific profile');
 assert.equal(chainEv.byCategory.chain,1,'one actual imported chain source');
 assert.equal(chainEv.byCategory.bearing,1,'one actual imported FY 55 TF source');
-assert.equal(chainEv.byCategory.guide,3,'three separate OILAMID guide source rows');
+assert.equal(chainEv.byCategory.guide||0,0,'OILAMID guides are not lubrication candidates');
+assert.equal(chainEv.excluded.length,3,'three OILAMID source rows are excluded from lubrication, not erased');
+assert(chainEv.excluded.every(x=>x.reason.includes('внешняя смазка не требуется')),'site-approved exclusion reason visible');
 assert.equal(chainEv.assets.length,1,'one FH77/G gearede motor asset');
 assert.equal(chainEv.context.length,0,'no confirmed shaft records in screenshot');
 assert.equal(chainEv.supportLayout,null,'never invent four bearing supports');
-assert.equal(chainEv.excluded.length,0,'OILAMID not automatically rejected without machine instructions');
+assert.equal(chainDb.components.filter(x=>x.name.includes('OILAMID')).length,3,'source mechanical components remain in plant structure');
 const chainProfile=Arr.composeEvidence(chainTyped.maintenanceTemplate);
 assert.equal(chainProfile.sections.find(x=>x.role==='chains').count,1);
 assert.equal(chainProfile.sections.find(x=>x.role==='bearings').count,1);
 assert.equal(chainProfile.sections.find(x=>x.role==='drives').count,1);
-assert.equal(chainProfile.sections.find(x=>x.role==='other').count,3,
- 'self-lubricating PA 6 G + Oil stays review, not approved service');
+assert(!chainProfile.sections.some(x=>x.role==='other'&&x.count>0),'OILAMID guides no longer appear as potentially lubricated pairs');
 const chainSpecs=F.specsFor(chainTyped,'equipment');
 assert.equal(chainSpecs.filter(x=>x.category==='bearing').length,1);
 assert.equal(chainSpecs.filter(x=>x.category==='chain').length,1);
-assert.equal(chainSpecs.filter(x=>x.category==='guide').length,3);
+assert.equal(chainSpecs.filter(x=>x.category==='guide').length,0,'no OILAMID grease point proposals');
 assert.equal(chainSpecs.filter(x=>x.category==='gearbox_oil').length,1);
-assert(chainSpecs.filter(x=>x.category==='guide').every(x=>!x.selected),
- 'polymer guides must not be auto-selected for lubricant replenishment');
+assert(chainEv.excluded.every(x=>x.servicePolicy==='NO_EXTERNAL_LUBRICATION'),
+ 'exclusion is explicit for imported pre-classified legacy guide components');
 assert(chainSpecs.filter(x=>x.category==='bearing'||x.category==='chain').every(x=>!x.selected),
  'no machine-specific lubricant dose or approval from component names');
 assert.equal(new Set(chainSpecs.map(x=>x.key)).size,chainSpecs.length,'TMC identity is stable and distinct');
