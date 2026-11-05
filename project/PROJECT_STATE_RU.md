@@ -2,7 +2,7 @@
 
 ## Базовая версия
 
-**1.0.33.68 RC — PP-53736 Full Machine Acceptance & Runtime-Hour Planning**.
+**1.0.33.69 RC — Plant Point Safety & Review Queue (Stage 1)**. Production predecessor: **1.0.33.68**.
 
 Эта версия-кандидат продолжает линию релизов 1.0.5 → 1.0.27+ → 1.0.31+ → 1.0.33.x и включает накопленные исправления расчётной архитектуры, OEM-источников, конструкторов оборудования, импорта, маршрутов, UI/UX и regression QA.
 
@@ -50,3 +50,14 @@
 - full regression в GitHub CI: PASS.
 
 PP-53736 программно закрыт. Issue #1–#3 закрыты как уточнения рабочего workflow: 5000/500 h = 5000 ч рабочий цикл + 500 ч first service; M1–M6 для K37/KF37R17/R77/S37 выбирается пользователем при создании/настройке карты, после чего LUBRICA автоматически выдаёт OEM-объём масла. Drawing hint для R77 №5–№8 остаётся предупреждением и не перезаписывает пользовательский выбор.
+
+
+## Текущий функциональный этап: 1.0.33.69 RC (Stage 1)
+
+**Plant Lubrication Point Completion**, branch `work/plant-point-completion-1-0-33-69`, PR #15, Issues #11–#14. Accepted main predecessor — 1.0.33.68.
+
+От поставленной production БД 2026-11-05: 501 физических точка, 517 мероприятий; незавершённые задачи и 1443 кандидата на инженерный разбор (включая муфты), без автоматического создания узлов.
+
+Первый пакет: SKF sealed/machine-OEM quality QA, material sanity checks и read-only очередь кандидатов во вкладке «Контроль». Чертёж/ОЕМ и реальная конструкция — первичны, некорректные user-data не исправляются автоматически.
+
+Актуальная детализация: [PLANT_POINT_COMPLETION_PLAN_RU.md](PLANT_POINT_COMPLETION_PLAN_RU.md).

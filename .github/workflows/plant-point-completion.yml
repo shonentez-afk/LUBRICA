@@ -1,0 +1,43 @@
+name: Plant Point Completion P0/P1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'qa/**'
+      - 'test/test_release_1_0_33_69_plant_point_completion.js'
+      - 'test/run_all.sh'
+      - '.github/workflows/plant-point-completion.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: plant-point-completion-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Python dependencies for existing regression
+        run: python -m pip install --disable-pip-version-check beautifulsoup4 openpyxl pillow
+      - name: Plant point targeted acceptance
+        run: node test/test_release_1_0_33_69_plant_point_completion.js
+      - name: Existing QA contracts
+        run: |
+          node test/test_stage9_8_program_qa.js
+          python test/test_stage9_8_program_qa_ui.py
+      - name: Full LUBRICA regression
+        run: bash test/run_all.sh

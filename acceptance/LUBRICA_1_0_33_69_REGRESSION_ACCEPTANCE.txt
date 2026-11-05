@@ -1,0 +1,27 @@
+LUBRICA 1.0.33.69 — REGRESSION ACCEPTANCE
+Release candidate: Plant Point Safety & Candidate Review Queue (Stage 1)
+Date: 2026-11-05
+
+CURRENT STATUS
+- Targeted plant-point QA: PASS.
+- Existing Stage 9.8 QA contracts: PASS.
+- Full regression on product-code head before version-only RC sync: PASS.
+- Final full regression on synchronized 1.0.33.69 RC: PASS (GitHub Actions workflow run 41967801975).
+
+SCOPE
+- SKF sealed 2CS/VT143 relubrication audit; conditional OEM procedure (not blanket relube-free).
+- Special SKF guidance 0.0015×D×B, no silent override of approved quantity.
+- OEM-specific rule does not transfer to another manufacturer by string similarity.
+- Material density and ISO VG/40C viscosity sanity checks.
+- Read-only candidate equipment queue and no virtual points.
+- Existing production DB regression and all legacy LUBRICA checkpoints.
+
+INVARIANTS
+- No user JSON/data mutation.
+- No automatic point creation or deletion.
+- No automatic approval of review tasks.
+- No changes to approved route/task/plan snapshots.
+- No source substitution or hidden fallback.
+
+Final GitHub CI confirmation: PASS; Project Memory Audit: PASS (run 41967801606).
+No user data was modified. Manual Windows Edge/file:// production smoke remains a separate user acceptance step.

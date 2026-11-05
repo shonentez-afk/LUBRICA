@@ -47,6 +47,37 @@ function issue(code,category,severity,entityType,entityId,title,message,action='
 }
 function createBucket(){return Object.fromEntries(CATEGORY_ORDER.map(k=>[k,{key:k,label:CATEGORY_LABELS[k],passed:0,applicable:0,issues:0}]))}
 
+
+// Only actual imported component candidates are considered; no physical point is invented.
+const REVIEW_CATEGORIES=new Set(['bearing','linear_bearing','chain','bushing','joint','guide','coupling','screw_drive','open_gear','gearbox_oil','wire_rope','oil_system','central_point']);
+const REVIEW_CATEGORY_LABELS={bearing:'Подшипники',linear_bearing:'Линейные подшипники',chain:'Цепи',bushing:'Втулки',joint:'Шарниры',guide:'Направляющие',coupling:'Муфты',screw_drive:'Винты',open_gear:'Зубчатые передачи',gearbox_oil:'Редукторы',wire_rope:'Канаты',oil_system:'Масляные системы',central_point:'Центральные точки'};
+const REVIEW_PRIORITY={bearing:5,linear_bearing:5,gearbox_oil:5,chain:4,screw_drive:4,open_gear:4,coupling:3,bushing:2,joint:2,guide:2,wire_rope:2,oil_system:3,central_point:3};
+function candidateQueue(database=db()){
+ const d=database||{},equipment=mapBy(d.equipment),lines=mapBy(d.lines),areas=mapBy(d.areas),groups=new Map(),byCategory={};
+ const linked=new Set(arr(d.lubricationPoints).map(p=>clean(p?.componentBinding?.sourceComponentId)).filter(Boolean));
+ let totalCandidates=0,alreadyLinked=0;
+ for(const part of arr(d.components)){
+  const category=clean(part.candidateCategory),state=clean(part.candidateState).toLowerCase();
+  if(!REVIEW_CATEGORIES.has(category)||!['candidate','review'].includes(state))continue;
+  totalCandidates++;
+  if(linked.has(clean(part.id))){alreadyLinked++;continue}
+  const e=equipment.get(String(part.equipmentId||''));if(!e)continue;
+  const groupId=String(e.id),line=lines.get(String(e.lineId||'')),area=areas.get(String(e.areaId||''));
+  if(!groups.has(groupId))groups.set(groupId,{equipmentId:groupId,equipmentName:clean(e.name)||groupId,lineId:String(e.lineId||''),lineName:clean(line?.name)||String(e.lineId||''),areaName:clean(area?.name)||String(e.areaId||''),count:0,priority:0,byCategory:{},items:[]});
+  const g=groups.get(groupId);g.count++;g.priority+=REVIEW_PRIORITY[category]||1;g.byCategory[category]=(g.byCategory[category]||0)+1;
+  // A component is evidence for a possible service location, not a service point.
+  g.items.push({id:String(part.id),name:clean(part.name),category,state});
+  byCategory[category]=(byCategory[category]||0)+1;
+ }
+ const result=Array.from(groups.values()).sort((a,b)=>b.priority-a.priority||b.count-a.count||a.equipmentName.localeCompare(b.equipmentName,'ru'));
+ const lineOptions=Array.from(new Map(result.map(g=>[g.lineId,{id:g.lineId,name:g.lineName}])).values()).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+ return {totalCandidates,alreadyLinked,unlinked:result.reduce((n,g)=>n+g.count,0),byCategory,groups:result,lines:lineOptions,categoryLabels:REVIEW_CATEGORY_LABELS};
+}
+function skfSealedSpherical(p){
+ const bearing=p?.bearing||{},calc=bearing.calculation||{},designation=clean(bearing.effectiveDesignation||bearing.actualDesignation||bearing.structuralDesignation).toUpperCase().replace(/\s+/g,'');
+ return bearing.bearingType==='spherical_roller'&&(/\bSKF\b/i.test(clean(calc.manufacturer))||/\bSKF\b/i.test(clean(calc.oemSource))||/^BRG-SKF/.test(clean(bearing.catalogId).toUpperCase()))&&(/-2CS(?:2|5)?(?:\/|$)/.test(designation)||/^2CS(?:2|5)?$/.test(clean(bearing.sealingCode).toUpperCase()));
+}
+
 function audit(database=db()){
  const d=database||{},eq=mapBy(d.equipment),nodes=mapBy(d.nodes),lps=mapBy(d.lubricationPoints),tasks=mapBy(d.tasks),materials=mapBy(d.materials),tools=mapBy(d.tools);
  const libraryIds=new Set(arr(d.componentLibraryEntries).map(x=>String(x.id)));
@@ -96,6 +127,21 @@ function audit(database=db()){
      check('norms',qn!==null&&qn>0,issue('TASK_QUANTITY_MISSING','norms','error','task',t.id,'Нет утверждённой нормы',`${t.id} · ${op}: не задано положительное утверждённое количество.`,'Открыть мероприятие'));
      check('norms',has(taskUnit(t)),issue('TASK_QUANTITY_UNIT_MISSING','norms','error','task',t.id,'Нет единицы нормы',`${t.id} · ${op}: норма есть, но единица измерения не задана.`,'Открыть мероприятие'));
    }
+   if(p&&skfSealedSpherical(p)){
+     const bearing=p.bearing||{},bc=bearing.calculation||{},type=clean(t.activityType).toLowerCase(),operation=clean(t.operation).toLowerCase(),isRegrease=type==='regrease'||/досмаз/.test(operation),isRenewal=type==='grease_full_replacement'||/полная замена смазки/.test(operation);
+     const eRef=clean(bc.sealedRelubeSource||bearing.sealedRelubeSource);
+     const confirmed=bc.sealedRelubeConfirmed===true&&!!eRef;
+     const dmm=num(bearing.D),bmm=num(bearing.B),guide=dmm>0&&bmm>0?Math.round(.0015*dmm*bmm*100)/100:null;
+     if(isRegrease){
+       const q=num(taskQty(t)),isGeneric=clean(bc.relubeMethod)==='lubrica_unified';
+       const guideText=guide!==null?`Если OEM-повторная смазка действительно требуется, контрольный ориентир SKF Gp=0,0015×D×B — ${guide} г; записано ${q===null?'—':q+' г'}.`:'';
+       const msg=`SKF ${bearing.effectiveDesignation||p.name}: уплотнения 2CS не исключают досмазывание, но его необходимость определяется ресурсом заводской смазки, наличием доступного канала и OEM-процедурой. ${guideText} Проверьте совместимость выбранной смазки с заводской SKF LGEP 2; общая методика для открытого подшипника не может автоматически считаться подтверждённой.`;
+       if(!confirmed||isGeneric)check('norms',false,issue('SKF_SEALED_RELUBE_REVIEW','norms',approved(t)?'error':'warn','task',t.id,'SKF sealed: проверить необходимость и норму досмазывания',msg,'Открыть расчёт'));
+     }
+     if(isRenewal&&!bc.sealedFullRenewalConfirmed){
+       check('norms',false,issue('SKF_SEALED_FULL_RENEWAL_REVIEW','norms',approved(t)?'error':'warn','task',t.id,'SKF sealed: проверить применимость полной замены смазки',`${t.id}: закрытый подшипник ${bearing.effectiveDesignation||p.name}; подтвердите процедуру производителя или предусмотрите замену подшипника. Нельзя считать обычную полную замену смазки применимой по одному геометрическому объёму.`,'Открыть расчёт'));
+     }
+   }
    const cm=calculationMeta(t,p);
    if(cm.calculated)check('norms',cm.approved,issue('CALCULATION_NOT_APPROVED','norms','warn','task',t.id,'Расчёт не утверждён',`${t.id} · ${op}: расчёт присутствует, но не подтверждён как утверждённый результат.`,'Открыть расчёт'));
    check('periodicity',has(taskInterval(t)),issue('TASK_INTERVAL_MISSING','periodicity','error','task',t.id,'Нет периодичности',`${t.id} · ${op}: не задана периодичность выполнения.`,'Открыть мероприятие'));
@@ -112,6 +158,13 @@ function audit(database=db()){
    if(!m)continue;
    const ref=clean(m.sourceReference)||clean(m.densitySource)||clean(m.notes);
    check('sources',!!ref,issue('MATERIAL_REFERENCE_MISSING','sources','warn','material',m.id,'У материала нет документального источника',`${m.code||m.id} · ${m.name||'Материал'}: материал выбран из утверждённого справочника, но в его карточке не указан паспорт/TDS/OEM-источник.`,'Открыть материалы'));
+ }
+ // MATERIAL MASTER DATA: suspicious physical properties are findings, never silent auto-corrections.
+ for(const m of materials.values()){
+   const densityText=clean(m.density),density=num(m.density);
+   if(densityText)check('materials',density!==null&&density>=.5&&density<=2,issue('MATERIAL_DENSITY_IMPLAUSIBLE','materials','error','material',m.id,'Проверить плотность материала',`${m.code||m.id} · ${m.name||''}: значение «${densityText}» не похоже на плотность в г/см³. Сверьте паспорт и не используйте это значение для перевода массы/объёма до исправления.`,'Открыть материал'));
+   const isOil=/масл|\boil\b/i.test(clean(m.kind)),vg=num(m.isoVg),v40=num(m.baseViscosity40);
+   if(isOil&&vg>0&&v40>0)check('materials',Math.abs(v40-vg)/vg<=.15,issue('MATERIAL_OIL_VG_CONFLICT','materials','warn','material',m.id,'Масло: ISO VG и вязкость при 40°C не согласованы',`${m.code||m.id} · ${m.name||''}: ISO VG ${vg}, но вязкость при 40°C записана как ${v40} мм²/с. Сверьте TDS; для редукторного масла эти данные требуют проверки.`,'Открыть материал'));
  }
  // ROUTES: current references, tools and coverage for approved tasks.
  const activeRoutes=routes.filter(r=>r.status!=='archived'),assigned=new Map();
@@ -142,7 +195,7 @@ function audit(database=db()){
  const readiness=totalApplicable?Math.round(totalPassed/totalApplicable*1000)/10:100;
  issues.sort((a,b)=>(SEVERITY_RANK[a.severity]??9)-(SEVERITY_RANK[b.severity]??9)||CATEGORY_ORDER.indexOf(a.category)-CATEGORY_ORDER.indexOf(b.category)||a.entityId.localeCompare(b.entityId,'ru'));
  const severityCounts={blocker:0,error:0,warn:0,info:0};for(const x of issues)severityCounts[x.severity]=(severityCounts[x.severity]||0)+1;
- return{generatedAt:new Date().toISOString(),readiness,totalApplicable,totalPassed,totalFailed:totalApplicable-totalPassed,categories,issues,severityCounts,counts:{equipment:eq.size,points:lps.size,tasks:tasks.size,materials:materials.size,routes:activeRoutes.length}};
+ return{generatedAt:new Date().toISOString(),readiness,totalApplicable,totalPassed,totalFailed:totalApplicable-totalPassed,categories,issues,severityCounts,counts:{equipment:eq.size,points:lps.size,tasks:tasks.size,materials:materials.size,routes:activeRoutes.length},candidateQueue:candidateQueue(d)};
 }
-global.LubricaProgramQA=Object.freeze({audit,CATEGORY_ORDER,CATEGORY_LABELS});
+global.LubricaProgramQA=Object.freeze({audit,candidateQueue,CATEGORY_ORDER,CATEGORY_LABELS});
 })(window);
