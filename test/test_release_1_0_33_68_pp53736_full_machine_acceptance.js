@@ -111,11 +111,19 @@ for(const route of db.routes||[]){
 
 // Planning must not silently convert runtime-hour intervals to calendar dates.
 load('routes/route-planning.js');
-for(const route of db.routes||[]) if((route.taskIds||[]).some(id=>allMachineTaskIds.has(String(id)))) route.planningAnchorDate='2026-01-01';
-const plan=window.LubricaRoutePlanning.preview({startDate:'2026-01-01',endDate:'2026-12-31'},db);
-const runtimeWarnings=plan.warnings.filter(w=>w.code==='INTERVAL_UNSUPPORTED'&&/ч/.test(w.message||''));
-assert(runtimeWarnings.length>0,'runtime-hour PP-53736 routes must be explicitly reported as unsupported for calendar conversion');
-assert.strictEqual(plan.items.filter(x=>(x.taskIds||[]).some(id=>allMachineTaskIds.has(String(id)))).length,0,'runtime-hour routes must not receive invented calendar dates');
+const machineRoutes=(db.routes||[]).filter(route=>(route.taskIds||[]).some(id=>allMachineTaskIds.has(String(id))));
+for(const route of machineRoutes){route.planningAnchorDate='2026-01-01';route.runtimePlanningHoursPerDay=0;}
+let plan=window.LubricaRoutePlanning.preview({startDate:'2026-01-01',endDate:'2026-12-31'},db);
+const manualRuntimeItems=plan.items.filter(x=>(x.taskIds||[]).some(id=>allMachineTaskIds.has(String(id))));
+assert.strictEqual(manualRuntimeItems.length,machineRoutes.length,'without hours/day each runtime route must get only its explicitly entered first date');
+assert(manualRuntimeItems.every(x=>x.planningBasis==='runtime_explicit_anchor'&&x.runtimeForecast===false),'explicit runtime anchor must be labelled as non-forecast');
+assert.strictEqual(plan.warnings.filter(w=>w.code==='RUNTIME_FORECAST_MISSING').length,machineRoutes.length,'every runtime route without hours/day must warn that recurrence is not forecast');
+for(const route of machineRoutes)route.runtimePlanningHoursPerDay=16;
+plan=window.LubricaRoutePlanning.preview({startDate:'2026-01-01',endDate:'2026-12-31'},db);
+const forecastItems=plan.items.filter(x=>(x.taskIds||[]).some(id=>allMachineTaskIds.has(String(id))));
+assert(forecastItems.length>machineRoutes.length,'hours/day basis must create repeated runtime forecast dates');
+assert(forecastItems.every(x=>x.planningBasis==='runtime_forecast'&&x.runtimeForecast===true&&x.runtimePlanningHoursPerDay===16),'runtime forecast provenance must be explicit');
+assert.strictEqual(plan.warnings.filter(w=>w.code==='RUNTIME_FORECAST_MISSING'||w.code==='INTERVAL_UNSUPPORTED').length,0,'runtime routes with explicit forecast basis must be fully plannable');
 
 // Excel traceability precondition: one legacy row per task and unique taskId.
 const legacy=legacyRows(db).filter(x=>allMachineTaskIds.has(String(x.taskId)));
@@ -129,6 +137,6 @@ console.log(JSON.stringify({
   machineTasks:allMachineTaskIds.size,
   fieldConfirmationTasks:blockedTaskIds.size,
   routesWithMachineTasks:(db.routes||[]).filter(r=>(r.taskIds||[]).some(id=>allMachineTaskIds.has(String(id)))).length,
-  planningBlocker:'runtime-hour intervals require an operating-hours/runtime-meter planning model; no calendar conversion is invented',
+  runtimePlanning:'explicit first date + optional hours/day recurrence forecast',
   excelTraceRows:legacy.length
 },null,2));
