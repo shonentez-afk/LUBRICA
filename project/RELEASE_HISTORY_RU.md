@@ -1,6 +1,17 @@
 # История релизов LUBRICA
 
-Индекс документов, сохранённых внутри текущей рабочей базы 1.0.33.67.
+## 1.0.33.68 RC
+
+- PP-53736 full-machine acceptance на реальной production DB;
+- runtime-hour planning: explicit first date + optional hours/day forecast;
+- GitHub CI full regression PASS;
+- field blockers #1–#3 сохранены как review/unresolved.
+- `LUBRICA_1_0_33_68_REGRESSION_ACCEPTANCE.txt`
+- `LUBRICA_1_0_33_68_PP53736_FULL_MACHINE_ACCEPTANCE.md`
+- `RELEASE_1_0_33_68_PP53736_FULL_MACHINE_RUNTIME_PLANNING.md`
+
+
+Индекс документов, сохранённых внутри текущего release candidate 1.0.33.68 (production predecessor 1.0.33.67).
 
 - `LUBRICA_1_0_33_50_INTEGRATION_ACCEPTANCE.txt`
 - `LUBRICA_1_0_33_51_INTEGRATION_ACCEPTANCE.txt`

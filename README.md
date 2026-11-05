@@ -8,7 +8,7 @@
 
 ## Текущая принятая база
 
-**LUBRICA 1.0.33.67 — PP-53736 Gearbox Persistence & Interval Evidence**
+**LUBRICA 1.0.33.68 RC — PP-53736 Full Machine Acceptance & Runtime-Hour Planning**
 
 Главная точка входа для нового разработчика или нового чата:
 

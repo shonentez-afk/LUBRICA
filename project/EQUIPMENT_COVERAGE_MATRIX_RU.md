@@ -60,7 +60,7 @@
 | Generic conveyor | READY/PARTIAL | arrangement engine, 4 supports, manual parity | field-specific extensions |
 | Chain scraper conveyor | READY/PARTIAL | dedicated constructor | expand from real equipment |
 | Fan arrangements | READY/PARTIAL | no virtual supports, OEM-specific rules | add new manufacturers modularly |
-| Izoteh PP-53736 | READY/PARTIAL | full machine profile, 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points | close open mounting-position items and full-machine acceptance |
+| Izoteh PP-53736 | READY/PARTIAL | full machine profile; programmatic full-machine acceptance PASS; 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points; routes/runtime planning/export verified | field-close Issues #1–#3 |
 
 ## Правило обновления
 

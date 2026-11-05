@@ -22,7 +22,7 @@
 
 ## 2. Текущая база
 
-Текущая принятая версия: **LUBRICA 1.0.33.67 — PP-53736 Gearbox Persistence & Interval Evidence**.
+Текущий release candidate: **LUBRICA 1.0.33.68 — PP-53736 Full Machine Acceptance & Runtime-Hour Planning**. Базовый production predecessor: 1.0.33.67.
 
 После проектной памяти прочитай последние release note и regression/engineering acceptance, относящиеся к задаче.
 

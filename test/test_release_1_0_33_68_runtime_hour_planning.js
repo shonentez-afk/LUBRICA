@@ -1,0 +1,25 @@
+const fs=require('fs'),vm=require('vm'),path=require('path'),assert=require('assert');
+const root=path.resolve(__dirname,'..');
+function load(ctx,f){vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx,{filename:f});}
+const db={lines:[{id:'L1',name:'Линия 1'}],areas:[{id:'A1',lineId:'L1',name:'Участок'}],equipment:[{id:'E1',lineId:'L1',areaId:'A1',name:'Машина'}],nodes:[{id:'N1',equipmentId:'E1',name:'Узел'}],lubricationPoints:[{id:'P1',equipmentId:'E1',nodeId:'N1',name:'Точка'}],tasks:[{id:'T1',lubricationPointId:'P1',operation:'Смазать',approvalStatus:'approved',schedule:{legacyText:'200 ч',runtimeHours:200}}],routes:[{id:'R1',code:'R-1',name:'Маршрут 200 ч',lineId:'L1',areaId:'A1',interval:'200 ч',intervalMode:'fixed',taskIds:['T1'],excludedTaskIds:[],status:'active',source:'manual',planningAnchorDate:'2026-01-10',runtimePlanningHoursPerDay:0,estimatedMinutesPerTask:5,fixedMinutes:0}],routeRevisions:[],checklistRuns:[],routePlanItems:[]};
+const window={console};window.window=window;window.state={points:[]};window.SCOPE_LABELS={};window.LubricaSystem={registerModule(){}};window.LubricaCore={State:{getDatabase:()=>db,setDatabase(){}},Database:{toLegacy:()=>({points:[{id:'T1',taskId:'T1',line:'Линия 1',area:'Участок',interval:'200 ч'}]})}};window.LubricaApp={showToast(){},refreshFromCore(){}};
+const ctx=vm.createContext(window);load(ctx,'routes/route-engine.js');load(ctx,'routes/route-planning.js');
+const P=window.LubricaRoutePlanning;
+assert.deepStrictEqual(JSON.parse(JSON.stringify(P.parseRuntimeInterval('200 ч'))),{kind:'runtime_hours',value:200,label:'200 ч'});
+let r=P.preview({startDate:'2026-01-01',endDate:'2026-03-31'},db);
+assert.equal(JSON.stringify(Array.from(r.items,x=>x.plannedDate)),JSON.stringify(['2026-01-10']),'without hours/day only explicit first date is allowed');
+assert.equal(r.items[0].planningBasis,'runtime_explicit_anchor');assert.equal(r.items[0].runtimeForecast,false);
+assert(r.warnings.some(x=>x.code==='RUNTIME_FORECAST_MISSING'));
+db.routes[0].runtimePlanningHoursPerDay=10;
+r=P.preview({startDate:'2026-01-01',endDate:'2026-03-31'},db);
+assert.equal(JSON.stringify(Array.from(r.items,x=>x.plannedDate)),JSON.stringify(['2026-01-10','2026-01-30','2026-02-19','2026-03-11','2026-03-31']));
+assert(r.items.every(x=>x.runtimeIntervalHours===200&&x.runtimePlanningHoursPerDay===10&&x.runtimeForecast===true));
+assert(!r.warnings.some(x=>x.code==='RUNTIME_FORECAST_MISSING'||x.code==='INTERVAL_UNSUPPORTED'));
+db.checklistRuns=[{id:'RUN1',routeId:'R1',status:'completed',date:'2026-02-01',completedAt:'2026-02-01T12:00:00Z'}];
+r=P.preview({startDate:'2026-02-01',endDate:'2026-03-31'},db);
+assert.equal(r.items[0].plannedDate,'2026-02-21');
+assert.equal(r.items[0].anchorSource,'last_completed_runtime_forecast');
+assert.equal(r.items[0].lastCompletedDate,'2026-02-01');
+const ui=fs.readFileSync(path.join(root,'routes/routes-ui.js'),'utf8');
+assert(ui.includes('runtimePlanningHoursPerDay')&&ui.includes('Плановая наработка, ч/сутки'),'route editor must expose explicit runtime forecast basis');
+console.log('PASS 1.0.33.68 runtime-hour planning: explicit anchor + hours/day forecast');

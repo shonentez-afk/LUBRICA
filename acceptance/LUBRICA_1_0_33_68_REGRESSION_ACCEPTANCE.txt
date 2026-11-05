@@ -1,0 +1,47 @@
+LUBRICA 1.0.33.68 — REGRESSION ACCEPTANCE
+Release: PP-53736 Full Machine Acceptance & Runtime-Hour Planning
+Date: 2026-11-05
+
+RESULT: PASS
+
+SCOPE
+- Full-machine acceptance Izoteh PP-53736 on production JSON.
+- Runtime-hour route planning with explicit evidence basis.
+- Legacy/full LUBRICA regression.
+
+PP-53736 TARGETED RESULT
+- PASS: both production lines.
+- PASS: 131 machine-profile points/tasks per line; 262 total.
+- PASS: 102 physical roller-bearing positions per machine.
+- PASS: 8 chain circuits per machine.
+- PASS: 4 lift screws per machine.
+- PASS: production counts remain 1188 equipment / 5659 components / 501 points / 517 tasks.
+- PASS: repeated apply/reconcile idempotent.
+- PASS: duplicate machine origin keys = 0.
+- PASS: exactly 4 Line 1 R77 tasks remain field review and are excluded from approved routing.
+- PASS: downstream route structural validation.
+- PASS: export traceability 262 taskIds / 262 rows.
+
+RUNTIME-HOUR PLANNING
+- PASS: explicit planningAnchorDate works as first planned date.
+- PASS: without runtimePlanningHoursPerDay no recurrence is invented.
+- PASS: RUNTIME_FORECAST_MISSING warning is explicit.
+- PASS: with hours/day, repeated dates are forecast from original runtime interval.
+- PASS: completed route fact becomes next runtime forecast anchor.
+- PASS: planning provenance is stored.
+- PASS: no hidden universal conversion coefficient is used.
+
+FULL REGRESSION
+- Local regression completed in continuation blocks 1–99 due execution timeout; no functional FAIL.
+- GitHub CI PP-53736 targeted acceptance: PASS.
+- GitHub CI full regression on product-code head before version-only RC synchronization: PASS.
+- Final RC version-sync CI is required to confirm manifest/project-memory consistency; code under test is unchanged by version-document synchronization.
+- Expected source-dependent XLSX tests may SKIP when source XLSX files are absent; expected SKIP is not a product failure.
+
+FIELD CONFIRMATION ITEMS
+- Issue #1: R77 Line 1 #5–#8 actual mounting position.
+- Issue #2: meaning of 500 in 5000/500 h remains unresolved unless primary evidence is found.
+- Issue #3: actual M1–M6 for K37/KF37R17/S37.
+
+CONCLUSION
+LUBRICA 1.0.33.68 is programmatically regression-safe as a release candidate. PP-53736 is fully integrated through routes, runtime-hour planning and export while unresolved field facts remain explicitly review/unresolved rather than guessed.
