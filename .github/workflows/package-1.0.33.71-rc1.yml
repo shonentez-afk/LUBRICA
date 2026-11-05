@@ -1,0 +1,230 @@
+# Review build for in-app physical candidate decisions. No user data is bundled.
+name: Package LUBRICA 1.0.33.71 RC1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/package-1.0.33.71-rc1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lubrica-package-1-0-33-71-rc1
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout accepted main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check release candidate version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('manifest.json').read_text(encoding='utf-8'))
+          assert m['appVersion'] == '1.0.33.71' and m['version'] == '1.0.33.71', m
+          print('LUBRICA RC version:', m['appVersion'])
+          PY
+
+      - name: Production preflight and Stage 3 functional test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 test/preflight.py
+          node test/test_release_1_0_33_69_candidate_decisions.js
+          node test/test_release_1_0_33_71_task_readiness_safe_analog.js
+
+      - name: Assemble production-only offline app
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/LUBRICA_1_0_33_71_RC1"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          rsync -a ./ "$STAGE/" \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            --exclude 'test/' \
+            --exclude 'tests/' \
+            --exclude 'project/' \
+            --exclude 'acceptance/' \
+            --exclude 'releases/' \
+            --exclude 'README.md' \
+            --exclude 'START_NEW_CHAT_RU.md'
+          find "$STAGE" -maxdepth 1 -type f \( \
+            -name 'RELEASE_*.md' -o \
+            -name 'LUBRICA_*.md' -o \
+            -name 'LUBRICA_*.txt' -o \
+            -name 'LUBRICA_*.json' -o \
+            -name 'LUBRICA_*.csv' \
+          \) -delete
+          cat > "$STAGE/ПРОВЕРКА_ЭТАПА_3.txt" <<'EOF'
+          LUBRICA 1.0.33.71 RC1 — тестовая автономная версия Windows/Edge.
+          Пользовательская JSON база НЕ включена. Работайте только с копией.
+          
+          1. Распакуйте ZIP полностью в отдельную папку.
+          2. Откройте index.html в Microsoft Edge через file://.
+          3. Откройте КОПИЮ вашей JSON базы.
+          4. «Контроль» → «Готовность физических точек и мероприятий».
+          5. Проверьте фильтры, семь шагов и переход к исправлению.
+          6. Выберите подшипниковую точку → «Заполнить по аналогу».
+          7. Сверьте реальные опоры, причину и источник. Нажмите «Проверить соответствие».
+          8. Подтвердите перенос только предложения по материалу/норме/интервалу.
+          9. Убедитесь, что утвержденные нормы и интервалы не подменены,
+             нет новых виртуальных опор и маршруты остались без изменений.
+          10. Проверьте сохранение копии JSON, повторное открытие и recovery.
+          
+          Мероприятия не утверждаются автоматически.
+          Это release candidate: ручная приемка Stage 2 и Stage 3 еще открыта.
+          EOF
+
+      - name: Verify packaged entrypoint and offline dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/LUBRICA_1_0_33_71_RC1"
+          python3 - "$STAGE" <<'PY'
+          import json, pathlib, re, sys
+          root = pathlib.Path(sys.argv[1])
+          required = [
+              'index.html', 'manifest.json', 'Создать ярлык LUBRICA.bat',
+              'qa/engineering-decisions.js', 'qa/qa-engine.js', 'qa/qa-ui.js',
+              'qa/task-readiness.js', 'qa/task-readiness-ui.js',
+              'lubrication/analog-transfer.js',
+              'import/candidate-finalizer.js', 'core/database-normalizer.js',
+              'js/app.js', 'assets/app.css', 'assets/icons/lubrica-shortcut.ico',
+              'assets/icons/lubrica-header.png', 'ui/user-guide.js',
+          ]
+          for name in required:
+              assert (root / name).is_file(), f'Missing runtime file: {name}'
+          for name in ['assets/oem','assets/guide','calculations','components','core','machines','routes','qa']:
+              assert (root / name).is_dir(), f'Missing production directory: {name}'
+          assert not (root / '.github').exists()
+          assert not (root / 'test').exists()
+          assert not (root / 'project').exists()
+          m = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
+          assert m['appVersion'] == '1.0.33.71'
+          html = (root / 'index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script[^>]*\bsrc=["\x27]([^"\x27]+)', html, re.I)
+          css = re.findall(r'<link[^>]*\bhref=["\x27]([^"\x27]+)', html, re.I)
+          for src in scripts + css:
+              if src.startswith(('http:','https:','data:','#')): continue
+              target = root / src.removeprefix('./').split('?')[0]
+              assert target.is_file(), f'Broken offline dependency: {src}'
+          assert './qa/engineering-decisions.js' in scripts
+          assert scripts.index('./qa/engineering-decisions.js') < scripts.index('./qa/qa-ui.js')
+          assert scripts.index('./qa/task-readiness.js') < scripts.index('./qa/qa-engine.js')
+          assert scripts.index('./qa/qa-ui.js') < scripts.index('./qa/task-readiness-ui.js')
+          files=[p for p in root.rglob('*') if p.is_file()]
+          print('Production files:', len(files), 'bytes:',sum(p.stat().st_size for p in files))
+          print('Entrypoint and',len(scripts),'offline scripts OK')
+          PY
+
+      - name: Create and verify ZIP with SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_RELEASE_1_0_33_71_RC1.zip" LUBRICA_1_0_33_71_RC1
+          cd "$GITHUB_WORKSPACE"
+          unzip -t LUBRICA_RELEASE_1_0_33_71_RC1.zip | tail -n 2
+          sha256sum LUBRICA_RELEASE_1_0_33_71_RC1.zip > LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256
+          sha256sum -c LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256
+          cat LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256
+
+      - name: Upload package for this workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_RELEASE_1_0_33_71_RC1
+          path: |
+            LUBRICA_RELEASE_1_0_33_71_RC1.zip
+            LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish prerelease ZIP to GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='v1.0.33.71-rc1'
+          TITLE='LUBRICA 1.0.33.71 RC1 — готовность мероприятий и безопасные аналоги'
+          NOTE='releases/RELEASE_1_0_33_71_CANDIDATE_DECISIONS_STAGE2.md'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              LUBRICA_RELEASE_1_0_33_71_RC1.zip \
+              LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256 \
+              --clobber
+          else
+            gh release create "$TAG" \
+              LUBRICA_RELEASE_1_0_33_71_RC1.zip \
+              LUBRICA_RELEASE_1_0_33_71_RC1.zip.sha256 \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes-file "$NOTE" \
+              --prerelease
+          fi
+          gh release view "$TAG" --json tagName,isPrerelease,assets \
+            --jq '{tag: .tagName, prerelease: .isPrerelease, assets: [.assets[].name]}'
+
+      - name: Record verified package proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='v1.0.33.71-rc1'
+          gh release view "$TAG" --json tagName,isPrerelease,assets > "$RUNNER_TEMP/release_assets.json"
+          python3 - "$RUNNER_TEMP/release_assets.json" <<'PY'
+          import datetime, hashlib, json, os, pathlib, sys
+          release=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          zipname='LUBRICA_RELEASE_1_0_33_71_RC1.zip'
+          sha_name=zipname+'.sha256'
+          assert release.get('tagName')=='v1.0.33.71-rc1'
+          assert release.get('isPrerelease') is True, release
+          assets={a['name']:a for a in release.get('assets',[])}
+          for name in (zipname,sha_name):
+              assert name in assets, f'GitHub Release asset not uploaded: {name}'
+              assert assets[name]['size']>0, f'Empty asset: {name}'
+          file=pathlib.Path(zipname)
+          digest=hashlib.sha256(file.read_bytes()).hexdigest()
+          assert digest in pathlib.Path(sha_name).read_text(encoding='utf-8')
+          assert assets[zipname]['size']==file.stat().st_size, 'ZIP upload truncated'
+          report={
+              'version':'1.0.33.71', 'channel':'rc1', 'tag':release['tagName'],
+              'prerelease':True, 'source_sha':os.environ['GITHUB_SHA'],
+              'zip_file':zipname, 'zip_bytes':file.stat().st_size,
+              'zip_sha256':digest,
+              'checksum_file':sha_name,
+              'asset_names':list(sorted(assets)),
+              'release_url':'https://github.com/shonentez-afk/LUBRICA/releases/tag/v1.0.33.71-rc1',
+              'verified_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          }
+          pathlib.Path('project/RELEASE_PACKAGE_1_0_33_71_RC1.json').write_text(
+              json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+          CONTENT="$(base64 -w0 project/RELEASE_PACKAGE_1_0_33_71_RC1.json)"
+          API="repos/$GITHUB_REPOSITORY/contents/project/RELEASE_PACKAGE_1_0_33_71_RC1.json"
+          OLD_SHA="$(gh api "$API" --jq .sha 2>/dev/null || true)"
+          if [ -n "$OLD_SHA" ]; then
+            gh api -X PUT "$API" \
+              -f message='Verify LUBRICA 1.0.33.71 RC1 ZIP and GitHub Release assets' \
+              -f content="$CONTENT" -f branch=main -f sha="$OLD_SHA" >/dev/null
+          else
+            gh api -X PUT "$API" \
+              -f message='Verify LUBRICA 1.0.33.71 RC1 ZIP and GitHub Release assets' \
+              -f content="$CONTENT" -f branch=main >/dev/null
+          fi
