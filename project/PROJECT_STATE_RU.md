@@ -2,7 +2,7 @@
 
 ## Базовая версия
 
-**1.0.33.71 RC — Task Readiness & Safe Physical Analog (Stage 3)**. Previous source version: **1.0.33.70**. Last published test ZIP: **1.0.33.70 RC1**.
+**1.0.33.71 RC — Task Readiness & Safe Physical Analog (Stage 3)**. Previous source version: **1.0.33.70**. Last published test ZIP: **1.0.33.71 RC1** (`v1.0.33.71-rc1`, checksum verified).
 
 Эта версия-кандидат продолжает линию релизов 1.0.5 → 1.0.27+ → 1.0.31+ → 1.0.33.x и включает накопленные исправления расчётной архитектуры, OEM-источников, конструкторов оборудования, импорта, маршрутов, UI/UX и regression QA.
 
@@ -67,3 +67,5 @@ Stage 2 PR #16 (слит в `main`, CI PASS): в «Контроль» добав
 
 
 Stage 3 PR #18 (слит в `main`, full CI PASS): read-only готовность мероприятия по семи независимым шагам; простые следующие действия и раскрываемые технические причины в «Контроль»; подтверждение физического соответствия при переносе «по аналогу», защита approved/disabled/route/fact, предложенные (не утверждённые) quantity/schedule. Stage 2 и Stage 3 требуют ручной проверки в Edge на пользовательской базе.
+
+Актуальная тестовая ZIP-поставка Stage 2+3: `v1.0.33.71-rc1`. Подтверждённая целостность и SHA-256: `project/RELEASE_PACKAGE_1_0_33_71_RC1.json`. Ручную Edge/file:// приёмку на пользовательской копии БД не считать выполненной автоматически.
