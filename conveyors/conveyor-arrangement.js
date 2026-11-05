@@ -78,5 +78,43 @@ function ensureManualComponents(db,equipment,setup={}){
  equipment.manualConveyorSetup={version:'1.0.33.47',conveyorSubtype:clean(setup.conveyorSubtype)||equipment.manualConveyorSetup?.conveyorSubtype||'belt',layout:'TWO_SHAFT_FOUR_SUPPORTS',returnShaftRole:returnRole,driveShaftName:clean(setup.driveShaftName)||'Вал приводной',returnShaftName:clean(setup.returnShaftName)||(returnRole==='driven'?'Вал ведомый':'Вал натяжной'),driveLeftBearing:clean(setup.driveLeftBearing)||fallback,driveRightBearing:clean(setup.driveRightBearing)||fallback,returnLeftBearing:clean(setup.returnLeftBearing)||fallback,returnRightBearing:clean(setup.returnRightBearing)||fallback,chainEnabled:setup.chainEnabled!==false,chainName:clean(setup.chainName),driveMode,driveEnabled:driveMode!=='none',driveName:clean(setup.driveName),gearboxName:clean(setup.gearboxName),motorName:clean(setup.motorName),updatedAt:now()};
  return identifyManualComponents(db,equipment);
 }
-API.identifyManualComponents=identifyManualComponents;API.ensureManualComponents=ensureManualComponents;
+
+// Stage 5B equipment composition: these are evidence buckets, not lubrication points.
+// Each row is backed by an imported or explicitly entered TMC/equipment identity.
+const SERVICE_FAMILIES=Object.freeze({
+ belt:[['shafts','Приводной и натяжной валы'],['bearings','Физические опоры валов'],['drives','Привод / редуктор'],['chains','Цепи — если реально установлены']],
+ chain_scraper:[['shafts','Фактические валы'],['bearings','Подшипниковые опоры'],['chains','Рабочие цепи скребков'],['drives','Приводы']],
+ roller:[['shafts','Ролики, секции и валы'],['bearings','Обслуживаемые опоры роликов'],['drives','Привод секций'],['chains','Передачи между роликами']],
+ lamella:[['chains','Несущие цепные контуры'],['shafts','Приводные/натяжные валы'],['bearings','Опоры конвейера'],['ancillary','Системы подачи смазки/охлаждения'],['drives','Приводы']],
+ chain:[['chains','Фактические цепные контуры'],['shafts','Валы и механизмы натяжения'],['bearings','Обслуживаемые опоры'],['drives','Приводы']],
+ screw:[['shafts','Шнек и вращающийся вал'],['bearings','Внешние обслуживаемые опоры'],['drives','Редуктор/привод'],['ancillary','Дополнительные системы']],
+ turning:[['shafts','Поворотный механизм / оси'],['bearings','Опоры поворотного узла'],['drives','Привод секций'],['ancillary','Связанные системы']],
+ hybrid:[['shafts','Валы и ролики отдельных секций'],['bearings','Фактические обслуживаемые опоры'],['drives','Независимые приводы секций'],['chains','Цепи передачи']],
+ weighing:[['shafts','Валы и ролики транспортёра'],['bearings','Реальные подшипники'],['drives','Привод'],['ancillary','Весовое оборудование — контекст']],
+ unknown:[['shafts','Распознанные валы/ролики'],['bearings','Фактические подшипники'],['chains','Цепи'],['drives','Приводы'],['ancillary','Вспомогательные системы']]
+});
+function composeEvidence(template){
+ const subtype=template?.conveyorSubtype||template?.evidence?.conveyorSubtype||'unknown';
+ const ev=template?.evidence||{},actual=Array.isArray(ev.actual)?ev.actual:[];
+ const grouped={
+  bearings:actual.filter(x=>['bearing','linear_bearing'].includes(x.category)),
+  chains:actual.filter(x=>x.category==='chain'),
+  other:actual.filter(x=>!['bearing','linear_bearing','chain'].includes(x.category)),
+  shafts:Array.isArray(ev.context)?ev.context:[],
+  drives:Array.isArray(ev.assets)?ev.assets:[],
+  ancillary:Array.isArray(ev.ancillary)?ev.ancillary:[]
+ };
+ const sections=(SERVICE_FAMILIES[subtype]||SERVICE_FAMILIES.unknown).map(([role,label])=>({
+  role,label,items:(grouped[role]||[]).map(x=>({id:x.id,name:x.name,source:x.source,equipmentId:x.equipmentId})),
+  count:(grouped[role]||[]).length,
+  note:(grouped[role]||[]).length?'Найденные элементы требуют подтверждения обслуживания':'Не подтверждено; элементы не создаются'
+ }));
+ if(grouped.other.length)sections.push({role:'other',label:'Другие смазываемые пары — требуют уточнения',
+  items:grouped.other.map(x=>({id:x.id,name:x.name,source:x.source,equipmentId:x.equipmentId})),
+  count:grouped.other.length,note:'Проверить фактическую конструкцию и способ подачи'});
+ return {subtype,sections,actualCount:actual.length,
+  unsupportedGeometry:!['belt','chain_scraper'].includes(subtype),
+  requiresEngineerConfirmation:true,createsPoints:false};
+}
+API.identifyManualComponents=identifyManualComponents;API.ensureManualComponents=ensureManualComponents;API.composeEvidence=composeEvidence;API.SERVICE_FAMILIES=SERVICE_FAMILIES;
 })(window);
