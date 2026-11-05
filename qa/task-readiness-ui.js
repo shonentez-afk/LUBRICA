@@ -73,6 +73,7 @@ function render(host,completion,openIssue){
   if(!x)return;
   if(x.next.code==='structure'&&x.pointId)
    openIssue({entityType:'point',entityId:x.pointId,code:'POINT_NODE_MISSING'});
+  else if(x.next.code==='routing')openIssue({entityType:'route',entityId:'routes'});
   else openIssue({entityType:'task',entityId:x.taskId});
  });
 }
