@@ -291,6 +291,26 @@ function conveyorSupportAssignmentPanel(template){
   }
   return `${shaftBlock}<section class="conveyor-support-mapping"><div class="wizard-note"><b>Распределение подшипников по валам</b><span>${esc(bearingWarning)}</span></div><div class="conveyor-support-map-grid">${rows}</div></section>`;
 }
+function conveyorSubtypePanel(template){
+ if(template?.id!=='conveyor_arrangement')return'';
+ const labels=global.LubricaClassifier?.conveyorSubtypeLabels||{},current=template.conveyorSubtype||'unknown';
+ const opts=Object.entries(labels).map(([k,v])=>'<option value="'+esc(k)+'" '+(current===k?'selected':'')+'>'+esc(v)+'</option>').join('');
+ const guidance={
+  belt:'Проверьте фактические валы, подшипники и привод. Ремень сам не является точкой смазки.',
+  chain_scraper:'Проверьте реальные цепные контуры, привод и опоры.',
+  chain:'Цепь и каждый привод подтверждаются по ТМЦ, четыре опоры не предполагаются.',
+  roller:'Определите реальные ролики и их обслуживаемые опоры. Герметичные не досмазывать автоматически.',
+  lamella:'Разделите рабочие цепи, систему подачи смазки, привод и подшипники.',
+  screw:'Проверьте шнек, его вал/опоры и привод; не подменяйте двухвальным layout.',
+  turning:'Поворотный узел, ролики, лента и приводы подтверждаются отдельно.',
+  hybrid:'Ленточные и роликовые секции подтверждаются как части общей машины.',
+  weighing:'Весовой датчик не считается точкой смазки; обслуживаются механические узлы.',
+  unknown:'Тип конвейера требует уточнения. Добавьте реальные ТМЦ или сохраните профиль без точек.'
+ };
+ return '<div class="wizard-note"><b>Конструкция конвейера — подтверждение</b><span>Смена варианта перестроит предпросмотр. Пока не нажато «Сохранить», структура не меняется.</span>'+
+  '<label style="display:block;margin-top:8px">Фактический тип<select name="conveyorSubtypeChoice">'+opts+'</select></label>'+
+  '<small>'+esc(guidance[current]||guidance.unknown)+'</small></div>';
+}
 function conveyorEvidencePanel(template){
   if(template?.id!=='conveyor_arrangement')return'';
   const ev=template.evidence||{},actual=ev.actual||[],assets=ev.assets||[],context=ev.context||[],excluded=ev.excluded||[],layout=ev.supportLayout||null;
@@ -300,7 +320,7 @@ function conveyorEvidencePanel(template){
   const note=physical.length===4?'Назначьте установленный подшипниковый ТМЦ на каждую опору. Точки не создаются до подтверждения.':'Для роликового, ламельного, цепного, шнекового, поворотного и комбинированного конвейера используйте реальные ТМЦ. Схема 2 вала × 2 опоры не предполагается. Укажите точное место каждой операции.';
   return `<div class="conveyor-arrangement-intro"><div><span class="eyebrow">ФАКТИЧЕСКАЯ КОНСТРУКЦИЯ</span><b>${esc(headline)}</b><p>${esc(note)}</p></div><div class="conveyor-evidence-grid">${physical.length?card('service','Физические подшипниковые опоры',physical,''):card('service','Точки-кандидаты',actual,'Подшипники, цепи и другие обслуживаемые ТМЦ не найдены.')}${card('assets','Отдельные агрегаты',assets,'Отдельные двигатель/редуктор не найдены.')}${card('context','Контекст конструкции',context,'Контекстные валы/барабаны не найдены.')}${card('excluded','Исключено',excluded,'Пассивных элементов не найдено.')}</div></div>`;
 }
-function open(source,id,decisionContext=null){
+function open(source,id,decisionContext=null,subtypeOverride=null){
   const database=db();
   const record=sourceRecord(database,source,id);
   const equipment=sourceEquipment(database,source,record);
@@ -333,12 +353,13 @@ function open(source,id,decisionContext=null){
   // Stage 5B: opening a constructor is read-only, even for old classified templates.
   let previewRecord=record;
   if(source==='equipment' && (record.maintenanceEquipmentType==='conveyor' || record.equipmentType==='conveyor' || record.maintenanceTemplate?.id==='conveyor_arrangement')){
-    const identity=global.LubricaClassifier?.conveyorIdentity?.(record.name,record.equipmentType,record);
+    const previewEquipment=subtypeOverride?{...equipment,previewConveyorSubtype:subtypeOverride}:equipment;
+    const identity=global.LubricaClassifier?.conveyorIdentity?.(previewEquipment.name,previewEquipment.equipmentType,previewEquipment);
     if(identity?.role==='group'||identity?.role==='ancillary'){
       global.LubricaApp?.showToast?.('Это группа или обслуживающая подсистема. Откройте конкретный конвейер.','warn');
       return;
     }
-    const ev=global.LubricaClassifier?.conveyorEvidence?.(database,equipment);
+    const ev=global.LubricaClassifier?.conveyorEvidence?.(database,previewEquipment);
     if(ev){
       const bits=[];
       if(ev.supportLayout?.supports?.length===4)bits.push('два подтверждённых вала: 4 места для проверки подшипников');
@@ -363,6 +384,7 @@ function open(source,id,decisionContext=null){
   dlg.innerHTML=`<form method="dialog" class="structure-form">
     <div class="dialog-head"><div><span class="eyebrow">ИНЖЕНЕРНОЕ ПОДТВЕРЖДЕНИЕ</span><h2>${esc(title)}</h2></div><button type="button" class="icon-btn" data-cancel>×</button></div>
     <div class="candidate-finalize-context"><b>${esc(equipment.name)}</b><span>${esc(record.externalCode||'')} · ${esc(template?.summary||template?.note||'Проверьте состав точек перед созданием.')}</span></div>
+    ${conveyorSubtypePanel(template)}
     ${conveyorEvidencePanel(template)}
     ${conveyorSupportAssignmentPanel(template)}
     <div class="candidate-finalize-list">${specs.length?specs.map((s,i)=>`<div class="candidate-finalize-item" data-spec-index="${i}">
