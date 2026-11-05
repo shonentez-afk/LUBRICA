@@ -195,11 +195,11 @@ function specsFor(record,source){
       }
     }else{
       for(const a of actual.filter(x=>x.category==='bearing'||x.category==='linear_bearing')){
-        specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'bearing','',['Досмазывание'],true,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
+        specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'bearing','',['Досмазывание'],!!layout,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
       }
     }
     for(const a of actual.filter(x=>!['bearing','linear_bearing'].includes(x.category))){
-      const autoSelected=['chain'].includes(a.category); // still requires physical-location confirmation
+      const autoSelected=!!layout&&a.category==='chain'; // compound machines require explicit chain maintenance confirmation
       specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'other',layout&&a.category==='chain'?'Цепной привод':'',null,autoSelected,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
     }
     for(const a of assets.filter(x=>['gearbox','motor_gearbox'].includes(x.equipmentType))){
