@@ -31,7 +31,8 @@ const ISSUE_ACTIONS={
  TASK_QUANTITY_UNIT_MISSING:'quantity',
  TASK_INTERVAL_MISSING:'interval',
  QUANTITY_SOURCE_MISSING:'evidence',
- INTERVAL_SOURCE_MISSING:'evidence'
+ INTERVAL_SOURCE_MISSING:'evidence',
+ APPROVED_TASK_NOT_ROUTED:'routing'
 };
 const ISSUE_PRIORITY=[
  'TASK_ORPHAN_POINT','POINT_EQUIPMENT_MISSING','POINT_NODE_MISSING',
@@ -41,7 +42,7 @@ const ISSUE_PRIORITY=[
  'TASK_MATERIAL_LIBRARY_MISSING','TASK_MATERIAL_MISSING',
  'TASK_QUANTITY_MISSING','TASK_QUANTITY_UNIT_MISSING',
  'CALCULATION_NOT_APPROVED','TASK_INTERVAL_MISSING',
- 'QUANTITY_SOURCE_MISSING','INTERVAL_SOURCE_MISSING'
+ 'QUANTITY_SOURCE_MISSING','INTERVAL_SOURCE_MISSING','APPROVED_TASK_NOT_ROUTED'
 ];
 const ACTIONS={
  structure:{label:'Проверить физическую точку',hint:'Откройте оборудование и уточните фактический узел, привязку и источник.'},
@@ -51,6 +52,8 @@ const ACTIONS={
  calculation:{label:'Проверить расчёт и OEM',hint:'Откройте «Расчёт → Подробнее», проверьте применимость и источник методики.'},
  interval:{label:'Указать периодичность',hint:'Откройте мероприятие и задайте периодичность по OEM или подтверждённому режиму.'},
  evidence:{label:'Подтвердить источник',hint:'Проверьте обоснование нормы и интервала, при необходимости дополните источник.'},
+ routing:{label:'Включить в маршрут',hint:'Откройте маршруты, проверьте назначение утверждённого мероприятия и создайте план.'},
+ review_warning:{label:'Проверить замечания',hint:'Откройте карточку и проверьте инженерные предупреждения, прежде чем считать результат полностью готовым.'},
  approve:{label:'Утвердить мероприятие',hint:'После сохранения данных утвердите мероприятие отдельно, чтобы оно участвовало в плане.'},
  complete:{label:'Мероприятие готово',hint:'Мероприятие утверждено. Проверьте включение в маршрут и план.'},
  disabled:{label:'Мероприятие отключено',hint:'Оно не участвует в плане. При необходимости измените статус в карточке.'}
@@ -132,7 +135,7 @@ function summary(db,allIssues=[]){
   else if(!hasQty)action='quantity';
   else if(!hasInterval)action='interval';
   else if(!sourceOK)action='evidence';
-  else if(approved)action='complete';
+  else if(approved)action=warnings.length?'review_warning':'complete';
   const dataGap=!physical||!operation||!hasMat||!hasQty||!hasInterval||critical.length>0||
    ['structure','operation','material','quantity','calculation','interval'].includes(action);
   let status;
