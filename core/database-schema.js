@@ -10,7 +10,7 @@
   function inferEquipmentType(point){const legacy=clean(point?.type).toLowerCase();const text=`${clean(point?.equipment)} ${clean(point?.unit)}`.toLowerCase();if(legacy==='motor'||/электродвиг|\bмотор\b/.test(text))return 'motor';if(legacy==='fan'||/вентилятор|дымосос|воздуходув|эксгауст/.test(text))return 'fan';if(legacy==='gearbox'||/редуктор|мотор-редуктор|вариатор/.test(text))return 'gearbox';if(/конвейер|транспортер|транспортёр/.test(text))return 'conveyor';if(/насос/.test(text))return 'pump';return 'other'}
   function normalizeTaskApproval(value,verified=false){const v=clean(value).toLowerCase();if(v==='approved'||v==='ready'||verified)return 'approved';if(v==='draft')return 'draft';if(v==='disabled')return 'disabled';return 'review'}
   function createEmpty(projectName='Новая база'){
-    return {schemaVersion:'2.0',appVersion:'1.0.33.68',meta:{createdAt:now(),updatedAt:now()},project:{name:projectName,code:'',description:''},plants:[],lines:[],areas:[],equipment:[],components:[],nodes:[],lubricationPoints:[],tasks:[],materials:[],routes:[],checklistRuns:[],tools:[],rules:{},imports:[],bearingOverrides:[],componentLibraryEntries:[]};
+    return {schemaVersion:'2.0',appVersion:'1.0.33.69',meta:{createdAt:now(),updatedAt:now()},project:{name:projectName,code:'',description:''},plants:[],lines:[],areas:[],equipment:[],components:[],nodes:[],lubricationPoints:[],tasks:[],materials:[],routes:[],checklistRuns:[],tools:[],rules:{},imports:[],bearingOverrides:[],componentLibraryEntries:[]};
   }
   Core.DatabaseSchema=Object.freeze({clone,now,clean,safeKey,uniqueBy,normalizePointCategory,inferEquipmentType,normalizeTaskApproval,createEmpty});
 })(window);
