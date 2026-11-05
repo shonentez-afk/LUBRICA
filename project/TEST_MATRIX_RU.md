@@ -37,3 +37,13 @@
 ## Release rule
 
 Новый regression test должен оставаться в репозитории после закрытия дефекта: он становится частью технической памяти проекта.
+
+
+## Release 1.0.33.68
+
+| Область | Тест | Что защищает |
+|---|---|---|
+| PP-53736 full-machine | `test/test_release_1_0_33_68_pp53736_full_machine_acceptance.js` | две линии, 262 tasks, физическая топология, idempotency, review hold, routes, runtime planning, export traceability |
+| Runtime-hour planning | `test/test_release_1_0_33_68_runtime_hour_planning.js` | explicit first date, no invented recurrence, hours/day forecast, completed-run anchor, provenance, route UI field |
+
+Оба теста входят в `test/run_all.sh` и в GitHub workflow `PP-53736 Full Machine Acceptance`.
