@@ -15,7 +15,7 @@ const copy=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
 const get=(db,id)=>arr(db?.components).find(x=>String(x.id)===String(id))||null;
 const originPrefix=id=>'component:'+String(id)+':';
 const auditKeys=['candidateState','candidateLabel','candidateReason','candidateReviewedAt',
- 'candidateCreatedPointIds','lubricationDomainOverride','lubricationDomainStatus','lubricationDomainRule'];
+ 'candidateCreatedPointIds','candidateKind','lubricationDomainOverride','lubricationDomainStatus','lubricationDomainRule'];
 function capture(c){
  const out={};for(const k of auditKeys)out[k]={exists:Object.prototype.hasOwnProperty.call(c,k),value:copy(c[k])};return out;
 }
@@ -70,10 +70,17 @@ function commit(db,id,action,params={}){
  const c=get(db,id),previous=capture(c),at=new Date().toISOString();
  c.engineeringDecision={version:1,action,reason:p.reason,sourceReference:p.sourceReference,
   confirmedAt:at,identity:fingerprint(c),previous,createdPointIds:[],createdTaskIds:[]};
- c.candidateState=action==='context'?'confirmed':action==='not_lubricated'?'rejected':'review';
+ c.candidateState=action==='context'||action==='not_lubricated'?'confirmed':'review';
  c.candidateLabel=action==='context'?'Конструктивный контекст':action==='not_lubricated'?'Не смазывается':'Ожидает уточнения';
  c.candidateReason=p.reason;c.candidateReviewedAt=at;
  c.lubricationDomainOverride=action==='clarify'?'REVIEW':'ENGINEER_CONFIRMED';
+ if(action==='not_lubricated'){
+  c.candidateKind='exclude';c.lubricationDomainStatus='NON_SERVICEABLE_CONFIRMED';
+  c.lubricationDomainRule='ENGINEER_CONFIRMED_NO_LUBRICATION';
+ }else if(action==='context'){
+  c.candidateKind='equipment_context';c.lubricationDomainStatus='STRUCTURE_ONLY';
+  c.lubricationDomainRule='ENGINEER_CONFIRMED_CONTEXT';
+ }
  history(c,{action,reason:p.reason,sourceReference:p.sourceReference,at,kind:'confirmed'});
  return{changed:true,action,componentId:String(id)};
 }
