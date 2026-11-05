@@ -27,7 +27,10 @@ function installCandidateDecisionUI(view,host,report){
  for(const b of board.querySelectorAll('[data-qa-open-equipment]')){
   const id=b.dataset.qaOpenEquipment,g=groups.find(x=>x.equipmentId===id);
   if(!g)continue;
-  b.parentElement.appendChild(button(expanded===id?'Свернуть':'Разобрать ТМЦ','mini-btn',()=>{
+  const holder=element('div','qa-candidate-actions');
+  b.parentElement.replaceChild(holder,b);
+  holder.appendChild(b);
+  holder.appendChild(button(expanded===id?'Свернуть':'Разобрать ТМЦ','mini-btn',()=>{
    host.dataset.qaCandidateExpanded=expanded===id?'':id;host.dataset.qaCandidateItemPage='0';render(view);
   }));
  }
