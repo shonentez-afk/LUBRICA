@@ -8,6 +8,7 @@ function openIssue(x){
  if(x.entityType==='task'){global.switchView?.('workspace');setTimeout(()=>global.LubricaWorkspaceNavigation?.openTask?.(x.entityId),0);return}
  if(x.entityType==='point'){if(x.code==='POINT_WITHOUT_TASKS'){global.switchView?.('structureView');setTimeout(()=>global.LubricaStructure?.selectEntity?.('lubricationPoint',x.entityId),0);return}global.switchView?.('workspace');setTimeout(()=>global.LubricaWorkspaceNavigation?.openPoint?.(x.entityId),0);return}
  if(x.entityType==='equipment'){global.switchView?.('structureView');setTimeout(()=>global.LubricaStructure?.selectEntity?.('equipment',x.entityId),0);return}
+ if(x.entityType==='component'){global.switchView?.('structureView');setTimeout(()=>global.LubricaStructure?.selectEntity?.('component',x.entityId),0);return}
  if(x.entityType==='material'){global.switchView?.('materials');return}
 }
 function csv(report){const q=v=>`"${String(v??'').replace(/"/g,'""')}"`,rows=[['Категория','Готовность','Пройдено','Применимо','Проблем']];for(const c of report.categories)rows.push([c.label,`${c.score}%`,c.passed,c.applicable,c.failed]);rows.push([],['ИТОГО',`${report.readiness}%`,report.totalPassed,report.totalApplicable,report.totalFailed],[],['Уровень','Категория','Код','Тип объекта','ID объекта','Проблема','Описание']);for(const x of report.issues)rows.push([sevLabel[x.severity]||x.severity,global.LubricaProgramQA.CATEGORY_LABELS[x.category]||x.category,x.code,x.entityType,x.entityId,x.title,x.message]);return rows.map(r=>r.map(q).join(';')).join('\n')}
