@@ -16,7 +16,7 @@ const changes={density:'0,89',baseViscosity40:'220',sourceReference:'Mobilgear 6
 const proof={reason:'Correction from verified product datasheet'};
 assert(!Guard.preview(db,'MISSING',changes,proof).allowed,'missing material rejected');
 assert(!Guard.preview(db,'MAT-0003',changes,{}).allowed,'missing reason rejected');
-assert(!Guard.preview(db,'MAT-0003',{density:'15,6',sourceReference:changes.sourceReference},proof).allowed,'implausible density rejected');
+assert(!Guard.preview(db,'MAT-0003',{density:'16',sourceReference:changes.sourceReference},proof).allowed,'implausible density rejected');
 let p=Guard.preview(db,'MAT-0003',changes,proof);
 assert(p.allowed&&p.changed&&p.technicalChanged,'valid correction preview');
 assert.equal(p.affectedTaskIds.length,1);
