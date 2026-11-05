@@ -1,0 +1,43 @@
+name: PP-53736 Full Machine Acceptance
+
+on:
+  push:
+    branches:
+      - work/pp53736-full-machine-acceptance
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'machines/izoteh-pp53736-arrangement.js'
+      - 'components/**'
+      - 'routes/**'
+      - 'export/**'
+      - 'project/sources/pp53736/**'
+      - 'test/test_release_1_0_33_68_pp53736_full_machine_acceptance.js'
+      - '.github/workflows/pp53736-full-machine-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: PP-53736 full-machine acceptance
+        run: node test/test_release_1_0_33_68_pp53736_full_machine_acceptance.js
+
+      - name: Full regression
+        run: bash test/run_all.sh
