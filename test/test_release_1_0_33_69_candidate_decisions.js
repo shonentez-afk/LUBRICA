@@ -100,6 +100,24 @@ assert.equal(db.components[0].candidateState,'candidate','candidate restored aft
 assert.equal(db.components[0].engineeringDecisionHistory.length,2);
 assert(db.lubricationPoints.some(x=>x.id==='LP-000099'),'preexisting unrelated point protected');
 
+// Pre-existing node with the same component origin must not be deleted by undo.
+const reused=fixture();
+reused.nodes=[{id:'NODE-000055',equipmentId:'EQ1',candidateOriginKey:'component:COMP1:node',name:'Существующий узел'}];
+const pre=E.prepareCreate(reused,'COMP1',check);
+const rpoint=F.applyConfirmedSpecs(reused,'component',reused.components[0],reused.equipment[0],null,[item]);
+E.recordCreated(reused,'COMP1',pre,rpoint.createdPointIds);
+assert.equal(reused.components[0].engineeringDecision.createdNodeIds.length,0,'reused node must not be marked as new');
+E.undo(reused,'COMP1');
+assert.equal(reused.nodes.length,1,'undo must preserve preexisting shared node');
+assert.equal(reused.nodes[0].id,'NODE-000055');
+// A real imported record may change after a partial re-import.
+const changed=fixture();
+E.commit(changed,'COMP2','clarify',{reason:'Требуется проверить канал подачи смазки'});
+changed.components[1].name='Цепь 12B-2 (обновлённый импорт)';
+assert(!E.previewUndo(changed,'COMP2').errors.length,'non-point decision can be rolled back after import rename');
+assert(Q.audit(changed).issues.some(x=>x.code==='ENGINEERING_DECISION_SOURCE_CHANGED'&&x.entityId==='COMP2'),'QA must surface source drift');
+E.undo(changed,'COMP2');
+assert(!changed.components[1].engineeringDecision&&changed.components[1].name.includes('обновлённый импорт'),'undo preserves imported source update');
 const ui=fs.readFileSync(path.join(root,'qa/qa-ui.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 assert(html.includes('./qa/engineering-decisions.js')&&html.indexOf('./qa/engineering-decisions.js')<html.indexOf('./qa/qa-ui.js'),'decision engine loaded before UI');
