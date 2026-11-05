@@ -48,3 +48,5 @@
 ## Текущий функциональный план
 
 - [PLANT_POINT_COMPLETION_PLAN_RU.md](PLANT_POINT_COMPLETION_PLAN_RU.md) — реализация 1.0.33.69, Issues #11–#14, инженерные acceptance gates и отказ от виртуальных точек.
+
+- [EQUIPMENT_CONSTRUCTOR_GAP_AUDIT_20261105_RU.md](EQUIPMENT_CONSTRUCTOR_GAP_AUDIT_20261105_RU.md) — Stage 5, фактическая инвентаризация 1188 equipment, имеющиеся и отсутствующие конструкторы, внедрение без виртуальных точек.
