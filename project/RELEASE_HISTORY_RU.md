@@ -1,5 +1,15 @@
 # История релизов LUBRICA
 
+## 1.0.33.69 RC — Plant Point Safety & Candidate Review Queue (Stage 1)
+
+- инженерные read-only проверки условно обслуживаемых SKF sealed spherical и master-data материалов;
+- очередь component candidates по реальному оборудованию, без виртуальных точек;
+- targeted test и full regression;
+- Issues #11–#14 продолжаются, пользовательский JSON не изменяется;
+- `releases/RELEASE_1_0_33_69_PLANT_POINT_STAGE1.md`;
+- `acceptance/LUBRICA_1_0_33_69_PLANT_POINT_STAGE1_ACCEPTANCE.md`.
+
+
 ## 1.0.33.68 RC
 
 - PP-53736 full-machine acceptance на реальной production DB;
