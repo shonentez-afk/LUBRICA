@@ -371,4 +371,52 @@ assert.equal(ktrDb.lubricationPoints.length,0,'preview cannot add phantom grease
 assert.equal(ktrDb.tasks.length,0,'preview cannot add maintenance tasks');
 assert.equal(JSON.stringify(ktrDb),ktrBefore,'evidence preview cannot mutate a plant database');
 
+
+// Plant JSON audit of 2026-11-05: 10110511 and 10210511 actually contain
+// a screw mechanical component, though older classifier showed "shafts: 0".
+// It is context only, not a bearing or autonomous lubrication point.
+for(const [line,external,eqid,parts] of [
+ ['1','10110511','EQ-000767',['COMP-0002854','COMP-0002855','COMP-0002856']],
+ ['2','10210511','EQ-000819',['COMP-0003226','COMP-0003227','COMP-0003228']]
+]){
+ const eq=equipment(eqid,'Конвейер шнековый');
+ eq.externalCode=external;eq.lineId='L'+line;
+ const screw=component(parts[0],eq.id,'Шнек L=5390 мм d=350 мм A-G3247147 06');
+ screw.candidateState='unclassified';
+ const motor=component(parts[1],eq.id,'Электродвигатель M2AA 90L4 B5',null,'motor');
+ const gearbox=component(parts[2],eq.id,'Редуктор C513/P 1:93,0 B3 PAM 90',null,'gearbox');
+ const site={equipment:[eq],components:[screw,motor,gearbox],lubricationPoints:[],tasks:[],
+  nodes:[],routes:[],routePlanItems:[],checklistRuns:[]};
+ const sourceSnapshot=JSON.stringify(site);
+ const type=C.classifyEquipment(site,eq);
+ assert.equal(type.maintenanceEquipmentSubtype,'screw',external+' screw subtype');
+ const ev=type.maintenanceTemplate.evidence;
+ assert.equal(ev.count,0,external+' no imported grease-point TMCs');
+ assert.equal(ev.assets.length,2,external+' one ABB motor plus one BONFIGLIOLI gearbox');
+ assert.equal(ev.context.length,1,external+' imported screw shaft must appear in structure');
+ assert.equal(ev.context[0].id,parts[0],external+' exact screw TMC identity');
+ assert.equal(ev.supportLayout,null,external+' never infer two shafts or four bearings');
+ assert.equal(ev.byCategory.bearing||0,0,external+' bearing points are not confirmed');
+ const composed=Arr.composeEvidence(type.maintenanceTemplate);
+ assert.equal(composed.subtype,'screw');
+ assert.equal(composed.sections.find(x=>x.role==='shafts').count,1,
+   external+' "Шнек и вращающийся вал" must show actual imported screw');
+ assert.equal(composed.sections.find(x=>x.role==='bearings').count,0);
+ assert.equal(composed.sections.find(x=>x.role==='drives').count,2);
+ assert.equal(composed.createsPoints,false);
+ const suggested=F.specsFor(type,'equipment');
+ assert.equal(suggested.length,1,external+' only gearbox OEM-review candidate');
+ assert.equal(suggested[0].category,'gearbox_oil',external+' gearbox category proposed, not confirmed');
+ assert.equal(suggested[0].sourceRef.id,parts[2],external+' reducer sourceRef');
+ assert.equal(suggested[0].selected,false,external+' gearbox point requires engineer confirmation');
+ assert.equal(suggested[0].requiresOemVerification,true,external+' OEM lubrication policy pending');
+ assert.equal(suggested[0].position,'',external+' physical location not auto-filled as generic drive');
+ assert.equal(suggested[0].activities.length,0,external+' do not preselect level check or oil change');
+ assert(!suggested.some(x=>x.sourceRef?.id===parts[0]),external+' screw cannot be a grease point');
+ assert(!suggested.some(x=>x.sourceRef?.id===parts[1]),external+' motor has separate bearing policy');
+ assert.equal(site.lubricationPoints.length,0);
+ assert.equal(site.tasks.length,0);
+ assert.equal(JSON.stringify(site),sourceSnapshot,external+' read-only audit must not mutate DB');
+}
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
