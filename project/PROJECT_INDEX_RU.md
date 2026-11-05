@@ -43,3 +43,8 @@
 - `OEM_SOURCE_INDEX_RU.md`;
 - `TEST_MATRIX_RU.md`;
 - `RELEASE_HISTORY_RU.md`.
+
+
+## Текущий функциональный план
+
+- [PLANT_POINT_COMPLETION_PLAN_RU.md](PLANT_POINT_COMPLETION_PLAN_RU.md) — реализация 1.0.33.69, Issues #11–#14, инженерные acceptance gates и отказ от виртуальных точек.
