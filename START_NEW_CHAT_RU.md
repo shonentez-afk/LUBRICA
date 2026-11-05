@@ -22,7 +22,7 @@
 
 ## 2. Текущая база
 
-Текущий release candidate: **LUBRICA 1.0.33.68 — PP-53736 Full Machine Acceptance & Runtime-Hour Planning**. Базовый production predecessor: 1.0.33.67.
+Текущий release candidate: **LUBRICA 1.0.33.69 — Plant Point Safety & Review Queue (Stage 1)**. Принятый predecessor: 1.0.33.68. Полный рабочий план — `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
 
 После проектной памяти прочитай последние release note и regression/engineering acceptance, относящиеся к задаче.
 
