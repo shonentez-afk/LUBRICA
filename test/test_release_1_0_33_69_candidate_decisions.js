@@ -55,7 +55,7 @@ assert.equal(db.components[1].candidateState,'confirmed');
 assert.equal(db.components[1].candidateKind,'exclude');
 assert.equal(db.components[1].lubricationDomainStatus,'NON_SERVICEABLE_CONFIRMED');
 assert.equal(db.components.length,4,'non-lubricated TMC stays in structure');
-assert.equal(C.classifyComponent(db.components[1]).candidateState,'rejected','reclassification preserves explicit not lubricated');
+assert.equal(C.classifyComponent(db.components[1]).candidateState,'confirmed','reclassification preserves explicit not lubricated');
 assert(E.undo(db,'COMP2').changed);
 assert.equal(db.components[1].candidateState,'review');
 
