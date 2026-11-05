@@ -9,6 +9,7 @@ echo '[PLANT POINT COMPLETION 1.0.33.69]'; node test/test_release_1_0_33_69_plan
 echo '[PLANT POINT DECISIONS STAGE 2]'; node test/test_release_1_0_33_69_candidate_decisions.js
 echo '[TASK READINESS AND SAFE ANALOG STAGE 3]'; node test/test_release_1_0_33_71_task_readiness_safe_analog.js
 echo '[MATERIAL PASSPORT GUARD STAGE 4]'; node test/test_release_1_0_33_72_material_passport_guard.js
+echo '[MATERIAL EDITOR OFFLINE SMOKE STAGE 4]'; node test/test_release_1_0_33_72_material_ui_smoke.js
 echo '[3/99] Database modules'; node test/test_database_modules.js
 echo '[4/99] Safe database/recovery'; node test/test_safe_database.js
 echo '[5/99] Classifier unit'; node test/test_classifier.js
