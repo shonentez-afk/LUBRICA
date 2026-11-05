@@ -57,7 +57,7 @@
 
 | Объект | Статус | Что уже есть | Что осталось |
 |---|---|---|---|
-| Generic conveyor | READY/PARTIAL | arrangement engine, 4 supports, manual parity | field-specific extensions |
+| Generic conveyor | PARTIAL | `belt` и `chain_scraper` на двухвальном четырёхопорном engine; manual parity | Не применяется автоматически к роликовым, ламельным, шнековым, поворотным и комбинированным |
 | Chain scraper conveyor | READY/PARTIAL | dedicated constructor | expand from real equipment |
 | Fan arrangements | READY/PARTIAL | no virtual supports, OEM-specific rules | add new manufacturers modularly |
 | Izoteh PP-53736 | READY | full machine profile; full-machine acceptance PASS; 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points; routes/runtime planning/export verified; 5000/500 h resolved; all SEW M1–M6 handled by configuration workflow | расширять только при изменении реальной машины/документации |
@@ -83,3 +83,8 @@
 | Мотор-редукторы / мотор-барабаны | **PARTIAL** — элементные шаблоны | Drive-unit Composition с OEM-подтверждением |
 
 Не расширять `Fan`, `PP53736`, `Conveyor` или OEM через перенос не подтверждённой физической схемы. Сначала `Stage 5A` — read-only gap control; затем приоритетные конструкторы по оборудованию реальных линий.
+
+
+### Проверка фактического парка конвейеров — 2026-11-05
+
+[CONVEYOR_CONSTRUCTORS_GAP_AUDIT_20261105_RU.md](CONVEYOR_CONSTRUCTORS_GAP_AUDIT_20261105_RU.md): в production JSON 293 оборудования с типом `conveyor`, из них 226 отдельных конвейерных наименований, 35 групповых позиций и 32 связанных подсистем. 94 прямо попадают под старые правила (`belt` 87, `chain_scraper` 7), в числе них 1 гибрид, ошибочно распознанный как belt. Приоритетные пробелы: роликовые (54), угловые/поворотные (21), цепные (12), ламельные (6), шнековые (4); ременные из существующих 107 ленточных/ременных требуют расширения. Числа — по названиям, не по подтверждённой физической схеме/точкам.
