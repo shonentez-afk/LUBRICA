@@ -395,7 +395,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       <div class="candidate-actions-field" data-activity-box="${i}"><span class="candidate-field-title">Мероприятия</span>${activityChecks(s.category,s.activities,i)}</div>
     </div>`).join(''):`<div class="wizard-note"><b>${equipmentType==='motor'?'Плановые точки досмазывания не создаются автоматически.':'Фактические подшипниковые опоры не найдены.'}</b><span>${equipmentType==='motor'?(global.LubricaMotorOEM?.resolve?.(record.name||'')?.policy==='NO_ROUTINE_RELUBE'?'OEM-профиль двигателя указывает закрытую / greased-for-life конструкцию. Двигатель остаётся в структуре, но ложное мероприятие «Досмазывание» в карту не добавляется.':'Сначала подтвердите фактическую обслуживаемость DE/NDE и наличие точек подачи. LUBRICA не придумывает внутренние подшипники по одному названию двигателя.'):'LUBRICA не создаёт условные «левую/правую» опоры автоматически. Сначала добавьте или подтвердите реальные подшипники/опоры в структуре, либо создайте точку вручную из «Карты смазки». '}</span></div>`}</div>
     ${specs.length?`<div class="wizard-note"><b>Мероприятия выбираются из справочника категории.</b><span>Для нестандартной операции отметьте «Другое» и задайте название. Все созданные мероприятия получают статус «Требует проверки».</span></div>`:''}
-    <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Подтвердить и создать</button>':''}</menu>
+    <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Подтвердить и создать</button>':(source==='equipment'&&template?.id==='conveyor_arrangement'?'<button type="button" class="btn primary" data-save>Сохранить тип без точек</button>':'')}</menu>
   </form>`;
   const form=dlg.querySelector('form');
   if(template?.id==='conveyor_arrangement'&&form.elements.conveyorSubtypeChoice){
@@ -502,6 +502,34 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         activities
       });
     }
+    if(source==='equipment'&&template?.id==='conveyor_arrangement'&&!specs.length){
+      // Engineer can persist the physical family classification without inventing points.
+      // No task/route/fact is touched, and the machine remains in review.
+      if((database.lubricationPoints||[]).some(p=>p.equipmentId===equipment.id)){
+        global.LubricaApp?.showToast('Сначала проверьте существующие физические точки этой машины.','warn');
+        return;
+      }
+      const targetDatabase=Core.DatabaseSchema.clone(database);
+      const target=sourceRecord(targetDatabase,source,id);
+      target.confirmedConveyorSubtype=template.conveyorSubtype||'unknown';
+      target.maintenanceEquipmentSubtype=target.confirmedConveyorSubtype;
+      target.maintenanceEquipmentType='conveyor';
+      target.maintenanceTemplate={...template};
+      target.maintenanceCandidateState='review';
+      target.conveyorArrangement={...(target.conveyorArrangement||{}),version:'1.0.33.72',
+        subtype:target.confirmedConveyorSubtype,layout:null,createdPointIds:[],source:'engineer_confirmed_subtype_no_points',
+        confirmedAt:new Date().toISOString()};
+      if(target.origin==='manual'&&target.manualConveyorSetup){
+        target.manualConveyorSetup={...target.manualConveyorSetup,
+          conveyorSubtype:target.confirmedConveyorSubtype,
+          layout:['belt','chain_scraper'].includes(target.confirmedConveyorSubtype)?target.manualConveyorSetup.layout:'ACTUAL_COMPONENTS_ONLY'};
+      }
+      Core.State.setDatabase(Core.Database.normalize(targetDatabase));
+      global.LubricaApp?.refreshFromCore?.();global.LubricaApp?.renderAll?.();global.LubricaStructure?.render?.();
+      global.LubricaApp?.showToast?.('Тип конвейера сохранён без создания точек. Добавьте фактические ТМЦ и снова откройте конструктор.');
+      dlg.classList.remove('candidate-finalize-dialog');dlg.close();
+      return;
+    }
     if(!chosen.length){
       global.LubricaApp?.showToast('Выберите хотя бы одну точку смазки','warn');
       return;
@@ -548,7 +576,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     const targetDatabase=(decisionContext||transactionalConveyor)?Core.DatabaseSchema.clone(database):database;
     const targetRecord=(decisionContext||transactionalConveyor)?sourceRecord(targetDatabase,source,id):record;
     const targetEquipment=(decisionContext||transactionalConveyor)?sourceEquipment(targetDatabase,source,targetRecord):equipment;
-    if(transactionalConveyor){targetRecord.maintenanceEquipmentType='conveyor';targetRecord.maintenanceEquipmentSubtype=previewRecord.maintenanceEquipmentSubtype;targetRecord.maintenanceTemplate={...template};}
+    if(transactionalConveyor){targetRecord.maintenanceEquipmentType='conveyor';targetRecord.maintenanceEquipmentSubtype=previewRecord.maintenanceEquipmentSubtype;targetRecord.confirmedConveyorSubtype=template.conveyorSubtype||previewRecord.maintenanceEquipmentSubtype||'unknown';targetRecord.maintenanceTemplate={...template};if(targetRecord.origin==='manual'&&targetRecord.manualConveyorSetup)targetRecord.manualConveyorSetup={...targetRecord.manualConveyorSetup,conveyorSubtype:targetRecord.confirmedConveyorSubtype};}
     const applied=applyConfirmedSpecs(targetDatabase,source,targetRecord,targetEquipment,template,chosen);
     if(decisionContext){
       global.LubricaEngineeringDecisions.recordCreated(targetDatabase,id,decisionContext,applied.createdPointIds);
