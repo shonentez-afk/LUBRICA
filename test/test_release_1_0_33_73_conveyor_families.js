@@ -44,6 +44,7 @@ assert.equal(C.classifyEquipmentText('Мотор-редуктор привода
  'a separate motor reducer remains its own asset');
 
 assert.equal(C.conveyorIdentity('Система смазки цепей конвейера ламельного','conveyor').role,'ancillary');
+assert.equal(C.conveyorIdentity('Система фильтрации','conveyor').role,'ancillary','type-tagged ancillary without conveyor token');
 assert.equal(C.classifyEquipmentText('Система смазки цепей конвейера ламельного','conveyor').template,null);
 function equipment(id,name,parent=null){return{id,name,equipmentType:'conveyor',parentEquipmentId:parent,lineId:'L1',areaId:'A1',status:'active'}}
 function component(id,equipmentId,name,category=null,type=null){return {id,equipmentId,name,status:'active',candidateCategory:category,candidateEquipmentType:type,
