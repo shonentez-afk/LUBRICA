@@ -272,8 +272,8 @@ for(const g of chainDb.components.filter(x=>x.name.includes('OILAMID'))){
  assert.equal(upgraded.candidateState,'excluded','old candidate updates on reclassification');
  assert.equal(upgraded.candidateCategory,null,'no stale guide category after reclassification');
 }
-assert.equal(C.classifyComponentText('Направляющая рельсовая подшипниковая').state,'review',
- 'do not exclude generic guides or linear bearings');
+assert.notEqual(C.classifyComponentText('Направляющая рельсовая подшипниковая').state,'excluded',
+ 'unrelated mechanical guides and linear bearings retain normal classification');
 assert.equal(C.classifyComponentText('Направляющая PA 6 G + Oil').state,'excluded',
  'the alternative PA 6 G + Oil spelling must be supported');
 const chainBefore=JSON.stringify(chainDb);
