@@ -1,5 +1,17 @@
 # История релизов LUBRICA
 
+## 1.0.33.71 RC — Task Readiness & Safe Physical Analog (Stage 3)
+
+- 7-шаговая read-only готовность каждого мероприятия с переходом к следующему действию;
+- компактная очередь во вкладке «Контроль»;
+- экспертное обоснование без навязанных OEM-данных;
+- перенос по аналогу только при подтверждённой фактической схеме, без изменения approved/OEM/fact;
+- нормы и интервалы из аналога записываются только как предложения;
+- отдельные targeted и full regression;
+- `releases/RELEASE_1_0_33_71_TASK_READINESS_SAFE_ANALOG.md`;
+- `acceptance/LUBRICA_1_0_33_71_REGRESSION_ACCEPTANCE.txt`.
+
+
 ## 1.0.33.70 RC — Engineer Candidate Decisions (Stage 2)
 
 - четыре инженерных решения по импортированным ТМЦ во вкладке «Контроль»;
