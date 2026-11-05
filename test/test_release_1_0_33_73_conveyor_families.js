@@ -38,6 +38,11 @@ for(const [externalCode,name,subtype] of cases){
  assert.equal(identity.twoShaft,['belt','chain_scraper'].includes(subtype),externalCode+' layout policy');
 }
 assert.equal(C.conveyorIdentity('Конвейеры роликовые','conveyor').role,'group');
+assert.equal(C.classifyEquipmentText('Конвейер с мотор-редуктором R37','conveyor').equipmentType,'conveyor',
+ 'named conveyor must not be misclassified as reducer/motor');
+assert.equal(C.classifyEquipmentText('Мотор-редуктор привода конвейера','motor_gearbox').equipmentType,'motor_gearbox',
+ 'a separate motor reducer remains its own asset');
+
 assert.equal(C.conveyorIdentity('Система смазки цепей конвейера ламельного','conveyor').role,'ancillary');
 assert.equal(C.classifyEquipmentText('Система смазки цепей конвейера ламельного','conveyor').template,null);
 function equipment(id,name,parent=null){return{id,name,equipmentType:'conveyor',parentEquipmentId:parent,lineId:'L1',areaId:'A1',status:'active'}}
@@ -61,6 +66,13 @@ const ev=C.conveyorEvidence(db,lamella);
 assert.equal(ev.conveyorSubtype,'lamella');
 assert.equal(ev.descendantEquipmentCount,1,'oil-system child is included');
 assert.equal(ev.byCategory.chain,1,'lubricated chain from nested ancillary system is visible');
+const rejected=component('REJ','OIL','Подшипник 6210','bearing');
+rejected.candidateState='rejected';db.components.push(rejected);
+const rejectedEvidence=C.conveyorEvidence(db,lamella);
+assert.equal(rejectedEvidence.byCategory.bearing||0,0,'rejected stale bearing category cannot create a candidate');
+assert(rejectedEvidence.excluded.some(c=>c.id==='REJ'),'rejected bearing must be shown as excluded context');
+db.components.pop();
+
 assert.equal(ev.byCategory.bearing||0,0,'neighbor independent roller cannot leak into lamella');
 assert.equal(ev.supportLayout,null,'lamella must not infer a four support layout');
 const rEv=C.conveyorEvidence(db,roller);
