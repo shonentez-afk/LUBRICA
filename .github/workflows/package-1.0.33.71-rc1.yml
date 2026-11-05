@@ -1,3 +1,4 @@
+# Stage 3 release candidate for manual Windows Edge acceptance
 # Review build for in-app physical candidate decisions. No user data is bundled.
 name: Package LUBRICA 1.0.33.71 RC1
 
