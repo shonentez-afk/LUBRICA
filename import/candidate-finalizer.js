@@ -195,16 +195,17 @@ function specsFor(record,source){
       }
     }else{
       for(const a of actual.filter(x=>x.category==='bearing'||x.category==='linear_bearing')){
-        specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'bearing','',['Досмазывание'],true,{actual:true,conveyorEvidence:true,sourceRef:a}));
+        specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'bearing','',['Досмазывание'],true,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
       }
     }
     for(const a of actual.filter(x=>!['bearing','linear_bearing'].includes(x.category))){
-      const autoSelected=['chain'].includes(a.category); // coupling/bushing/etc. are optional by default
-      specs.push(spec(`conveyor_${a.source}_${a.id}`,a.category==='chain'?'Цепной привод':a.name,a.category||'other',a.category==='chain'?'Цепной привод':'',null,autoSelected,{actual:true,conveyorEvidence:true,serviceLocationName:a.category==='chain'?'Цепной привод':null,sourceRef:a}));
+      const autoSelected=['chain'].includes(a.category); // still requires physical-location confirmation
+      specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'other',layout&&a.category==='chain'?'Цепной привод':'',null,autoSelected,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
     }
     for(const a of assets.filter(x=>['gearbox','motor_gearbox'].includes(x.equipmentType))){
       const location=a.equipmentType==='gearbox'?'Редуктор':'Мотор-редуктор';
-      specs.push(spec(`conveyor_asset_${a.source}_${a.id}`,location,'gearbox_oil','Привод',['Проверка уровня','Замена масла'],true,{actual:true,conveyorEvidence:true,conveyorAsset:true,serviceLocationName:location,sourceRef:a}));
+      if(!layout&&a.source==='equipment')continue; // Child gearbox has its own maintenance record.
+       specs.push(spec(`conveyor_asset_${a.source}_${a.id}`,location,'gearbox_oil','Привод',['Проверка уровня','Замена масла'],!!layout,{actual:true,conveyorEvidence:true,conveyorAsset:true,serviceLocationName:location,sourceRef:a}));
     }
     return specs;
   }
@@ -295,8 +296,8 @@ function conveyorEvidencePanel(template){
   const ev=template.evidence||{},actual=ev.actual||[],assets=ev.assets||[],context=ev.context||[],excluded=ev.excluded||[],layout=ev.supportLayout||null;
   const card=(cls,title,items,empty)=>`<section class="conveyor-evidence-card ${cls}"><header><b>${esc(title)}</b><span>${items.length}</span></header>${items.length?`<div>${items.slice(0,12).map(x=>`<p><strong>${esc(cleanTmcName(x.name))}</strong>${x.label?`<small>${esc(x.label)}</small>`:''}</p>`).join('')}${items.length>12?`<p class="conveyor-evidence-more">Ещё ${items.length-12}</p>`:''}</div>`:`<p class="conveyor-evidence-empty">${esc(empty)}</p>`}</section>`;
   const physical=layout?.supports?.length===4?layout.supports.map(x=>({name:x.position,label:layout.bearingReference?.name||'Подшипник требует уточнения'})):[];
-  const headline=physical.length===4?'Подтверждённая схема: 2 вала × 2 опоры = 4 подшипниковые точки':'Создаём точки по фактической конструкции и подтверждённым ТМЦ';
-  const note=physical.length===4?'Приводной и натяжной/ведомый валы имеют левую и правую подшипниковую опору. Импортированный подшипник используется как исходное обозначение для четырёх физических позиций; при отличии конкретной опоры обозначение можно изменить до утверждения расчёта.':'Без подтверждённой схемы LUBRICA не создаёт виртуальные опоры.';
+  const headline=physical.length===4?'Два вала: назначьте реальные подшипники на четыре опорных места':'Составной конвейер: только реальные ТМЦ и физические места обслуживания';
+  const note=physical.length===4?'Назначьте установленный подшипниковый ТМЦ на каждую опору. Точки не создаются до подтверждения.':'Для роликового, ламельного, цепного, шнекового, поворотного и комбинированного конвейера используйте реальные ТМЦ. Схема 2 вала × 2 опоры не предполагается. Укажите точное место каждой операции.';
   return `<div class="conveyor-arrangement-intro"><div><span class="eyebrow">ФАКТИЧЕСКАЯ КОНСТРУКЦИЯ</span><b>${esc(headline)}</b><p>${esc(note)}</p></div><div class="conveyor-evidence-grid">${physical.length?card('service','Физические подшипниковые опоры',physical,''):card('service','Точки-кандидаты',actual,'Подшипники, цепи и другие обслуживаемые ТМЦ не найдены.')}${card('assets','Отдельные агрегаты',assets,'Отдельные двигатель/редуктор не найдены.')}${card('context','Контекст конструкции',context,'Контекстные валы/барабаны не найдены.')}${card('excluded','Исключено',excluded,'Пассивных элементов не найдено.')}</div></div>`;
 }
 function open(source,id,decisionContext=null){
