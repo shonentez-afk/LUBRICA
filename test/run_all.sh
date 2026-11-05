@@ -107,4 +107,5 @@ echo '[96/99] Structure detail static contract'; python3 test/test_release_1_0_1
 echo '[97/99] Release 1.0.2 branding'; python3 test/test_release_1_0_2_branding.py
 echo '[98/99] Release 1.0.4 integrated header brand'; python3 test/test_release_1_0_4_integrated_header_brand.py
 echo '[99/99] Release 1.0.5 internal guide actual screenshots'; python3 test/test_release_1_0_5_internal_guide.py
+echo '[CONVEYOR FAMILIES STAGE 5B]'; node test/test_release_1_0_33_73_conveyor_families.js
 echo 'ALL INTEGRATION TESTS PASS'
