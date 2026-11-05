@@ -1,0 +1,133 @@
+name: LUBRICA Stage 4 Preview ZIP
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'materials/**'
+      - 'index.html'
+      - 'test/test_release_1_0_33_72_material_passport_guard.js'
+      - 'test/test_release_1_0_33_72_material_ui_smoke.js'
+      - '.github/workflows/stage4-preview-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lubrica-stage4-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch under test
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate current runtime and Stage 4 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 test/preflight.py
+          node test/test_release_1_0_33_72_material_passport_guard.js
+          node test/test_release_1_0_33_72_material_ui_smoke.js
+          node test/test_release_1_0_33_69_candidate_decisions.js
+          node test/test_release_1_0_33_71_task_readiness_safe_analog.js
+
+      - name: Assemble offline preview without test or user data
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/LUBRICA_STAGE4_PREVIEW_PR20"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          rsync -a ./ "$STAGE/" \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            --exclude 'test/' \
+            --exclude 'tests/' \
+            --exclude 'project/' \
+            --exclude 'acceptance/' \
+            --exclude 'releases/' \
+            --exclude 'README.md' \
+            --exclude 'START_NEW_CHAT_RU.md'
+          find "$STAGE" -maxdepth 1 -type f \( \
+            -name 'RELEASE_*.md' -o \
+            -name 'LUBRICA_*.md' -o \
+            -name 'LUBRICA_*.txt' -o \
+            -name 'LUBRICA_*.json' -o \
+            -name 'LUBRICA_*.csv' \
+          \) -delete
+          cat > "$STAGE/ПРОВЕРКА_STAGE4.txt" <<'EOF'
+          LUBRICA Stage 4 — предварительная сборка для ручной проверки.
+          Это НЕ принятый релиз. manifest.json сохраняет версию базового RC 1.0.33.71.
+          Пользовательской производственной JSON-базы в архиве нет.
+
+          1. Распакуйте архив в новую отдельную папку.
+          2. Откройте index.html в Microsoft Edge через file://.
+          3. Загрузите КОПИЮ производственной JSON-базы.
+          4. Материалы -> Mobilgear 600 XP 220 -> Открыть.
+          5. Сверьте плотность, ISO VG, вязкость и ссылку на действующую TDS.
+          6. Измените параметры -> Сохранить -> проверьте предпросмотр.
+          7. Введите основание и подтвердите. Убедитесь, что JSON-backup скачан.
+          8. Сохраните копию рабочей JSON, перезагрузите страницу и проверьте recovery.
+          9. Убедитесь в сохранении engineeringCorrectionHistory и отсутствии изменения
+             утверждений, норм, маршрутов, задач и факта.
+          10. В разделе Контроль проверьте оставшиеся предупреждения SKF.
+
+          Не заменяйте рабочий оригинал базы файлом из теста без отдельной приёмки.
+          EOF
+
+      - name: Verify every offline script and required runtime asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/LUBRICA_STAGE4_PREVIEW_PR20" <<'PY'
+          import pathlib,re,sys,json
+          root=pathlib.Path(sys.argv[1])
+          required=['index.html','manifest.json','materials/library-ui.js',
+            'materials/material-correction.js','qa/qa-engine.js',
+            'qa/engineering-decisions.js','qa/task-readiness.js',
+            'assets/app.css','assets/icons/lubrica-shortcut.ico','ui/user-guide.js']
+          for name in required:
+              assert (root/name).is_file(), f'Runtime file missing: {name}'
+          assert not (root/'project').exists() and not (root/'test').exists()
+          html=(root/'index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script[^>]*\bsrc=["\x27]([^"\x27]+)',html,re.I)
+          style=re.findall(r'<link[^>]*\bhref=["\x27]([^"\x27]+)',html,re.I)
+          for src in scripts+style:
+              if src.startswith(('https:','http:','data:','#')): continue
+              assert (root/src.removeprefix('./').split('?')[0]).is_file(), f'Broken offline dependency: {src}'
+          assert scripts.index('./materials/material-correction.js') < scripts.index('./materials/library-ui.js')
+          m=json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert m['appVersion']=='1.0.33.71'
+          print('Stage 4 offline preview verified; JS scripts:',len(scripts))
+          PY
+
+      - name: Build and validate ZIP and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_STAGE4_PREVIEW_PR20.zip" LUBRICA_STAGE4_PREVIEW_PR20
+          cd "$GITHUB_WORKSPACE"
+          unzip -tq LUBRICA_STAGE4_PREVIEW_PR20.zip | tail -n 2
+          sha256sum LUBRICA_STAGE4_PREVIEW_PR20.zip > LUBRICA_STAGE4_PREVIEW_PR20.zip.sha256
+          sha256sum -c LUBRICA_STAGE4_PREVIEW_PR20.zip.sha256
+
+      - name: Upload ZIP for manual Edge acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_STAGE4_PREVIEW_PR20
+          path: |
+            LUBRICA_STAGE4_PREVIEW_PR20.zip
+            LUBRICA_STAGE4_PREVIEW_PR20.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
