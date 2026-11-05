@@ -51,6 +51,10 @@ function history(c,entry){
  c.engineeringDecisionHistory=[...arr(c.engineeringDecisionHistory),entry].slice(-100);
 }
 function commit(db,id,action,params={}){
+ const existing=get(db,id)?.engineeringDecision;
+ if(existing?.action===action&&existing.reason===clean(params.reason)&&
+   existing.sourceReference===clean(params.sourceReference)&&sameIdentity(get(db,id),existing.identity))
+   return{changed:false,action,componentId:String(id)};
  const p=preview(db,id,action,params);if(!p.allowed)throw new Error(p.errors.join(' '));
  if(action==='point')throw new Error('Создание точки выполняется только через существующий мастер LubricaCandidateFinalizer.');
  const c=get(db,id),previous=capture(c),at=new Date().toISOString();
@@ -136,6 +140,7 @@ function previewUndo(db,id){
   componentId:String(id),pointIds,taskIds,reason:d.reason};
 }
 function undo(db,id){
+ if(!get(db,id)?.engineeringDecision)return{changed:false,componentId:String(id)};
  const p=previewUndo(db,id);if(!p.allowed)throw new Error(p.errors.join(' '));
  const c=get(db,id),d=c.engineeringDecision;
  if(d.action==='point'){
