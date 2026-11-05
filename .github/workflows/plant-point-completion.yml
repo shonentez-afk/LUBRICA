@@ -1,8 +1,6 @@
 name: Plant Point Completion P0/P1
 
 on:
-  push:
-    branches: [work/plant-point-completion-1-0-33-69]
   pull_request:
     branches: [main]
     paths:
@@ -11,6 +9,10 @@ on:
       - 'test/run_all.sh'
       - '.github/workflows/plant-point-completion.yml'
   workflow_dispatch:
+
+concurrency:
+  group: plant-point-completion-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
