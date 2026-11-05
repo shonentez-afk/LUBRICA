@@ -45,6 +45,7 @@ jobs:
           node --check structure/entity-dialogs.js
       - name: Stage 5B subtype and physical-evidence acceptance
         run: node test/test_release_1_0_33_73_conveyor_families.js
+          node test/test_release_1_0_33_74_conveyor_header.js
       - name: Historical conveyor targeted acceptance
         run: |
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
