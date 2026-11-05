@@ -1,6 +1,6 @@
 # LUBRICA 1.0.33.69 — Plant Lubrication Point Completion
 
-**Статус:** Stage 1 (read-only QA + очередь) слит в `main` через PR #15; Stage 2 (engineer decisions) реализован в PR #16 / 1.0.33.70 RC и ожидает финальной CI и ручной приёмки. Issues #11–#14 остаются открытыми. Production predecessor: **1.0.33.68**. Основной продукт: автономный desktop / Edge / `file://`.
+**Статус:** Stage 1 (read-only QA + очередь) слит в `main` через PR #15; Stage 2 (engineer decisions) слит в `main` через PR #16 / 1.0.33.70 RC, targeted и полный regression PASS. Ручная Edge `file://` приёмка на пользовательской базе ещё необходима. Issues #11–#14 остаются открытыми. Production predecessor: **1.0.33.68**. Основной продукт: автономный desktop / Edge / `file://`.
 
 ## Цель
 
