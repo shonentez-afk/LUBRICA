@@ -66,12 +66,18 @@ function candidateQueue(database=db()){
   if(!groups.has(groupId))groups.set(groupId,{equipmentId:groupId,equipmentName:clean(e.name)||groupId,lineId:String(e.lineId||''),lineName:clean(line?.name)||String(e.lineId||''),areaName:clean(area?.name)||String(e.areaId||''),count:0,priority:0,byCategory:{},items:[]});
   const g=groups.get(groupId);g.count++;g.priority+=REVIEW_PRIORITY[category]||1;g.byCategory[category]=(g.byCategory[category]||0)+1;
   // A component is evidence for a possible service location, not a service point.
-  g.items.push({id:String(part.id),name:clean(part.name),category,state});
+  g.items.push({id:String(part.id),name:clean(part.name),externalCode:clean(part.externalCode),category,state,decision:part.engineeringDecision?.action||'',decisionReason:clean(part.engineeringDecision?.reason)});
   byCategory[category]=(byCategory[category]||0)+1;
  }
  const result=Array.from(groups.values()).sort((a,b)=>b.priority-a.priority||b.count-a.count||a.equipmentName.localeCompare(b.equipmentName,'ru'));
  const lineOptions=Array.from(new Map(result.map(g=>[g.lineId,{id:g.lineId,name:g.lineName}])).values()).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
- return {totalCandidates,alreadyLinked,unlinked:result.reduce((n,g)=>n+g.count,0),byCategory,groups:result,lines:lineOptions,categoryLabels:REVIEW_CATEGORY_LABELS};
+ const resolved=arr(d.components).filter(c=>c.engineeringDecision?.action&&equipment.has(clean(c.equipmentId)))
+ .map(c=>{const e=equipment.get(clean(c.equipmentId)),line=lines.get(clean(e.lineId)),decision=c.engineeringDecision;
+   return{componentId:String(c.id),componentName:clean(c.name),externalCode:clean(c.externalCode),equipmentId:String(e.id),
+    equipmentName:clean(e.name),lineId:clean(e.lineId),lineName:clean(line?.name),action:clean(decision.action),
+    reason:clean(decision.reason),sourceReference:clean(decision.sourceReference),confirmedAt:clean(decision.confirmedAt),
+    createdPointIds:arr(decision.createdPointIds).map(String)};}).sort((a,b)=>b.confirmedAt.localeCompare(a.confirmedAt)||a.componentName.localeCompare(b.componentName,'ru'));
+ return {totalCandidates,alreadyLinked,unlinked:result.reduce((n,g)=>n+g.count,0),byCategory,groups:result,lines:lineOptions,categoryLabels:REVIEW_CATEGORY_LABELS,resolved};
 }
 function skfSealedSpherical(p){
  const bearing=p?.bearing||{},calc=bearing.calculation||{},designation=clean(bearing.effectiveDesignation||bearing.actualDesignation||bearing.structuralDesignation).toUpperCase().replace(/\s+/g,'');
