@@ -93,6 +93,7 @@
     if(!srcTasks.length)errors.push('У исходной точки отсутствуют мероприятия.');
     if(!Object.values(fields||{}).some(Boolean))errors.push('Выберите хотя бы один вид данных для переноса.');
     if(ts.some(approved))errors.push('На целевой точке есть утверждённое мероприятие; его нельзя перезаписывать по аналогу.');
+    if(ts.some(t=>String(t.approvalStatus||'').toLowerCase()==='disabled'))errors.push('На целевой точке есть отключённое мероприятие. Сначала отдельно решите его жизненный цикл.');
     const history=protectedByHistory(d,target,ts);
     if(history)errors.push('На целевую точку есть ссылки в '+history+'. Перенос запрещён.');
     const difference=physicalMismatch(target,source);
@@ -118,7 +119,7 @@
       target.targetMaterialId=target.targetMaterialId||source.targetMaterialId||null;
       target.materialRationale=target.materialRationale||'Материал предложен из аналога; требуется инженерное подтверждение';
     }
-    if(target.status!=='review')target.status='review';
+    // Physical point confirmation is independent from task readiness and must not be downgraded.
   }
   function copyTaskPayload(dst,src,fields,sourcePointId,proof){
     if(fields.material){
