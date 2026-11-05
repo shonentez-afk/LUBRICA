@@ -246,4 +246,50 @@ assert.equal(lowerDb.lubricationPoints.length,0,'screen analysis must not create
 assert.equal(lowerDb.tasks.length,0,'screen analysis must not create tasks');
 assert.equal(JSON.stringify(lowerDb),lowerBefore,'screen evidence analysis is read-only');
 
+
+// Field screenshot: chain conveyor #1 / 10109145 is NOT the KTR 10112094.
+// Distinguish installed SKF flange-bearing TMC, chain, drive and three
+// PA 6 G OILAMID guides without assuming that polymer guides need greasing.
+const chainOne=equipment('CHAIN-10109145','Конвейер цепной 1');
+chainOne.externalCode='10109145';
+const chainDb={equipment:[chainOne],components:[],lubricationPoints:[],tasks:[],
+ routes:[],checklistRuns:[],routePlanItems:[],nodes:[]};
+chainDb.components.push(
+ component('CHAIN-TKF',chainOne.id,'Цепь конвейерная TKF, L=23588','chain'),
+ component('CHAIN-FY55',chainOne.id,'FY 55 TF','bearing'),
+ component('CHAIN-GEARMOTOR',chainOne.id,'Мотор-редуктор FH77/G DRE132S4/TF i=58,32 N=4 кВт',null,'motor_gearbox'),
+ component('CHAIN-GUIDE-1',chainOne.id,'Направляющая 35x50x600 PA 6-G OILAMID','guide'),
+ component('CHAIN-GUIDE-2',chainOne.id,'Направляющая 15x50x600 PA 6-G OILAMID','guide'),
+ component('CHAIN-GUIDE-3',chainOne.id,'Направляющая 35x50x1050 PA 6-G OILAMID','guide')
+);
+const chainBefore=JSON.stringify(chainDb);
+const chainTyped=C.classifyEquipment(chainDb,chainOne),chainEv=chainTyped.maintenanceTemplate.evidence;
+assert.equal(chainTyped.maintenanceEquipmentSubtype,'chain','10109145 is chain, not KTR-specific profile');
+assert.equal(chainEv.byCategory.chain,1,'one actual imported chain source');
+assert.equal(chainEv.byCategory.bearing,1,'one actual imported FY 55 TF source');
+assert.equal(chainEv.byCategory.guide,3,'three separate OILAMID guide source rows');
+assert.equal(chainEv.assets.length,1,'one FH77/G gearede motor asset');
+assert.equal(chainEv.context.length,0,'no confirmed shaft records in screenshot');
+assert.equal(chainEv.supportLayout,null,'never invent four bearing supports');
+assert.equal(chainEv.excluded.length,0,'OILAMID not automatically rejected without machine instructions');
+const chainProfile=Arr.composeEvidence(chainTyped.maintenanceTemplate);
+assert.equal(chainProfile.sections.find(x=>x.role==='chains').count,1);
+assert.equal(chainProfile.sections.find(x=>x.role==='bearings').count,1);
+assert.equal(chainProfile.sections.find(x=>x.role==='drives').count,1);
+assert.equal(chainProfile.sections.find(x=>x.role==='other').count,3,
+ 'self-lubricating PA 6 G + Oil stays review, not approved service');
+const chainSpecs=F.specsFor(chainTyped,'equipment');
+assert.equal(chainSpecs.filter(x=>x.category==='bearing').length,1);
+assert.equal(chainSpecs.filter(x=>x.category==='chain').length,1);
+assert.equal(chainSpecs.filter(x=>x.category==='guide').length,3);
+assert.equal(chainSpecs.filter(x=>x.category==='gearbox_oil').length,1);
+assert(chainSpecs.filter(x=>x.category==='guide').every(x=>!x.selected),
+ 'polymer guides must not be auto-selected for lubricant replenishment');
+assert(chainSpecs.filter(x=>x.category==='bearing'||x.category==='chain').every(x=>!x.selected),
+ 'no machine-specific lubricant dose or approval from component names');
+assert.equal(new Set(chainSpecs.map(x=>x.key)).size,chainSpecs.length,'TMC identity is stable and distinct');
+assert.equal(chainDb.lubricationPoints.length,0,'read-only screenshot analysis cannot create points');
+assert.equal(chainDb.tasks.length,0,'read-only screenshot analysis cannot create tasks');
+assert.equal(JSON.stringify(chainDb),chainBefore,'classification must not mutate user database');
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
