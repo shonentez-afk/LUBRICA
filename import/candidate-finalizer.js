@@ -504,6 +504,7 @@ function open(source,id,decisionContext=null){
     dlg.classList.remove('candidate-finalize-dialog');
     dlg.close();
     global.LubricaCandidates?.render?.();
+    if(decisionContext){const qa=document.getElementById('programQaView');if(qa)global.renderProgramQA?.(qa)}
   };
   dlg.showModal();
 }
