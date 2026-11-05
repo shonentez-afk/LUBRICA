@@ -109,4 +109,5 @@ echo '[98/99] Release 1.0.4 integrated header brand'; python3 test/test_release_
 echo '[99/99] Release 1.0.5 internal guide actual screenshots'; python3 test/test_release_1_0_5_internal_guide.py
 echo '[CONVEYOR FAMILIES STAGE 5B]'; node test/test_release_1_0_33_73_conveyor_families.js
 node test/test_release_1_0_33_74_conveyor_header.js
+node test/test_release_1_0_33_75_composite_conveyor_ui.js
 echo 'ALL INTEGRATION TESTS PASS'
