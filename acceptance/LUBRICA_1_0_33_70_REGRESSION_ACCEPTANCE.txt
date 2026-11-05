@@ -1,0 +1,24 @@
+LUBRICA 1.0.33.70 — REGRESSION ACCEPTANCE
+Release: Plant Lubrication Point Completion Stage 2 / Engineer Physical Candidate Decisions
+Date: 2026-11-05
+
+CURRENT STATUS
+- Stage 2 targeted engineering decisions (latest feature head): PENDING final version-sync CI confirmation.
+- Existing Stage 1 point QA and historical Stage 9.8 QA: PASS on previous feature head.
+- Full LUBRICA regression: PASS on previous feature head; final RC CI pending.
+
+SCOPE / ACCEPTANCE GATES
+- Explicit human selection: point / context / not lubricated / clarify.
+- Physical point creation requires place confirmation, reason and source reference.
+- Existing LubricaCandidateFinalizer builds points and review tasks; no default approval.
+- Preview does not alter database.
+- Idempotent source key prevents duplicate physical points and tasks.
+- Decisions persist with provenance on component and created physical point.
+- Undo may remove only own unconfigured/unapproved/unrouted point/task/node artifacts.
+- Point/source drift and special machine constructors are guarded.
+- Read-only checks preserve the original production source fixture.
+- No change is applied to the uploaded user JSON without an explicit in-app action.
+- Existing OEM, approved tasks, plan/route histories and file:// entrypoint are preserved.
+
+FINAL RESULT: PENDING GitHub Actions run on version 1.0.33.70 RC.
+Manual Windows Edge file:// smoke test remains separate from automated regression.
