@@ -498,11 +498,11 @@ for(const bushing of ['Втулка TB 1610-30','Втулка TB 1610-35','Вт�
  assert(C.isMountingTaperBushing(bushing),bushing+' should not be offered for relubrication');
 }
 assert(!C.isMountingTaperBushing('Втулка 30/40x30-50x5'),'unverified sliding sleeve must not be excluded');
-const ui=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),'utf8');
-const detailUi=fs.readFileSync(path.join(root,'structure/detail-ui.js'),'utf8');
-assert(ui.includes('conveyorAssemblyPanel(template)'),'parent wizard shows independent child machines');
-assert(ui.includes('data-open-conveyor-child'),'parent wizard has child-opening controls');
-assert(detailUi.includes('data-conveyor-child-id'),'Structure detail shows child machine constructors');
+const compositeFinalizerUi=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),'utf8');
+const compositeDetailUi=fs.readFileSync(path.join(root,'structure/detail-ui.js'),'utf8');
+assert(compositeFinalizerUi.includes('conveyorAssemblyPanel(template)'),'parent wizard shows independent child machines');
+assert(compositeFinalizerUi.includes('data-open-conveyor-child'),'parent wizard has child-opening controls');
+assert(compositeDetailUi.includes('data-conveyor-child-id'),'Structure detail shows child machine constructors');
 assert.equal(JSON.stringify(turnDb),beforeTurn,'parent and child previews must leave original data unchanged');
 assert.equal(turnDb.lubricationPoints.length,0);
 assert.equal(turnDb.tasks.length,0);
