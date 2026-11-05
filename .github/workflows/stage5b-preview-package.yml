@@ -1,0 +1,132 @@
+name: LUBRICA Stage 5B Conveyor Preview ZIP
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'conveyors/**'
+      - 'import/component-classifier.js'
+      - 'import/candidate-finalizer.js'
+      - 'structure/entity-dialogs.js'
+      - 'test/test_release_1_0_33_73_conveyor_families.js'
+      - '.github/workflows/stage5b-preview-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tested branch
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and targeted constructor contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check import/component-classifier.js
+          node --check conveyors/conveyor-arrangement.js
+          node --check import/candidate-finalizer.js
+          node --check structure/entity-dialogs.js
+          node test/test_release_1_0_33_73_conveyor_families.js
+          node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
+          node tests/test_release_1_0_33_14_manual_conveyor_parity.js
+          node tests/test_release_1_0_33_15_conveyor_bearing_assignment.js
+          node tests/test_release_1_0_33_17_conveyor_live_template_refresh.js
+      - name: Assemble isolated Edge file preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/LUBRICA_STAGE5B_CONVEYOR_PREVIEW"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          rsync -a ./ "$STAGE/" \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            --exclude 'test/' \
+            --exclude 'tests/' \
+            --exclude 'project/' \
+            --exclude 'acceptance/' \
+            --exclude 'releases/' \
+            --exclude 'README.md' \
+            --exclude 'START_NEW_CHAT_RU.md'
+          find "$STAGE" -maxdepth 1 -type f \( \
+            -name 'RELEASE_*.md' -o \
+            -name 'LUBRICA_*.md' -o \
+            -name 'LUBRICA_*.txt' -o \
+            -name 'LUBRICA_*.json' -o \
+            -name 'LUBRICA_*.csv' \
+          \) -delete
+          cat > "$STAGE/ПРОВЕРКА_КОНВЕЙЕРОВ_STAGE5B.txt" <<'EOF'
+          LUBRICA — конвейерные конструкторы Stage 5B (тестовая сборка).
+          НЕ ПРИНЯТЫЙ РЕЛИЗ. Номер версии в manifest.json — исходный baseline.
+          В архиве НЕТ пользовательской базы.
+          Это отдельная ветка от main, без незалитых в main доработок PR #20 Stage 4.
+
+          1. Распакуйте архив в отдельный каталог и откройте index.html в Edge file://.
+          2. Импортируйте КОПИЮ JSON базы предприятия от 05.11.2026.
+          3. Проверьте конвейер роликовый 10108215 и 10208215.
+          4. Проверьте ламельный 10107057 и 10207057,
+             включая отдельную подсистему смазки цепей.
+          5. Проверьте цепной KTR 10112094, скребковый 10107181,
+             шнековый 10110511 и 10210511, поворотный 10111293.
+          6. Проверьте смешанный ленточно-роликовый 10212029.
+          7. Без двух физических подтверждённых валов не должно быть
+             четырёх вымышленных опор.
+          8. Если ТМЦ ещё не подтверждены, выберите тип и сохраните
+             БЕЗ создания точки смазки.
+          9. Для настоящей обслуживаемой пары укажите физическое
+             место, выберите операцию и сохраните только в копии БД.
+          10. Проверьте повторную загрузку JSON; количество уже
+              утверждённых мероприятий, маршрутов и фактов не меняется.
+
+          Не заменяйте рабочий оригинал базы файлом из теста.
+          EOF
+      - name: Verify offline scripts and no bundled plant JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/LUBRICA_STAGE5B_CONVEYOR_PREVIEW" <<'PY'
+          import pathlib,re,sys,json
+          root=pathlib.Path(sys.argv[1])
+          needed=['index.html','manifest.json','conveyors/conveyor-arrangement.js',
+                  'import/component-classifier.js','import/candidate-finalizer.js',
+                  'structure/entity-dialogs.js','structure/detail-ui.js',
+                  'assets/app.css']
+          for name in needed:
+              assert (root/name).is_file(),f'Runtime file missing: {name}'
+          assert not (root/'project').exists() and not (root/'test').exists()
+          html=(root/'index.html').read_text(encoding='utf-8')
+          for local in re.findall(r'(?:src|href)=["\x27](\./[^"\x27]+)["\x27]',html):
+              name=local.removeprefix('./').split('?')[0].split('#')[0]
+              assert (root/name).exists(),f'Broken offline asset: {local}'
+          data=json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert data['appVersion']=='1.0.33.71'
+          assert 'conveyorIdentity' in (root/'import/component-classifier.js').read_text(encoding='utf-8')
+          print('Stage 5B runtime package OK')
+          PY
+      - name: ZIP and SHA-256 integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_STAGE5B_CONVEYOR_PREVIEW.zip" LUBRICA_STAGE5B_CONVEYOR_PREVIEW
+          cd "$GITHUB_WORKSPACE"
+          unzip -tq LUBRICA_STAGE5B_CONVEYOR_PREVIEW.zip | tail -n 2
+          sha256sum LUBRICA_STAGE5B_CONVEYOR_PREVIEW.zip > LUBRICA_STAGE5B_CONVEYOR_PREVIEW.zip.sha256
+          sha256sum -c LUBRICA_STAGE5B_CONVEYOR_PREVIEW.zip.sha256
+      - name: Upload artifact for manual Edge acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_STAGE5B_CONVEYOR_PREVIEW
+          path: |
+            LUBRICA_STAGE5B_CONVEYOR_PREVIEW.zip
+            LUBRICA_STAGE5B_CONVEYOR_PREVIEW.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
