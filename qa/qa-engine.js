@@ -216,7 +216,7 @@ function audit(database=db()){
  const readiness=totalApplicable?Math.round(totalPassed/totalApplicable*1000)/10:100;
  issues.sort((a,b)=>(SEVERITY_RANK[a.severity]??9)-(SEVERITY_RANK[b.severity]??9)||CATEGORY_ORDER.indexOf(a.category)-CATEGORY_ORDER.indexOf(b.category)||a.entityId.localeCompare(b.entityId,'ru'));
  const severityCounts={blocker:0,error:0,warn:0,info:0};for(const x of issues)severityCounts[x.severity]=(severityCounts[x.severity]||0)+1;
- return{generatedAt:new Date().toISOString(),readiness,totalApplicable,totalPassed,totalFailed:totalApplicable-totalPassed,categories,issues,severityCounts,counts:{equipment:eq.size,points:lps.size,tasks:tasks.size,materials:materials.size,routes:activeRoutes.length},candidateQueue:candidateQueue(d)};
+ return{generatedAt:new Date().toISOString(),readiness,totalApplicable,totalPassed,totalFailed:totalApplicable-totalPassed,categories,issues,severityCounts,counts:{equipment:eq.size,points:lps.size,tasks:tasks.size,materials:materials.size,routes:activeRoutes.length},candidateQueue:candidateQueue(d),taskCompletion:global.LubricaTaskReadiness?.summarize?.(d,issues)||null};
 }
 global.LubricaProgramQA=Object.freeze({audit,candidateQueue,CATEGORY_ORDER,CATEGORY_LABELS});
 })(window);

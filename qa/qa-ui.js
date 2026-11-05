@@ -179,6 +179,7 @@ function render(view){
     <div class="qa-issues-list">${qVisible.map(g=>`<article class="qa-issue warn"><span class="qa-severity">${g.count} ТМЦ</span><div class="qa-issue-body"><div><b>${esc(g.equipmentName)}</b><code>${esc(g.equipmentId)}</code></div><p>${esc(g.lineName)} · ${esc(g.areaName)}</p><small>${Object.entries(g.byCategory).map(([k,n])=>`${esc(cq.categoryLabels[k]||k)}: ${n}`).join(' · ')}</small></div><button type="button" class="mini-btn" data-qa-open-equipment="${esc(g.equipmentId)}">Открыть оборудование</button></article>`).join('')||'<div class="route-empty">На этой линии кандидатов нет.</div>'}</div>
     <div class="qa-toolbar"><button type="button" class="btn ghost" data-qa-prev ${qPage===0?'disabled':''}>Назад</button><small>Страница ${qPage+1} из ${qPages}</small><button type="button" class="btn ghost" data-qa-next ${qPage+1>=qPages?'disabled':''}>Дальше</button></div>
    </section>
+   <section class="qa-issues-card qa-task-completion" id="qaTaskCompletionPanel"></section>
    <section class="qa-readiness-grid">${report.categories.map(c=>`<article class="${scoreClass(c.score)}" data-qa-category-card="${esc(c.key)}"><div><span>${esc(c.label)}</span><b>${c.score}%</b></div><progress max="100" value="${c.score}"></progress><small>${c.passed}/${c.applicable} пройдено · ${c.failed} проблем</small></article>`).join('')}</section>
    <section class="qa-toolbar">
     <label><span>Уровень</span><select data-qa-severity><option value="all">Все</option><option value="blocker">Блокирующие</option><option value="error">Требуют исправления</option><option value="warn">Предупреждения</option></select></label>
@@ -203,6 +204,7 @@ function render(view){
   if(qPrev)qPrev.onclick=()=>{host.dataset.qaCandidatePage=String(Math.max(0,qPage-1));draw()};
   if(qNext)qNext.onclick=()=>{host.dataset.qaCandidatePage=String(Math.min(qPages-1,qPage+1));draw()};
   installCandidateDecisionUI(view,host,report);
+  global.LubricaTaskReadinessUI?.render?.(host.querySelector('#qaTaskCompletionPanel'),report.taskCompletion,openIssue);
   host.querySelector('[data-qa-refresh]').onclick=()=>render(view);
   host.querySelector('[data-qa-export]').onclick=()=>download('LUBRICA_Контроль_программы_смазки.csv',csv(report));
   host.querySelectorAll('[data-qa-open]').forEach(b=>b.onclick=()=>{const x=report.issues.find(i=>i.id===b.dataset.qaOpen);if(x)openIssue(x)});

@@ -1,0 +1,24 @@
+LUBRICA 1.0.33.71 — REGRESSION ACCEPTANCE
+Release candidate: Plant Point Completion Stage 3 — Task Readiness & Safe Physical Analog
+Date: 2026-11-05
+
+STATUS
+- Stage 1 QA and Stage 2 candidate decisions: PASS on synchronized 1.0.33.71 RC (run 41981795174).
+- Stage 3 per-task readiness and safe analog proposed values: PASS on synchronized 1.0.33.71 RC (run 41981795174).
+- Full regression before version-only synchronization: PASS (GitHub Actions run 41981419569).
+- Final 1.0.33.71 RC: PASS targeted + full regression (run 41981795174) and Project Memory Audit (run 41981795119).
+
+CHECKS
+- Seven independent applicable steps per task, no point/task conflation.
+- Next action selected by QA evidence; no automatic approve.
+- Task-specific line/status/search filters and workspace navigation.
+- Physically mismatched or unidentified analog prohibited.
+- Target with approved/disabled tasks or route/fact links blocked from analog overwrite.
+- Physical point status and installed material preserved.
+- Analog quantity and schedule only unapproved suggestions.
+- Idempotent repeat application; no duplicate task creation.
+- No changes to production source fixture during QA/readiness analysis.
+- Existing data saved/recovery/route/export tests continue to run.
+
+MANUAL ACCEPTANCE
+Still required: Windows Edge file:// on the user's real database copy; Stage 2 zip 1.0.33.70 RC1 and subsequent Stage 3 package. This is programmatic acceptance only.

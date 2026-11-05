@@ -22,7 +22,7 @@
 
 ## 2. Текущая база
 
-Текущий release candidate: **LUBRICA 1.0.33.70 — Engineer Candidate Decisions (Stage 2)**. Программный predecessor: 1.0.33.69; последний ZIP: 1.0.33.68. Полный рабочий план — `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
+Текущий release candidate: **LUBRICA 1.0.33.71 — Task Readiness & Safe Physical Analog (Stage 3)**. Программный predecessor: 1.0.33.70; последний проверочный ZIP: 1.0.33.70 RC1. Полный рабочий план — `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
 
 После проектной памяти прочитай последние release note и regression/engineering acceptance, относящиеся к задаче.
 
@@ -114,3 +114,6 @@
 
 
 Stage 2 вводит `qa/engineering-decisions.js`, расширяет `qa/qa-ui.js` и переиспользует `import/candidate-finalizer.js`. Четыре решения: точка / контекст / не смазывается / требует уточнения, с предпросмотром, источником, историей и защищённой отменой. Не создавать виртуальные узлы. Полный актуальный план: `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
+
+
+Stage 3 PR #18: `qa/task-readiness.js` и `qa/task-readiness-ui.js` дают по каждому мероприятию семь проверок и следующее действие во вкладке «Контроль»; `lubrication/analog-transfer.js` требует источника и физического соответствия, сохраняет дозы/интервалы как предложения, не перезаписывает OEM/approved/fact/маршруты. Полные испытания — `test/test_release_1_0_33_71_task_readiness_safe_analog.js`; ручную приёмку Stage 2 не считать автоматически завершённой. Документация пользователя отложена.
