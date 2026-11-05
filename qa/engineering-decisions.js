@@ -34,6 +34,7 @@ function preview(db,id,action,params={}){
  if(!['candidate','review'].includes(clean(c.candidateState).toLowerCase()))errors.push('Компонент уже подтверждён, исключён или относится к другому рабочему процессу.');
  if(!clean(c.equipmentId)||!arr(db.equipment).some(e=>String(e.id)===String(c.equipmentId)))errors.push('Нельзя принять решение без фактического оборудования.');
  if(!clean(c.candidateCategory))errors.push('Категория обслуживаемого компонента не определена.');
+ if(clean(c.status).toLowerCase()==='retired')errors.push('Снятая с эксплуатации ТМЦ требует проверки статуса, а не создания точки.');
  if(linkedPoints(db,id).length)errors.push('Компонент уже привязан к физической точке. Новую точку создавать нельзя.');
  if(p.reason.length<8)errors.push('Укажите основание решения (не менее 8 символов).');
  if(['point','not_lubricated'].includes(p.action)&&!p.sourceReference)errors.push('Укажите источник подтверждения: осмотр, паспорт, чертёж или проверку по месту.');
@@ -72,6 +73,7 @@ function prepareCreate(db,id,params={}){
  if(!p.allowed)throw new Error(p.errors.join(' '));
  return{version:1,componentId:String(id),identity:fingerprint(get(db,id)),
   previous:capture(get(db,id)),reason:p.reason,sourceReference:p.sourceReference,
+  existingNodeIds:arr(db.nodes).filter(n=>clean(n.candidateOriginKey).startsWith(originPrefix(id))).map(n=>String(n.id)),
   physicalConfirmed:true};
 }
 function recordCreated(db,id,context,pointIds=[]){
@@ -85,10 +87,12 @@ function recordCreated(db,id,context,pointIds=[]){
  const createdTaskIds=arr(db.tasks).filter(t=>points.some(p=>String(p.id)===String(t.lubricationPointId))).map(t=>String(t.id));
  if(!createdTaskIds.length)throw new Error('Мастер не создал мероприятий для точки.');
  const at=new Date().toISOString();
+ const createdNodeIds=arr(db.nodes).filter(n=>clean(n.candidateOriginKey).startsWith(originPrefix(id))&&
+  !arr(context.existingNodeIds).map(String).includes(String(n.id))).map(n=>String(n.id));
  c.engineeringDecision={version:1,action:'point',reason:clean(context.reason),
   sourceReference:clean(context.sourceReference),confirmedAt:at,identity:copy(context.identity),
   previous:copy(context.previous),createdPointIds:points.map(p=>String(p.id)),
-  createdTaskIds};
+  createdTaskIds,createdNodeIds};
  c.candidateState='confirmed';c.candidateLabel='Физическая точка подтверждена';
  c.candidateReason=clean(context.reason);c.candidateReviewedAt=at;
  c.lubricationDomainOverride='ENGINEER_CONFIRMED';
@@ -147,10 +151,9 @@ function undo(db,id){
   const ids=new Set(p.pointIds),tasks=new Set(p.taskIds);
   db.tasks=arr(db.tasks).filter(t=>!tasks.has(String(t.id)));
   db.lubricationPoints=arr(db.lubricationPoints).filter(x=>!ids.has(String(x.id)));
-  db.nodes=arr(db.nodes).filter(n=>{
-   if(!clean(n.candidateOriginKey).startsWith(originPrefix(id)))return true;
-   return arr(db.lubricationPoints).some(p=>String(p.nodeId)===String(n.id));
-  });
+  const ownNodes=new Set(arr(d.createdNodeIds).map(String));
+  db.nodes=arr(db.nodes).filter(n=>!ownNodes.has(String(n.id))||
+   arr(db.lubricationPoints).some(p=>String(p.nodeId)===String(n.id)));
  }
  restore(c,d.previous);
  delete c.engineeringDecision;
