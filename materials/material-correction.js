@@ -4,6 +4,7 @@
 // No production JSON is edited until the user explicitly confirms the preview.
 const FIELDS=Object.freeze(['name','kind','manufacturer','productCode','nlgi','isoVg','thickener','baseOil','baseViscosity40','density','densitySource','sourceReference','tempMin','tempMax','foodGrade','ep','waterResistance','packageSize','packageUnit','color','symbol','approved','status','notes']);
 const ENGINEERING=new Set(['nlgi','isoVg','thickener','baseOil','baseViscosity40','density','densitySource','sourceReference','tempMin','tempMax']);
+const SAFETY_FIELDS=new Set(['approved','status']);
 const clean=v=>String(v??'').trim();
 const arr=a=>Array.isArray(a)?a:[];
 const copy=x=>JSON.parse(JSON.stringify(x));
@@ -18,6 +19,14 @@ function targets(db,id){
   return String(p?.targetMaterialId||t.materialId||'')===String(id);
  }).map(t=>String(t.id));
 }
+function dependentSignature(db,id){
+ const affected=new Set(targets(db,id));
+ return JSON.stringify(arr(db?.tasks).filter(t=>affected.has(String(t.id))).map(t=>({
+  id:String(t.id),pointId:String(t.lubricationPointId||''),
+  materialMode:clean(t.materialMode),materialId:clean(t.materialId),
+  approvalStatus:clean(t.approvalStatus),verified:t.verified===true
+ })).sort((a,b)=>a.id.localeCompare(b.id)));
+}
 function preview(db,id,proposal={},proof={}){
  const old=find(db,id),errors=[],warnings=[],changes=[];
  if(!old){errors.push('Материал не найден в текущей базе.');return {allowed:false,errors,warnings,changes,materialId:String(id)}}
@@ -27,6 +36,8 @@ function preview(db,id,proposal={},proof={}){
   if(JSON.stringify(before)!==JSON.stringify(after))changes.push({field,before,after});
  }
  const technical=changes.filter(x=>ENGINEERING.has(x.field));
+ const safety=changes.filter(x=>SAFETY_FIELDS.has(x.field));
+ const requiresReason=technical.length>0||safety.length>0;
  const draft={...old,...Object.fromEntries(FIELDS.filter(f=>Object.prototype.hasOwnProperty.call(proposal,f)).map(f=>[f,proposal[f]]))};
  const density=numeric(draft.density),vg=numeric(draft.isoVg),v40=numeric(draft.baseViscosity40);
  if(changes.some(x=>x.field==='density')&&density!==null&&!(density>=0.5&&density<=2))
@@ -35,29 +46,33 @@ function preview(db,id,proposal={},proof={}){
   errors.push('ISO VG должен быть положительным числом.');
  if(changes.some(x=>x.field==='baseViscosity40')&&v40!==null&&!(v40>0))
   errors.push('Вязкость при 40 °C должна быть положительным числом.');
- if(technical.length){
-  if(clean(proof.reason).length<8)errors.push('Для инженерной корректировки укажите причину (не менее 8 символов).');
-  if(!clean(draft.sourceReference))errors.push('Укажите паспорт, TDS или другой подтверждающий источник данных материала.');
- }
+ if(requiresReason&&clean(proof.reason).length<8)
+  errors.push('Для изменения технических параметров или допуска укажите причину (не менее 8 символов).');
+ if(technical.length&&!clean(draft.sourceReference))
+  errors.push('Укажите паспорт, TDS или другой подтверждающий источник данных материала.');
  if(/масл|\boil\b/i.test(clean(draft.kind))&&vg>0&&v40>0&&Math.abs(v40-vg)/vg>0.15)
   warnings.push('ISO VG и вязкость при 40 °C заметно расходятся. Проверьте свойства именно этого масла по TDS.');
  if(!changes.length)warnings.push('Изменений в карточке нет.');
  const affectedTaskIds=targets(db,id);
  return {allowed:errors.length===0,changed:changes.length>0,errors,warnings,changes,technicalChanged:technical.length>0,
   materialId:String(id),code:clean(old.code)||String(id),name:clean(old.name),sourceSnapshot:JSON.stringify(old),
-  affectedTaskIds,approvedTaskIds:affectedTaskIds.filter(tid=>arr(db?.tasks).some(t=>String(t.id)===tid&&['approved','ready'].includes(clean(t.approvalStatus))))};
+  dependentSnapshot:dependentSignature(db,id),
+  affectedTaskIds,approvedTaskIds:affectedTaskIds.filter(tid=>arr(db?.tasks).some(t=>
+   String(t.id)===tid&&(['approved','ready'].includes(clean(t.approvalStatus))||t.verified===true)))};
 }
 function apply(db,review,proposal={},proof={}){
  if(!review||!review.materialId)throw new Error('Отсутствует предпросмотр корректировки.');
  const current=find(db,review.materialId);
  if(!current||JSON.stringify(current)!==review.sourceSnapshot)throw new Error('Карточка материала изменилась после предпросмотра. Повторите проверку.');
+ if(dependentSignature(db,review.materialId)!==review.dependentSnapshot)
+  throw new Error('Связанные мероприятия изменились после предпросмотра. Повторите проверку.');
  const fresh=preview(db,review.materialId,proposal,proof);
  if(!fresh.allowed)throw new Error(fresh.errors.join(' '));
  if(JSON.stringify(fresh.changes)!==JSON.stringify(review.changes))throw new Error('Поля изменились после предпросмотра. Повторите проверку.');
  if(!fresh.changed)return {changed:false,materialId:review.materialId};
  const patch=Object.fromEntries(FIELDS.filter(f=>Object.prototype.hasOwnProperty.call(proposal,f)).map(f=>[f,proposal[f]]));
  Object.assign(current,patch);
- if(fresh.technicalChanged){
+ if(fresh.technicalChanged||fresh.changes.some(x=>SAFETY_FIELDS.has(x.field))){
   const entry={at:new Date().toISOString(),reason:clean(proof.reason),sourceReference:clean(current.sourceReference),
    changes:copy(fresh.changes),affectedTaskIds:fresh.affectedTaskIds.slice(),approvedTaskIds:fresh.approvedTaskIds.slice()};
   current.engineeringCorrectionHistory=[...arr(current.engineeringCorrectionHistory),entry].slice(-50);
