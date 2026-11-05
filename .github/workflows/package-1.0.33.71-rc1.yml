@@ -162,7 +162,7 @@ jobs:
           set -euo pipefail
           TAG='v1.0.33.71-rc1'
           TITLE='LUBRICA 1.0.33.71 RC1 — готовность мероприятий и безопасные аналоги'
-          NOTE='releases/RELEASE_1_0_33_71_CANDIDATE_DECISIONS_STAGE2.md'
+          NOTE='releases/RELEASE_1_0_33_71_TASK_READINESS_SAFE_ANALOG.md'
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               LUBRICA_RELEASE_1_0_33_71_RC1.zip \
