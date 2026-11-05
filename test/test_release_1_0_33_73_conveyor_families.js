@@ -196,4 +196,54 @@ assert(upperSpecs.every(x=>x.selected===false),'no unconfirmed automatic grease/
 assert(!upperSpecs.some(x=>x.sourceRef?.id==='COOL-10108276'),'cooling system is not a lubrication point');
 assert.equal(JSON.stringify(upperDb),beforeUpper,'read-only analysis cannot modify site structure');
 
+
+// Field screenshot: lower lamella 10108299. Keep two separate 23234 bearings
+// and one 23230 bearing as three distinct physical-source records, not an
+// assumed "two shafts x two bearings" service layout.
+const lower=equipment('LAM-10108299','Конвейер ламельный нижний');
+lower.externalCode='10108299';
+const lowerDb={equipment:[lower],components:[],lubricationPoints:[],tasks:[],routes:[],checklistRuns:[],routePlanItems:[],nodes:[]};
+lowerDb.components.push(
+ component('LOWER-CHAIN',lower.id,'Цепь тяговая P=152,4','chain'),
+ component('LOWER-23234-A',lower.id,'23234 CCK/W33','bearing'),
+ component('LOWER-23234-B',lower.id,'23234 CCK/W33','bearing'),
+ component('LOWER-23230',lower.id,'23230 CCK/W33','bearing'),
+ component('LOWER-DRIVE-SHAFT',lower.id,'Вал КП нижний приводной усиленный L=3385 мм G1.F23142',null,'rotating_shaft'),
+ component('LOWER-IDLE-SHAFT',lower.id,'Вал нижний холостой L=3229 мм G1.F23098',null,'rotating_shaft'),
+ component('LOWER-MOTOR-1',lower.id,'Электродвигатель HQL 160SL B5',null,'motor'),
+ component('LOWER-GEARBOX',lower.id,'Редуктор SL8504FAR 1:233,5 EPIC PAM 200',null,'gearbox'),
+ component('LOWER-MOTOR-2',lower.id,'Электродвигатель M2AA 080A4 B5',null,'motor')
+);
+for(const [i,name] of ['Втулка закрепительная H 2334','Втулка закрепительная H 2330',
+ 'Звездочка P=152,4 Z=21 D=235','Болт M18x1,5x45 8.8 DIN 961',
+ 'Гайка M18x1,5 8 V M DIN 980'].entries()){
+ const x=component('LOWER-PASSIVE-'+i,lower.id,name);
+ x.candidateState='excluded';
+ lowerDb.components.push(x);
+}
+const lowerBefore=JSON.stringify(lowerDb);
+const lowerClass=C.classifyEquipment(lowerDb,lower),lowerEv=lowerClass.maintenanceTemplate.evidence;
+assert.equal(lowerClass.maintenanceEquipmentSubtype,'lamella','10108299 detected as lower lamella');
+assert.equal(lowerEv.byCategory.bearing,3,'10108299 requires three independent bearing source records');
+assert.equal(lowerEv.byCategory.chain,1,'one chain record, number of physical chains unverified');
+assert.equal(lowerEv.context.length,2,'lower conveyor: two separate installed shaft records');
+assert.equal(lowerEv.assets.length,3,'lower conveyor: two motors plus one reducer');
+assert.equal(lowerEv.excluded.length,5,'non-service fasteners remain excluded');
+assert.equal(lowerEv.supportLayout,null,'do not fabricate a fourth support from two shafts');
+const lowerCompose=Arr.composeEvidence(lowerClass.maintenanceTemplate);
+assert.equal(lowerCompose.sections.find(x=>x.role==='bearings').count,3);
+assert.equal(lowerCompose.sections.find(x=>x.role==='shafts').count,2);
+assert.equal(lowerCompose.sections.find(x=>x.role==='chains').count,1);
+const lowerSpecs=F.specsFor(lowerClass,'equipment');
+const lowerBearingSpecs=lowerSpecs.filter(x=>x.category==='bearing');
+assert.equal(lowerBearingSpecs.length,3,'one proposal per imported bearing source');
+assert.equal(new Set(lowerBearingSpecs.map(x=>x.key)).size,3,'same designation must retain distinct physical IDs');
+assert.equal(lowerBearingSpecs.filter(x=>x.name==='23234 CCK/W33').length,2);
+assert.equal(lowerBearingSpecs.filter(x=>x.name==='23230 CCK/W33').length,1);
+assert(lowerBearingSpecs.every(x=>x.selected===false),'no unconfirmed automatic relubrication');
+assert(lowerSpecs.every(x=>x.selected===false),'chain lubrication remains unconfirmed');
+assert.equal(lowerDb.lubricationPoints.length,0,'screen analysis must not create service points');
+assert.equal(lowerDb.tasks.length,0,'screen analysis must not create tasks');
+assert.equal(JSON.stringify(lowerDb),lowerBefore,'screen evidence analysis is read-only');
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
