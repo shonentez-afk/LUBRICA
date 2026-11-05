@@ -317,6 +317,20 @@ function conveyorSubtypePanel(template){
   '<label style="display:block;margin-top:8px">Фактический тип<select name="conveyorSubtypeChoice">'+opts+'</select></label>'+
   '<small>'+esc(guidance[current]||guidance.unknown)+'</small></div>';
 }
+function conveyorAssemblyPanel(template){
+ if(template?.id!=='conveyor_arrangement')return'';
+ const assembly=template.evidence?.assembly,children=assembly?.children||[];
+ if(!children.length)return'';
+ const rows=children.map(ch=>
+  '<div class="conveyor-evidence-card service"><header><b>'+esc(ch.label)+'</b></header>'+
+  '<div style="padding:8px 12px"><strong>'+esc(ch.name)+'</strong><small>Код: '+esc(ch.externalCode||ch.id)+'</small>'+
+  '<p style="margin:8px 0 0"><button type="button" class="btn secondary" data-open-conveyor-child="'+esc(ch.id)+'">Открыть конструктор</button></p></div></div>'
+ ).join('');
+ return '<section class="conveyor-arrangement-intro" data-conveyor-assembly="true">'+
+  '<div><span class="eyebrow">СОСТАВНОЙ КОНВЕЙЕР</span><b>Дочерних конвейеров: '+children.length+'</b>'+
+  '<p>Оба механизма входят в одну установку, но точки смазки, ТМЦ и мероприятия учитываются отдельно. Родитель не дублирует их точки.</p></div>'+
+  '<div class="conveyor-evidence-grid">'+rows+'</div></section>';
+}
 function conveyorEvidencePanel(template){
   if(template?.id!=='conveyor_arrangement')return'';
   const ev=template.evidence||{},actual=ev.actual||[],assets=ev.assets||[],context=ev.context||[],excluded=ev.excluded||[],layout=ev.supportLayout||null;
@@ -382,8 +396,8 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       previewRecord={...record,maintenanceEquipmentType:'conveyor',maintenanceEquipmentSubtype:subtype,maintenanceLabel:title,
         maintenanceTemplate:{...(record.maintenanceTemplate||{}),id:'conveyor_arrangement',title,
           conveyorSubtype:subtype,requiresEngineerConfirmation:true,evidence:ev,
-          mode:ev.count||ev.assets?.length?'use_actual':'needs_components',
-          summary:bits.length?'Фактически найдено: '+bits.join(' · '):'Обслуживаемые ТМЦ не найдены — точки не создаются.',
+          mode:ev.assembly?'composite':ev.count||ev.assets?.length?'use_actual':'needs_components',
+          summary:ev.assembly?'Составной конвейер: '+ev.assembly.childCount+' самостоятельных механизма. Операции подтверждаются в дочерних конструкторах.':bits.length?'Фактически найдено: '+bits.join(' · '):'Обслуживаемые ТМЦ не найдены — точки не создаются.',
           note:ev.supportLayout?'Укажите физические подшипники для каждого места двухвального механизма.':'Не определена двухвальная схема: доступны только реальные ТМЦ и подтверждённые места обслуживания.'}};
     }
   }
@@ -397,9 +411,10 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     <div class="dialog-head"><div><span class="eyebrow">ИНЖЕНЕРНОЕ ПОДТВЕРЖДЕНИЕ</span><h2>${esc(title)}</h2></div><button type="button" class="icon-btn" data-cancel>×</button></div>
     <div class="candidate-finalize-context"><b>${esc(equipment.name)}</b><span>${esc(record.externalCode||'')} · ${esc(template?.summary||template?.note||'Проверьте состав точек перед созданием.')}</span></div>
     ${conveyorSubtypePanel(template)}
+    ${conveyorAssemblyPanel(template)}
     ${conveyorEvidencePanel(template)}
     ${conveyorSupportAssignmentPanel(template)}
-    <div class="candidate-finalize-list">${specs.length?specs.map((s,i)=>`<div class="candidate-finalize-item" data-spec-index="${i}">
+    <div class="candidate-finalize-list">${template?.evidence?.assembly&&!specs.length?'<div class="wizard-note"><b>У родителя нет собственных точек смазки.</b><span>Откройте конструктор нужного дочернего конвейера выше. Его точки, ТМЦ и мероприятия сохраняются на собственной карточке.</span></div>':specs.length?specs.map((s,i)=>`<div class="candidate-finalize-item" data-spec-index="${i}">
       <label class="candidate-finalize-check"><input type="checkbox" name="use_${i}" ${s.selected?'checked':''}><span>${template?.id==='conveyor_arrangement'?'Включить точку':'Создать'}</span></label>
       <label class="candidate-point-name"><span>${template?.id==='conveyor_arrangement'?'Точка обслуживания':'Точка смазки'}</span><input name="name_${i}" value="${esc(s.name)}"></label>${template?.id==='conveyor_arrangement'&&s.sourceRef?.name?`<div class="candidate-source-tmc"><span>Узел / ТМЦ</span><b>${esc(cleanTmcName(s.sourceRef.name))}</b></div>`:''}
       <label class="candidate-point-category"><span>Категория</span><select name="cat_${i}">${Object.entries(C.categoryLabels).map(([k,v])=>`<option value="${k}" ${k===s.category?'selected':''}>${esc(v)}</option>`).join('')}</select></label>
@@ -410,6 +425,15 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Подтвердить и создать</button>':(source==='equipment'&&template?.id==='conveyor_arrangement'?'<button type="button" class="btn primary" data-save>Сохранить тип без точек</button>':'')}</menu>
   </form>`;
   const form=dlg.querySelector('form');
+  if(template?.evidence?.assembly){
+    form.querySelectorAll('[data-open-conveyor-child]').forEach(button=>button.onclick=()=>{
+      const childId=button.getAttribute('data-open-conveyor-child');
+      if(!(template.evidence.assembly.children||[]).some(ch=>ch.id===childId))return;
+      if(!(database.equipment||[]).some(ch=>ch.id===childId&&ch.parentEquipmentId===equipment.id))return;
+      dlg.classList.remove('candidate-finalize-dialog');dlg.close();
+      open('equipment',childId,decisionContext);
+    });
+  }
   if(template?.id==='conveyor_arrangement'&&form.elements.conveyorSubtypeChoice){
     form.elements.conveyorSubtypeChoice.onchange=()=>{
       const selected=form.elements.conveyorSubtypeChoice.value;
