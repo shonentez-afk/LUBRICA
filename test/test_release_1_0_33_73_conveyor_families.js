@@ -307,4 +307,68 @@ assert.equal(chainDb.lubricationPoints.length,0,'read-only screenshot analysis c
 assert.equal(chainDb.tasks.length,0,'read-only screenshot analysis cannot create tasks');
 assert.equal(JSON.stringify(chainDb),chainBefore,'classification must not mutate user database');
 
+
+// Site screenshot: KTR3250xL=3600 (10112094) is nested under the palletizer's
+// turning conveyor 504. A unit's parent is not an extra conveyor drive/support.
+const ktr=equipment('KTR-10112094','Конвейер цепной KTR3250xL=3600');
+ktr.externalCode='10112094';
+ktr.parentEquipmentId='TURNING-504';
+const ktrParent=equipment('TURNING-504','Конвейер угловой поз. 504');
+const ktrDb={equipment:[ktrParent,ktr],components:[],lubricationPoints:[],tasks:[],
+ routes:[],checklistRuns:[],routePlanItems:[],nodes:[]};
+ktrDb.components.push(
+ component('KTR-CHAIN',ktr.id,'Цепь роликовая 12B-2GL','chain'),
+ component('KTR-BEARING',ktr.id,'Узел подшипниковый SY 45 TF','bearing'),
+ component('KTR-DRIVE',ktr.id,'Мотор-редуктор SA67DV100M4/M1-A/180°',null,'motor_gearbox'),
+ component('KTR-SLEEVE-OTHER',ktr.id,'Втулка 30/40x30-50x5','bushing'),
+ component('KTR-TAPER',ktr.id,'Втулка TB 2012-45','bushing')
+);
+for(const [i,name] of ['Звездочка цепная 12В-2 Z=19 TB2012',
+ 'Звездочка цепная P=3/4" S Z=17 с подшипниками 6205-2RS1'].entries()){
+ const item=component('KTR-SPROCKET-'+i,ktr.id,name);
+ item.candidateState='excluded';
+ item.candidateCategory=null;
+ ktrDb.components.push(item);
+}
+const ktrBefore=JSON.stringify(ktrDb);
+assert.equal(C.isMountingTaperBushing('Втулка TB 2012-45'),true);
+assert.equal(C.isMountingTaperBushing('Втулка TB2012-45'),true);
+assert.equal(C.isMountingTaperBushing('Втулка 30/40x30-50x5'),false,
+ 'ambiguous generic sleeves stay under review');
+assert.equal(C.classifyComponentText('Втулка TB 2012-45').state,'excluded',
+ 'Taper Lock must not be treated as lubricated sliding bearing');
+assert.notEqual(C.classifyComponentText('Втулка 30/40x30-50x5').state,'excluded',
+ 'do not sweep other bushings into Taper Lock exclusions');
+const reclassified=C.classifyComponent(ktrDb.components.find(c=>c.id==='KTR-TAPER'));
+assert.equal(reclassified.candidateState,'excluded','KTR taper lock is mounting-only');
+assert.equal(reclassified.candidateCategory,null);
+const ktrClass=C.classifyEquipment(ktrDb,ktr),ktrEv=ktrClass.maintenanceTemplate.evidence;
+assert.equal(ktrClass.maintenanceEquipmentSubtype,'chain','KTR family must be chain');
+assert.equal(ktrEv.byCategory.chain,1,'one chain item is not proven number of parallel strands');
+assert.equal(ktrEv.byCategory.bearing,1,'one SY 45 TF source row');
+assert.equal(ktrEv.byCategory.bushing,1,'only unknown dimensional sleeve remains review');
+assert.equal(ktrEv.assets.length,1,'one SA67 gearmotor');
+assert.equal(ktrEv.context.length,0,'no imported shafts');
+assert.equal(ktrEv.supportLayout,null,'do not create 2x2 supports');
+assert.equal(ktrEv.excluded.length,3,'two sprockets plus the Taper Lock');
+assert(ktrEv.excluded.some(x=>x.id==='KTR-TAPER'&&x.servicePolicy==='NON_LUBRICATED_MOUNTING_ELEMENT'));
+assert(ktrEv.excluded.some(x=>x.name.includes('6205-2RS1')),
+ 'sealed bearing in sprocket assembly remains part of excluded assembly, not a grease point');
+const ktrComposition=Arr.composeEvidence(ktrClass.maintenanceTemplate);
+assert.equal(ktrComposition.sections.find(x=>x.role==='bearings').count,1);
+assert.equal(ktrComposition.sections.find(x=>x.role==='chains').count,1);
+assert.equal(ktrComposition.sections.find(x=>x.role==='drives').count,1);
+assert.equal(ktrComposition.sections.find(x=>x.role==='other').count,1);
+const ktrSpecs=F.specsFor(ktrClass,'equipment');
+assert.equal(ktrSpecs.filter(x=>x.category==='bearing').length,1);
+assert.equal(ktrSpecs.filter(x=>x.category==='chain').length,1);
+assert.equal(ktrSpecs.filter(x=>x.category==='bushing').length,1);
+assert.equal(ktrSpecs.filter(x=>x.category==='gearbox_oil').length,1);
+assert(!ktrSpecs.some(x=>x.sourceRef?.id==='KTR-TAPER'),'mounting bush never yields service proposal');
+assert(!ktrSpecs.some(x=>x.key.includes('KTR-SPROCKET')),'sprockets do not yield service proposals');
+assert(ktrSpecs.every(x=>!x.selected),'no automatic lubrication approval for KTR without service evidence');
+assert.equal(ktrDb.lubricationPoints.length,0,'preview cannot add phantom grease points');
+assert.equal(ktrDb.tasks.length,0,'preview cannot add maintenance tasks');
+assert.equal(JSON.stringify(ktrDb),ktrBefore,'evidence preview cannot mutate a plant database');
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
