@@ -19,11 +19,11 @@ function render(host,completion,openIssue){
  <div class="qa-section-head">
   <div><b>Готовность физических точек и мероприятий</b>
    <small>Конкретный следующий шаг по каждому мероприятию, без автоматического утверждения</small></div>
-  <div class="qa-data-counts">Готово: ${{completion.ready||0} · Исправить: ${{completion.needsData||0} · Проверить: ${{completion.review||0} · Утверждены с замечаниями: ${{completion.approvedWithGaps||0}</div>
+  <div class="qa-data-counts">Готово: ${completion.ready||0} · Исправить: ${completion.needsData||0} · Проверить: ${completion.review||0} · Утверждены с замечаниями: ${completion.approvedWithGaps||0}</div>
  </div>
  <div class="qa-toolbar qa-task-filters">
   <label><span>Линия</span><select data-ready-line><option value="all">Все линии</option>
-   ${{(completion.lines||[]).map(l=>`<option value="${{esc(l.id)}">${{esc(l.name)}</option>`).join('')}
+   ${(completion.lines||[]).map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('')}
    </select></label>
   <label><span>Состояние</span><select data-ready-status>
    <option value="all">Все мероприятия</option>
@@ -31,24 +31,24 @@ function render(host,completion,openIssue){
    <option value="attention">Утверждено с замечаниями</option><option value="ready">Готово</option>
    <option value="disabled">Отключено</option></select></label>
   <label class="qa-search"><span>Поиск по оборудованию / точке</span>
-   <input data-ready-query value="${{esc(host.dataset.query||'')}" placeholder="Название, ID, операция…"></label>
-  <small>${{filtered.length} из ${{completion.total||0} мероприятий</small>
+   <input data-ready-query value="${esc(host.dataset.query||'')}" placeholder="Название, ID, операция…"></label>
+  <small>${filtered.length} из ${completion.total||0} мероприятий</small>
  </div>
- <div class="qa-task-ready-list">${{visible.map(x=>`
-   <article class="qa-task-ready-item ${{esc(x.status)}">
-    <div class="qa-task-ready-top"><span class="qa-task-status">${{esc(LABELS[x.status]||x.status)}</span><span class="qa-task-score">${{x.completed}/${{x.total} шагов</span></div>
-    <div class="qa-task-ready-title"><b>${{esc(x.equipmentName)} · ${{esc(x.pointName)}</b><small>${{esc(x.lineName)} · ${{esc(x.areaName)}</small></div>
-    <div class="qa-task-ready-operation">${{esc(x.operation)} <code>${{esc(x.taskId)}</code></div>
-    <div class="qa-task-steps">${{x.steps.map(st=>`<span class="${{st.ok?'done':'pending'}" title="${{esc(st.ok?'Готово':'Требует действия')}">${{st.ok?'✓':'○'} ${{esc(st.label)}</span>`).join('')}</div>
-    <div class="qa-task-next"><div><b>${{esc(x.next.label)}</b><p>${{esc(x.next.hint)}</p>
-     ${{x.analogSuggestion?`<small>Предложение по аналогу: ${{esc(x.analogSuggestion.value??'—')} ${{esc(x.analogSuggestion.unit??'')}. Требует подтверждения расчёта.</small>`:''}
-    </div><button type="button" class="mini-btn" data-ready-open="${{esc(x.taskId)}">Открыть</button></div>
-    ${{x.next.issueCode?`<details class="qa-task-evidence"><summary>Почему требуется действие</summary><p>${{esc(x.next.reason)}</p><small>Проверка: ${{esc(x.next.issueCode)}${{x.issueCount>1?` · Всего замечаний: ${{x.issueCount}`:''}</small></details>`:''}
+ <div class="qa-task-ready-list">${visible.map(x=>`
+   <article class="qa-task-ready-item ${esc(x.status)}">
+    <div class="qa-task-ready-top"><span class="qa-task-status">${esc(LABELS[x.status]||x.status)}</span><span class="qa-task-score">${x.completed}/${x.total} шагов</span></div>
+    <div class="qa-task-ready-title"><b>${esc(x.equipmentName)} · ${esc(x.pointName)}</b><small>${esc(x.lineName)} · ${esc(x.areaName)}</small></div>
+    <div class="qa-task-ready-operation">${esc(x.operation)} <code>${esc(x.taskId)}</code></div>
+    <div class="qa-task-steps">${x.steps.map(st=>`<span class="${st.ok?'done':'pending'}" title="${esc(st.ok?'Готово':'Требует действия')}">${st.ok?'✓':'○'} ${esc(st.label)}</span>`).join('')}</div>
+    <div class="qa-task-next"><div><b>${esc(x.next.label)}</b><p>${esc(x.next.hint)}</p>
+     ${x.analogSuggestion?`<small>Предложение по аналогу: ${esc(x.analogSuggestion.value??'—')} ${esc(x.analogSuggestion.unit??'')}. Требует подтверждения расчёта.</small>`:''}
+    </div><button type="button" class="mini-btn" data-ready-open="${esc(x.taskId)}">Открыть</button></div>
+    ${x.next.issueCode?`<details class="qa-task-evidence"><summary>Почему требуется действие</summary><p>${esc(x.next.reason)}</p><small>Проверка: ${esc(x.next.issueCode)}${x.issueCount>1?` · Всего замечаний: ${x.issueCount}`:''}</small></details>`:''}
    </article>`).join('')||'<div class="route-empty">Нет мероприятий по текущему фильтру.</div>'}</div>
  <div class="qa-toolbar qa-task-pager">
-  <button type="button" class="btn ghost" data-ready-prev ${{page===0?'disabled':''}>Назад</button>
-  <small>Страница ${{page+1} из ${{totalPages}</small>
-  <button type="button" class="btn ghost" data-ready-next ${{page+1>=totalPages?'disabled':''}>Дальше</button>
+  <button type="button" class="btn ghost" data-ready-prev ${page===0?'disabled':''}>Назад</button>
+  <small>Страница ${page+1} из ${totalPages}</small>
+  <button type="button" class="btn ghost" data-ready-next ${page+1>=totalPages?'disabled':''}>Дальше</button>
  </div>
  `;
  const line=host.querySelector('[data-ready-line]'),status=host.querySelector('[data-ready-status]'),search=host.querySelector('[data-ready-query]');
