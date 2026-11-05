@@ -36,6 +36,9 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Install regression Python dependencies
+        run: python -m pip install --disable-pip-version-check beautifulsoup4 openpyxl pillow
+
       - name: PP-53736 full-machine acceptance
         run: node test/test_release_1_0_33_68_pp53736_full_machine_acceptance.js
 
