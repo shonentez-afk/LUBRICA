@@ -78,7 +78,7 @@ assert.equal(Q.candidateQueue(db).resolved.filter(x=>x.action==='point').length,
 assert.equal(Q.candidateQueue(db).groups.flatMap(g=>g.items).filter(x=>x.id==='COMP1').length,0,'created physical source leaves review queue');
 assert(!E.preview(db,'COMP1','point',check).allowed,'no duplicate create after confirmation');
 F.applyConfirmedSpecs(db,'component',c,db.equipment[0],null,[item]);
-assert.equal(db.lubricationPoints.length,2&&db.tasks.length===1,'existing candidate wizard is idempotent');
+assert(db.lubricationPoints.length===2&&db.tasks.length===1,'existing candidate wizard is idempotent');
 assert(E.previewUndo(db,'COMP1').allowed,'freshly created unconfigured point may be safely undone');
 
 db.tasks[0].quantity.approved='20';
