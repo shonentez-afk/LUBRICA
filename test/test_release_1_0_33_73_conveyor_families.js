@@ -78,6 +78,10 @@ assert.equal(ev.supportLayout,null,'lamella must not infer a four support layout
 const rEv=C.conveyorEvidence(db,roller);
 assert.equal(rEv.count,1);
 assert.equal(rEv.supportLayout,null);
+const actualRoller=F.specsFor(C.classifyEquipment(db,roller),'equipment');
+assert.equal(actualRoller.length,1,'one actual bearing gives one proposal');
+assert.equal(actualRoller[0].selected,false,'no automatic bearing grease event on a roller');
+
 let typed=C.classifyEquipment(db,lamella);
 assert.equal(typed.maintenanceTemplate.evidence.byCategory.chain,1);
 const lamellaRoles=Arr.composeEvidence(typed.maintenanceTemplate);
@@ -116,10 +120,15 @@ Arr.ensureManualComponents(db,manual,{conveyorSubtype:'chain',chainEnabled:true,
 assert.equal(manual.manualConveyorSetup.layout,'ACTUAL_COMPONENTS_ONLY');
 assert.equal(db.components.filter(x=>x.equipmentId==='M'&&x.status==='active').length,2,'explicit chain and gearbox only');
 assert.equal(db.components.filter(x=>x.equipmentId==='M'&&x.manualConveyorSupport).length,0);
+Arr.ensureManualComponents(db,manual,{conveyorSubtype:'roller',chainEnabled:false,driveMode:'none'});
+assert.equal(db.components.filter(x=>x.equipmentId==='M'&&x.status==='active').length,0,
+ 'explicitly removed drive/chain choices must not remain active');
+
 const selected=F.specsFor(typed,'equipment');
 assert.equal(selected.length,1,'one actual chain should give one actual chain proposal');
 assert.equal(selected[0].sourceRef.id,'CH');
 assert.equal(selected[0].category,'chain');
+assert.equal(selected[0].selected,false,'compound chain service must require deliberate selection');
 assert(selected[0].key.includes('CH'),'stable actual component key');
 const ui=fs.readFileSync(path.join(root,'structure/entity-dialogs.js'),'utf8');
 for(const subtype of ['roller','lamella','chain','screw','turning','hybrid','weighing']){
