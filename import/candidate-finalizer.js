@@ -466,6 +466,28 @@ function open(source,id,decisionContext=null){
       global.LubricaApp?.showToast('Выберите хотя бы одну точку смазки','warn');
       return;
     }
+    // Stage 5B: a non-two-shaft conveyor must have a named actual service location.
+    if(template?.id==='conveyor_arrangement'&&!template.evidence?.supportLayout){
+      if(chosen.some(x=>!String(x.position||'').trim())){
+        global.LubricaApp?.showToast('Для каждой выбранной точки конвейера укажите физическое место обслуживания.','warn');
+        return;
+      }
+    }
+    // Existing approved and used records must never be modified by reapplying an arrangement.
+    if(template?.id==='conveyor_arrangement'){
+      const usedTaskIds=new Set();
+      const usedPointIds=new Set();
+      for(const task of database.tasks||[])if(['approved','ready'].includes(task.approvalStatus)||task.verified===true)usedTaskIds.add(task.id);
+      for(const route of database.routes||[])for(const taskId of route.taskIds||[])usedTaskIds.add(taskId);
+      for(const plan of database.routePlanItems||[])if(plan.taskId)usedTaskIds.add(plan.taskId);
+      for(const run of database.checklistRuns||[])for(const fact of run.taskResults||[])if(fact.taskId)usedTaskIds.add(fact.taskId);
+      for(const t of database.tasks||[])if(usedTaskIds.has(t.id))usedPointIds.add(t.lubricationPointId);
+      if(chosen.some(x=>(database.lubricationPoints||[]).some(p=>
+        p.candidateOriginKey==='equipment:'+id+':'+x.key && usedPointIds.has(p.id)))){
+        global.LubricaApp?.showToast('Существующая точка участвует в утверждении, маршруте, плане или факте. Для её изменения нужна отдельная инженерная сверка.','warn');
+        return;
+      }
+    }
     // The new QA flow requires a physical location; the legacy wizard remains unchanged.
     if(decisionContext){
       const missing=chosen.find(x=>!String(x.position||'').trim());
@@ -482,32 +504,35 @@ function open(source,id,decisionContext=null){
       }
     }
     // Work on a copy for the new engineer-confirmed workflow: no partial writes on failure.
-    const targetDatabase=decisionContext?Core.DatabaseSchema.clone(database):database;
-    const targetRecord=decisionContext?sourceRecord(targetDatabase,source,id):record;
-    const targetEquipment=decisionContext?sourceEquipment(targetDatabase,source,targetRecord):equipment;
+    const transactionalConveyor=template?.id==='conveyor_arrangement';
+    const targetDatabase=(decisionContext||transactionalConveyor)?Core.DatabaseSchema.clone(database):database;
+    const targetRecord=(decisionContext||transactionalConveyor)?sourceRecord(targetDatabase,source,id):record;
+    const targetEquipment=(decisionContext||transactionalConveyor)?sourceEquipment(targetDatabase,source,targetRecord):equipment;
+    if(transactionalConveyor){targetRecord.maintenanceEquipmentType='conveyor';targetRecord.maintenanceEquipmentSubtype=previewRecord.maintenanceEquipmentSubtype;targetRecord.maintenanceTemplate={...template};}
     const applied=applyConfirmedSpecs(targetDatabase,source,targetRecord,targetEquipment,template,chosen);
     if(decisionContext){
       global.LubricaEngineeringDecisions.recordCreated(targetDatabase,id,decisionContext,applied.createdPointIds);
     }
     if(template?.id==='conveyor_arrangement'&&source==='equipment'){
       const ev=template.evidence||{};
-      record.conveyorArrangement={
-        version:'1.0.33.19',
+      targetRecord.conveyorArrangement={
+        version:'1.0.33.72',
+        subtype:previewRecord.maintenanceEquipmentSubtype||'unknown',
         confirmedAt:new Date().toISOString(),
         layout:ev.supportLayout?{...ev.supportLayout,shaftRolesNeedConfirmation:false,shafts:ev.supportLayout.shaftRolesNeedConfirmation?[{...(shaftAssignments.drive||{}),role:'drive',label:'Приводной вал'},{...(shaftAssignments.return||{}),role:'return',label:'Натяжной / ведомый вал'}]:(ev.supportLayout.shafts||[]),supports:(ev.supportLayout.supports||[]).map(s=>({...s,shaftId:ev.supportLayout.shaftRolesNeedConfirmation?(s.shaftRole==='drive'?shaftAssignments.drive?.id:shaftAssignments.return?.id):s.shaftId,bearingRef:supportAssignments[s.key]||s.bearingRef||null,suggestedBearingRef:null,assignmentStatus:supportAssignments[s.key]?'confirmed_engineer':s.assignmentStatus}))}:null,
         createdPointIds:applied.createdPointIds,
         source:'engineer_confirmed_constructor'
       };
-      for(const ctx of (ev.context||[])){
+      if(ev.supportLayout)for(const ctx of (ev.context||[])){
         if(ctx.source!=='component')continue;
-        const c=(database.components||[]).find(x=>x.id===ctx.id);
+        const c=(targetDatabase.components||[]).find(x=>x.id===ctx.id);
         if(!c)continue;
         c.candidateState='confirmed';
         c.candidateReviewedAt=new Date().toISOString();
-        c.candidateReason='Учтён как конструктивный контекст подтверждённой схемы ленточного конвейера; отдельная точка смазки не создаётся.';
+        c.candidateReason='Учтён как контекст подтверждённой двухвальной схемы конвейера; отдельная точка смазки не создаётся.';
       }
     }
-    Core.State.setDatabase(Core.Database.normalize(decisionContext?targetDatabase:database));
+    Core.State.setDatabase(Core.Database.normalize((decisionContext||transactionalConveyor)?targetDatabase:database));
     global.LubricaApp?.refreshFromCore?.();
     global.LubricaApp?.renderAll?.();
     global.LubricaStructure?.render?.();
