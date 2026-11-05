@@ -89,7 +89,7 @@ function material(t,p,materials){
 }
 function issueKey(i){return String(i.entityType)+':'+String(i.entityId)}
 function sourceCode(i){return clean(i?.code)}
-function summary(db,allIssues=[]){
+function summarize(db,allIssues=[]){
  const d=db||{},equipment=byId(d.equipment),nodes=byId(d.nodes),points=byId(d.lubricationPoints),
   materials=byId(d.materials),lines=byId(d.lines),areas=byId(d.areas),components=byId(d.components),
   issuesById=new Map(),groupMap=new Map(),result=[];
