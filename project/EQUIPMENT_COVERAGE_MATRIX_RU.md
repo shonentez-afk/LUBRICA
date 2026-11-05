@@ -24,10 +24,10 @@
 
 | Производитель/семейство | Статус | Что уже есть | Что осталось |
 |---|---|---|---|
-| SEW K37 | READY/PARTIAL | OEM fill table M1–M6, interval handling | фактическое mounting position подтверждать по узлу |
+| SEW K37 | READY | OEM fill table M1–M6; пользователь выбирает монтажное положение при конфигурации, объём подставляется автоматически; interval handling | расширять только по новым исполнениям/OEM-источникам |
 | SEW R77 standalone | READY/PARTIAL | OEM fill table, revision invalidation, PP-53736 hints | Line 1 R77 #5–#8 подтвердить физически |
-| SEW KF37R17 | READY/PARTIAL | две независимые oil cavities, planning total only | подтверждать фактическое M1–M6 |
-| SEW S37 | READY/PARTIAL | OEM fill table, motor-token protection | подтверждать фактическое M1–M6 |
+| SEW KF37R17 | READY | две независимые oil cavities; M1–M6 выбирается при конфигурации; объёмы полостей подставляются автоматически; planning total only | сохранять раздельную заливку двух полостей |
+| SEW S37 | READY | OEM fill table M1–M6; выбор положения при конфигурации; motor-token protection | расширять только по новым исполнениям/OEM-источникам |
 | Bonfiglioli | READY/PARTIAL | recognition, fill/interval fixes | расширять по реальному парку |
 | Rossi MRV63 | READY/PARTIAL | fill/interval logic | расширять по установленным моделям |
 | Tandler A1/HW A1 | READY/PARTIAL | 0.60 L reference, VG46 machine context | не смешивать A1/EA1/B1 без подтверждения |
@@ -60,7 +60,7 @@
 | Generic conveyor | READY/PARTIAL | arrangement engine, 4 supports, manual parity | field-specific extensions |
 | Chain scraper conveyor | READY/PARTIAL | dedicated constructor | expand from real equipment |
 | Fan arrangements | READY/PARTIAL | no virtual supports, OEM-specific rules | add new manufacturers modularly |
-| Izoteh PP-53736 | READY/PARTIAL | full machine profile; programmatic full-machine acceptance PASS; 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points; routes/runtime planning/export verified | field-close Issues #1–#3 |
+| Izoteh PP-53736 | READY/PARTIAL | full machine profile; programmatic full-machine acceptance PASS; 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points; routes/runtime planning/export verified; 5000/500 h resolved; M1–M6 handled by configuration workflow | field-close Issue #1 |
 
 ## Правило обновления
 
