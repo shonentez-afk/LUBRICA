@@ -27,7 +27,7 @@ const C=global.LubricaStructureContext;const D=global.LubricaStructureDetail=glo
     const classifier=global.LubricaClassifier;
     const conveyorClassified=C.selected.type==='equipment'&&classifier?.classifyEquipment?classifier.classifyEquipment(d,{...x,maintenanceCandidateState:null}):null;
     const conveyorTemplate=conveyorClassified?.maintenanceTemplate||x.maintenanceTemplate||null;
-    const isConcreteConveyor=!!(C.selected.type==='equipment'&&conveyorTemplate?.id==='conveyor_arrangement'&&!classifier?.isConveyorGroup?.(d,x));
+    const isConcreteConveyor=!!(C.selected.type==='equipment'&&conveyorTemplate?.id==='conveyor_arrangement'&&!classifier?.isConveyorGroup?.(d,x)&&!classifier?.isConveyorAncillary?.(x));
     const conveyorEvidence=isConcreteConveyor?(conveyorTemplate.evidence||classifier?.conveyorEvidence?.(d,x)||null):null;
     const conveyorAction=isConcreteConveyor?'<button class="btn secondary" data-conveyor-arrangement>Открыть конструктор</button>':'';
     const conveyorCard=isConcreteConveyor?`<section class="structure-arrangement-card conveyor-structure-card"><div class="structure-arrangement-copy"><span class="eyebrow">КОНСТРУКЦИЯ КОНВЕЙЕРА</span><b>Фактическая комплектация</b><p>${C.esc(conveyorTemplate.summary||'Проверить фактические обслуживаемые узлы конвейера.')}</p><small>${Number(conveyorEvidence?.count||0)} обслуживаемых ТМЦ · ${Number(conveyorEvidence?.assets?.length||0)} отдельных приводных агрегатов · виртуальные опоры не создаются</small></div>${conveyorAction}</section>`:'';
