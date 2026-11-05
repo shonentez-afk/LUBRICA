@@ -65,6 +65,10 @@ const Core=global.LubricaCore;const C=global.LubricaStructureContext;const E=glo
     const d=Core.Database.normalize(C.db()),f=form.elements,edit=!!item;let x=item?{...item}:null;
     if(type==='equipment'&&item?.equipmentType==='conveyor'&&f.conveyorSubtype){
       const previous=item.manualConveyorSetup?.conveyorSubtype||global.LubricaClassifier?.conveyorIdentity?.(item.name,item.equipmentType,item)?.subtype||'unknown';
+      if(previous!==f.conveyorSubtype.value&&!['belt','chain_scraper'].includes(f.conveyorSubtype.value)&&(d.components||[]).some(c=>c.equipmentId===item.id&&c.status!=='retired'&&c.manualConveyorSupport)){
+        global.LubricaApp?.showToast('В ручной конструкции уже заданы фактические опоры. Для смены на составную схему требуется отдельная инженерная сверка этих опор.','warn');
+        return false;
+      }
       if(previous!==f.conveyorSubtype.value&&(d.lubricationPoints||[]).some(p=>p.equipmentId===item.id)){
         global.LubricaApp?.showToast('На конвейере уже есть точки обслуживания. Перед сменой конструктивной схемы выполните инженерную сверку и сохраняйте прежние утверждённые мероприятия.','warn');
         return false;
