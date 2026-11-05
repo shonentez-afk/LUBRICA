@@ -36,6 +36,7 @@ jobs:
           node --check structure/entity-dialogs.js
           node --check structure/detail-ui.js
           node test/test_release_1_0_33_73_conveyor_families.js
+          node test/test_release_1_0_33_74_conveyor_header.js
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
           node tests/test_release_1_0_33_14_manual_conveyor_parity.js
           node tests/test_release_1_0_33_15_conveyor_bearing_assignment.js
