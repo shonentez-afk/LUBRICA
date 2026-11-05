@@ -174,3 +174,53 @@ jobs:
           fi
           gh release view "$TAG" --json tagName,isPrerelease,assets \
             --jq '{tag: .tagName, prerelease: .isPrerelease, assets: [.assets[].name]}'
+
+      - name: Record verified package proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='v1.0.33.70-rc1'
+          gh release view "$TAG" --json tagName,isPrerelease,assets > "$RUNNER_TEMP/release_assets.json"
+          python3 - "$RUNNER_TEMP/release_assets.json" <<'PY'
+          import datetime, hashlib, json, os, pathlib, sys
+          release=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          zipname='LUBRICA_RELEASE_1_0_33_70_RC1.zip'
+          sha_name=zipname+'.sha256'
+          assert release.get('tagName')=='v1.0.33.70-rc1'
+          assert release.get('isPrerelease') is True, release
+          assets={a['name']:a for a in release.get('assets',[])}
+          for name in (zipname,sha_name):
+              assert name in assets, f'GitHub Release asset not uploaded: {name}'
+              assert assets[name]['size']>0, f'Empty asset: {name}'
+          file=pathlib.Path(zipname)
+          digest=hashlib.sha256(file.read_bytes()).hexdigest()
+          assert digest in pathlib.Path(sha_name).read_text(encoding='utf-8')
+          assert assets[zipname]['size']==file.stat().st_size, 'ZIP upload truncated'
+          report={
+              'version':'1.0.33.70', 'channel':'rc1', 'tag':release['tagName'],
+              'prerelease':True, 'source_sha':os.environ['GITHUB_SHA'],
+              'zip_file':zipname, 'zip_bytes':file.stat().st_size,
+              'zip_sha256':digest,
+              'checksum_file':sha_name,
+              'asset_names':list(sorted(assets)),
+              'release_url':'https://github.com/shonentez-afk/LUBRICA/releases/tag/v1.0.33.70-rc1',
+              'verified_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          }
+          pathlib.Path('project/RELEASE_PACKAGE_1_0_33_70_RC1.json').write_text(
+              json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+          CONTENT="$(base64 -w0 project/RELEASE_PACKAGE_1_0_33_70_RC1.json)"
+          API="repos/$GITHUB_REPOSITORY/contents/project/RELEASE_PACKAGE_1_0_33_70_RC1.json"
+          OLD_SHA="$(gh api "$API" --jq .sha 2>/dev/null || true)"
+          if [ -n "$OLD_SHA" ]; then
+            gh api -X PUT "$API" \
+              -f message='Verify LUBRICA 1.0.33.70 RC1 ZIP and GitHub Release assets' \
+              -f content="$CONTENT" -f branch=main -f sha="$OLD_SHA" >/dev/null
+          else
+            gh api -X PUT "$API" \
+              -f message='Verify LUBRICA 1.0.33.70 RC1 ZIP and GitHub Release assets' \
+              -f content="$CONTENT" -f branch=main >/dev/null
+          fi
