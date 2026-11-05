@@ -299,7 +299,7 @@ function conveyorEvidencePanel(template){
   const note=physical.length===4?'Приводной и натяжной/ведомый валы имеют левую и правую подшипниковую опору. Импортированный подшипник используется как исходное обозначение для четырёх физических позиций; при отличии конкретной опоры обозначение можно изменить до утверждения расчёта.':'Без подтверждённой схемы LUBRICA не создаёт виртуальные опоры.';
   return `<div class="conveyor-arrangement-intro"><div><span class="eyebrow">ФАКТИЧЕСКАЯ КОНСТРУКЦИЯ</span><b>${esc(headline)}</b><p>${esc(note)}</p></div><div class="conveyor-evidence-grid">${physical.length?card('service','Физические подшипниковые опоры',physical,''):card('service','Точки-кандидаты',actual,'Подшипники, цепи и другие обслуживаемые ТМЦ не найдены.')}${card('assets','Отдельные агрегаты',assets,'Отдельные двигатель/редуктор не найдены.')}${card('context','Контекст конструкции',context,'Контекстные валы/барабаны не найдены.')}${card('excluded','Исключено',excluded,'Пассивных элементов не найдено.')}</div></div>`;
 }
-function open(source,id){
+function open(source,id,decisionContext=null){
   const database=db();
   const record=sourceRecord(database,source,id);
   const equipment=sourceEquipment(database,source,record);
@@ -455,7 +455,29 @@ function open(source,id){
       global.LubricaApp?.showToast('Выберите хотя бы одну точку смазки','warn');
       return;
     }
-    const applied=applyConfirmedSpecs(database,source,record,equipment,template,chosen);
+    // The new QA flow requires a physical location; the legacy wizard remains unchanged.
+    if(decisionContext){
+      const missing=chosen.find(x=>!String(x.position||'').trim());
+      if(missing){
+        global.LubricaApp?.showToast('Укажите фактическое положение каждой создаваемой точки','warn');
+        return;
+      }
+      const check=global.LubricaEngineeringDecisions?.preview?.(database,id,'point',{
+        reason:decisionContext.reason,sourceReference:decisionContext.sourceReference,physicalConfirmed:true
+      });
+      if(!check?.allowed){
+        global.LubricaApp?.showToast(check?.errors?.join(' ')||'Конфигурация устарела, откройте решение снова','warn');
+        return;
+      }
+    }
+    // Work on a copy for the new engineer-confirmed workflow: no partial writes on failure.
+    const targetDatabase=decisionContext?Core.DatabaseSchema.clone(database):database;
+    const targetRecord=decisionContext?sourceRecord(targetDatabase,source,id):record;
+    const targetEquipment=decisionContext?sourceEquipment(targetDatabase,source,targetRecord):equipment;
+    const applied=applyConfirmedSpecs(targetDatabase,source,targetRecord,targetEquipment,template,chosen);
+    if(decisionContext){
+      global.LubricaEngineeringDecisions.recordCreated(targetDatabase,id,decisionContext,applied.createdPointIds);
+    }
     if(template?.id==='conveyor_arrangement'&&source==='equipment'){
       const ev=template.evidence||{};
       record.conveyorArrangement={
@@ -474,7 +496,7 @@ function open(source,id){
         c.candidateReason='Учтён как конструктивный контекст подтверждённой схемы ленточного конвейера; отдельная точка смазки не создаётся.';
       }
     }
-    Core.State.setDatabase(Core.Database.normalize(database));
+    Core.State.setDatabase(Core.Database.normalize(decisionContext?targetDatabase:database));
     global.LubricaApp?.refreshFromCore?.();
     global.LubricaApp?.renderAll?.();
     global.LubricaStructure?.render?.();
