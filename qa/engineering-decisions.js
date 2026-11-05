@@ -39,6 +39,15 @@ function preview(db,id,action,params={}){
  if(p.reason.length<8)errors.push('Укажите основание решения (не менее 8 символов).');
  if(['point','not_lubricated'].includes(p.action)&&!p.sourceReference)errors.push('Укажите источник подтверждения: осмотр, паспорт, чертёж или проверку по месту.');
  if(p.action==='point'&&!p.physicalConfirmed)errors.push('Подтвердите, что место обслуживания существует физически.');
+ if(p.action==='point'){
+  const specialized=global.LubricaOscillatingLinkageArrangement?.rootForRecord?.(db,c,'component');
+  if(specialized)errors.push('Компонент относится к механизму качания. Создайте физические точки через его специализированный конструктор.');
+  if(global.LubricaRotatingArrangement?.isRotating?.(c,'component')&&
+   ['rotating_arrangement','two_support_rotating','spindle','drum_review'].includes(c.candidateTemplate?.id||'rotating_arrangement'))
+   errors.push('Вращающийся узел требует специализированного конструктора, чтобы не создавать виртуальные опоры.');
+  if(c.candidateEquipmentType==='fan'||c.candidateEquipmentType==='motor')
+   errors.push('Для вентилятора/двигателя используйте мастер фактических подшипниковых опор.');
+ }
  if(p.action==='point')warnings.push('Далее откроется существующий мастер создания точки и мероприятий. На этом шаге ничего не сохраняется; новые мероприятия останутся в review.');
  if(p.action==='context')warnings.push('ТМЦ останется частью структуры. Самостоятельная точка и мероприятие не создаются.');
  if(p.action==='not_lubricated')warnings.push('Компонент сохраняется в структуре как явно не смазываемый; точки и мероприятия не создаются.');
