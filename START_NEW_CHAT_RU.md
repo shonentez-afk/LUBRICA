@@ -22,7 +22,7 @@
 
 ## 2. Текущая база
 
-Текущий release candidate: **LUBRICA 1.0.33.71 — Task Readiness & Safe Physical Analog (Stage 3)**. Программный predecessor: 1.0.33.70; последний проверочный ZIP: 1.0.33.70 RC1. Полный рабочий план — `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
+Текущий release candidate: **LUBRICA 1.0.33.71 — Task Readiness & Safe Physical Analog (Stage 3)**. Программный predecessor: 1.0.33.70; актуальный проверочный ZIP: 1.0.33.71 RC1 (tag `v1.0.33.71-rc1`, SHA-256 в `project/RELEASE_PACKAGE_1_0_33_71_RC1.json`). Полный рабочий план — `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
 
 После проектной памяти прочитай последние release note и regression/engineering acceptance, относящиеся к задаче.
 
