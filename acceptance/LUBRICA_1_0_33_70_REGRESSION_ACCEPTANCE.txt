@@ -3,9 +3,9 @@ Release: Plant Lubrication Point Completion Stage 2 / Engineer Physical Candidat
 Date: 2026-11-05
 
 CURRENT STATUS
-- Stage 2 targeted engineering decisions (latest feature head): PENDING final version-sync CI confirmation.
-- Existing Stage 1 point QA and historical Stage 9.8 QA: PASS on previous feature head.
-- Full LUBRICA regression: PASS on previous feature head; final RC CI pending.
+- Stage 2 targeted engineering decisions: PASS (GitHub Actions run 41972211355).
+- Existing Stage 1 point QA and historical Stage 9.8 QA: PASS (run 41972211355).
+- Full LUBRICA regression on synchronized 1.0.33.70 RC: PASS (run 41972211355).
 
 SCOPE / ACCEPTANCE GATES
 - Explicit human selection: point / context / not lubricated / clarify.
@@ -20,5 +20,6 @@ SCOPE / ACCEPTANCE GATES
 - No change is applied to the uploaded user JSON without an explicit in-app action.
 - Existing OEM, approved tasks, plan/route histories and file:// entrypoint are preserved.
 
-FINAL RESULT: PENDING GitHub Actions run on version 1.0.33.70 RC.
+FINAL RESULT: PASS (automated). Project Memory Audit: PASS (run 41972211349).
+This acceptance covers software tests. A separate manual Windows Edge file:// / real 2026-11-05 user database test is still required before closing Issue #12.
 Manual Windows Edge file:// smoke test remains separate from automated regression.
