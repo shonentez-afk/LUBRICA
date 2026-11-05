@@ -318,7 +318,13 @@ function conveyorEvidencePanel(template){
   const physical=layout?.supports?.length===4?layout.supports.map(x=>({name:x.position,label:layout.bearingReference?.name||'Подшипник требует уточнения'})):[];
   const headline=physical.length===4?'Два вала: назначьте реальные подшипники на четыре опорных места':'Составной конвейер: только реальные ТМЦ и физические места обслуживания';
   const note=physical.length===4?'Назначьте установленный подшипниковый ТМЦ на каждую опору. Точки не создаются до подтверждения.':'Для роликового, ламельного, цепного, шнекового, поворотного и комбинированного конвейера используйте реальные ТМЦ. Схема 2 вала × 2 опоры не предполагается. Укажите точное место каждой операции.';
-  return `<div class="conveyor-arrangement-intro"><div><span class="eyebrow">ФАКТИЧЕСКАЯ КОНСТРУКЦИЯ</span><b>${esc(headline)}</b><p>${esc(note)}</p></div><div class="conveyor-evidence-grid">${physical.length?card('service','Физические подшипниковые опоры',physical,''):card('service','Точки-кандидаты',actual,'Подшипники, цепи и другие обслуживаемые ТМЦ не найдены.')}${card('assets','Отдельные агрегаты',assets,'Отдельные двигатель/редуктор не найдены.')}${card('context','Контекст конструкции',context,'Контекстные валы/барабаны не найдены.')}${card('excluded','Исключено',excluded,'Пассивных элементов не найдено.')}</div></div>`;
+  const compose=global.LubricaConveyorArrangement?.composeEvidence?.(template);
+  const sections=physical.length===4
+    ?card('service','Физические подшипниковые опоры',physical,'')+card('assets','Отдельные агрегаты',assets,'Отдельные двигатель/редуктор не найдены.')+card('context','Контекст конструкции',context,'Контекстные валы/барабаны не найдены.')
+    :compose?.sections?.length
+     ?compose.sections.map(x=>card('service',x.label,x.items,'Не подтверждено: точка не создаётся.')).join('')
+     :card('service','Точки-кандидаты',actual,'Обслуживаемые ТМЦ не найдены.');
+  return `<div class="conveyor-arrangement-intro"><div><span class="eyebrow">ФАКТИЧЕСКАЯ КОНСТРУКЦИЯ</span><b>${esc(headline)}</b><p>${esc(note)}</p></div><div class="conveyor-evidence-grid">${sections}${card('excluded','Исключено',excluded,'Пассивных элементов не найдено.')}</div></div>`;
 }
 function open(source,id,decisionContext=null,subtypeOverride=null){
   const database=db();
