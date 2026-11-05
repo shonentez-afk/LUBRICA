@@ -10,8 +10,8 @@ const equipmentLabels={motor:'Электродвигатель',fan:'Венти�
  // lubrication candidate. Do not automatically delete historic approved work.
 function isNonLubricatedOilamidGuide(name=''){
  const n=norm(name);
- return /(?:направляющ|направл\\.|скользящая\\s+планк|\\bguide\\b)/.test(n)
-  && /(?:\\boilamid\\b|\\bpa\\s*6\\s*[-+]?\\s*g\\s*(?:\\+\\s*)?oil\\b)/.test(n);
+ return /(?:направляющ|направл\.|скользящая\s+планк|\bguide\b)/.test(n)
+  && /(?:\boilamid\b|\bpa\s*6\s*[-+]?\s*g\s*(?:\+\s*)?oil\b)/.test(n);
 }
 const OILAMID_REASON='Самосмазывающаяся направляющая OILAMID / PA 6 G + Oil: по подтверждению предприятия внешняя смазка не требуется; конструктивный ТМЦ остаётся в базе.';
 const exclusionRules=[
