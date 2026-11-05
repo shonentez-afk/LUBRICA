@@ -55,6 +55,10 @@ const REVIEW_PRIORITY={bearing:5,linear_bearing:5,gearbox_oil:5,chain:4,screw_dr
 function candidateQueue(database=db()){
  const d=database||{},equipment=mapBy(d.equipment),lines=mapBy(d.lines),areas=mapBy(d.areas),groups=new Map(),byCategory={};
  const linked=new Set(arr(d.lubricationPoints).map(p=>clean(p?.componentBinding?.sourceComponentId)).filter(Boolean));
+ for(const p of arr(d.lubricationPoints)){
+  const m=clean(p?.candidateOriginKey).match(/^component:([^:]+):/);
+  if(m)linked.add(m[1]);
+ }
  let totalCandidates=0,alreadyLinked=0;
  for(const part of arr(d.components)){
   const category=clean(part.candidateCategory),state=clean(part.candidateState).toLowerCase();
@@ -90,6 +94,17 @@ function audit(database=db()){
  const materialByName=new Map(arr(d.materials).flatMap(m=>[[clean(m.name).toLowerCase(),m],[clean(m.code).toLowerCase(),m]]).filter(x=>x[0]));
  const routes=arr(d.routes),issues=[],b=createBucket();
  function check(category,ok,problem){b[category].applicable++;if(ok){b[category].passed++;return}b[category].issues++;if(problem)issues.push(problem)}
+ // Engineer decisions must not silently remain trusted after a source component changes on re-import.
+ for(const c of arr(d.components)){
+  const prior=c.engineeringDecision?.identity;if(!prior)continue;
+  const current={equipmentId:clean(c.equipmentId),externalCode:clean(c.externalCode),
+   name:clean(c.name),category:clean(c.candidateCategory)};
+  const drift=Object.keys(current).some(key=>current[key]!==clean(prior[key]));
+  check('structure',!drift,issue('ENGINEERING_DECISION_SOURCE_CHANGED','structure','warn','equipment',c.equipmentId,
+   'Изменился исходный ТМЦ после инженерного решения',
+   c.id+' · '+(c.name||'ТМЦ')+': изменена идентичность, категория или оборудование. Перепроверьте ранее сохранённое инженерное решение и его доказательство.',
+   'Открыть оборудование'));
+ }
  // STRUCTURE: equipment and points must resolve through the current hierarchy.
  for(const p of lps.values()){
    const e=eq.get(String(p.equipmentId||'')),n=nodes.get(String(p.nodeId||''));
