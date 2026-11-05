@@ -54,7 +54,7 @@ PP-53736 программно закрыт. Issue #1–#3 закрыты как 
 
 ## Текущий функциональный этап: 1.0.33.69 RC (Stage 1)
 
-**Plant Lubrication Point Completion**, branch `work/plant-point-completion-1-0-33-69`, PR #15, Issues #11–#14. Accepted main predecessor — 1.0.33.68.
+**Plant Lubrication Point Completion**: Stage 1 слит в `main` (PR #15, programmatic CI PASS). Дальнейшая реализация — Issues #11–#14. Accepted main predecessor — 1.0.33.68.
 
 От поставленной production БД 2026-11-05: 501 физических точка, 517 мероприятий; незавершённые задачи и 1443 кандидата на инженерный разбор (включая муфты), без автоматического создания узлов.
 
