@@ -18,7 +18,7 @@ PP-53736 TARGETED RESULT
 - PASS: production counts remain 1188 equipment / 5659 components / 501 points / 517 tasks.
 - PASS: repeated apply/reconcile idempotent.
 - PASS: duplicate machine origin keys = 0.
-- PASS: exactly 4 Line 1 R77 tasks remain field review and are excluded from approved routing.
+- PASS: exactly 4 Line 1 R77 tasks remain review in the saved source DB because their persisted M1 conflicts with drawing hint M3; this is expected until the user selects/confirms M1–M6 during map configuration.
 - PASS: downstream route structural validation.
 - PASS: export traceability 262 taskIds / 262 rows.
 
@@ -38,10 +38,12 @@ FULL REGRESSION
 - Final RC version-sync CI is required to confirm manifest/project-memory consistency; code under test is unchanged by version-document synchronization.
 - Expected source-dependent XLSX tests may SKIP when source XLSX files are absent; expected SKIP is not a product failure.
 
-FIELD CONFIRMATION ITEMS
-- Issue #1: R77 Line 1 #5–#8 actual mounting position.
-- Issue #2: meaning of 500 in 5000/500 h remains unresolved unless primary evidence is found.
-- Issue #3: actual M1–M6 for K37/KF37R17/S37.
+CONFIGURATION POLICY
+- 5000/500 h = 5000 h working cycle + 500 h first service.
+- K37/KF37R17/R77/S37 mounting position M1–M6 is selected by the user while creating/configuring the lubrication map.
+- The selected position drives the OEM oil quantity.
+- Drawing hints are warnings/assistance only and never override a user-confirmed mounting position.
+- An unconfirmed/conflicting position may remain review and be excluded from approved routing until configuration is completed.
 
 CONCLUSION
-LUBRICA 1.0.33.68 is programmatically regression-safe as a release candidate. PP-53736 is fully integrated through routes, runtime-hour planning and export while unresolved field facts remain explicitly review/unresolved rather than guessed.
+LUBRICA 1.0.33.68 is regression-safe. PP-53736 is fully integrated through configuration, routes, runtime-hour planning and export. No external field blocker remains: mounting position selection is an explicit in-application configuration step.
