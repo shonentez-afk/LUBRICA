@@ -135,6 +135,8 @@ const ui=fs.readFileSync(path.join(root,'structure/entity-dialogs.js'),'utf8');
 for(const subtype of ['roller','lamella','chain','screw','turning','hybrid','weighing']){
  assert(ui.includes('value="'+subtype+'"'),subtype+' shown in manual creator');
 }
+const detail=fs.readFileSync(path.join(root,'structure/detail-ui.js'),'utf8');
+assert(detail.includes('isConveyorAncillary?.(x)'), 'legacy ancillary record must not expose standalone conveyor constructor');
 const finalizer=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),'utf8');
 assert(finalizer.includes('transactionalConveyor'),'conveyor save uses cloned database');
 assert(finalizer.includes('usedTaskIds'),'approved/route/fact reapply protection');
