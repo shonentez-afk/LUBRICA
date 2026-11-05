@@ -205,7 +205,13 @@ function specsFor(record,source){
     for(const a of assets.filter(x=>['gearbox','motor_gearbox'].includes(x.equipmentType))){
       const location=a.equipmentType==='gearbox'?'Редуктор':'Мотор-редуктор';
       if(!layout&&a.source==='equipment')continue; // Child gearbox has its own maintenance record.
-       specs.push(spec(`conveyor_asset_${a.source}_${a.id}`,location,'gearbox_oil','Привод',['Проверка уровня','Замена масла'],!!layout,{actual:true,conveyorEvidence:true,conveyorAsset:true,serviceLocationName:location,sourceRef:a}));
+      const pendingOEM=template.conveyorSubtype==='screw'; // OEM lubrication method not proven by a gearbox name.
+      const proposal=spec(`conveyor_asset_${a.source}_${a.id}`,location,'gearbox_oil',pendingOEM?'':'Привод',
+        pendingOEM?null:['Проверка уровня','Замена масла'],!!layout&&!pendingOEM,
+        {actual:true,conveyorEvidence:true,conveyorAsset:true,serviceLocationName:location,
+          sourceRef:a,requiresOemVerification:pendingOEM});
+      if(pendingOEM)proposal.activities=[]; // Nothing pre-approved before gearbox/OEM and mounting-position check.
+      specs.push(proposal);
     }
     return specs;
   }
@@ -301,7 +307,7 @@ function conveyorSubtypePanel(template){
   chain:'Цепь и каждый привод подтверждаются по ТМЦ, четыре опоры не предполагаются.',
   roller:'Определите реальные ролики и их обслуживаемые опоры. Герметичные не досмазывать автоматически.',
   lamella:'Разделите рабочие цепи, систему подачи смазки, привод и подшипники.',
-  screw:'Проверьте шнек, его вал/опоры и привод; не подменяйте двухвальным layout.',
+  screw:'Проверьте реальный шнек, его отдельные опоры и привод. Редуктор: перед выбором операций подтвердите способ смазывания, масляные пробки, материал и объём по паспорту OEM и монтажному положению.',
   turning:'Поворотный узел, ролики, лента и приводы подтверждаются отдельно.',
   hybrid:'Ленточные и роликовые секции подтверждаются как части общей машины.',
   weighing:'Весовой датчик не считается точкой смазки; обслуживаются механические узлы.',
@@ -398,7 +404,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       <label class="candidate-point-name"><span>${template?.id==='conveyor_arrangement'?'Точка обслуживания':'Точка смазки'}</span><input name="name_${i}" value="${esc(s.name)}"></label>${template?.id==='conveyor_arrangement'&&s.sourceRef?.name?`<div class="candidate-source-tmc"><span>Узел / ТМЦ</span><b>${esc(cleanTmcName(s.sourceRef.name))}</b></div>`:''}
       <label class="candidate-point-category"><span>Категория</span><select name="cat_${i}">${Object.entries(C.categoryLabels).map(([k,v])=>`<option value="${k}" ${k===s.category?'selected':''}>${esc(v)}</option>`).join('')}</select></label>
       <label class="candidate-point-position"><span>Положение</span><input name="pos_${i}" value="${esc(s.position||'')}"></label>
-      <div class="candidate-actions-field" data-activity-box="${i}"><span class="candidate-field-title">Мероприятия</span>${activityChecks(s.category,s.activities,i)}</div>
+      <div class="candidate-actions-field" data-activity-box="${i}"><span class="candidate-field-title">Мероприятия</span>${activityChecks(s.category,s.activities,i)}${s.requiresOemVerification?'<small>Операции редуктора не выбраны: подтвердите масло/смазку и обслуживание по OEM перед созданием точки.</small>':''}</div>
     </div>`).join(''):`<div class="wizard-note"><b>${equipmentType==='motor'?'Плановые точки досмазывания не создаются автоматически.':'Фактические подшипниковые опоры не найдены.'}</b><span>${equipmentType==='motor'?(global.LubricaMotorOEM?.resolve?.(record.name||'')?.policy==='NO_ROUTINE_RELUBE'?'OEM-профиль двигателя указывает закрытую / greased-for-life конструкцию. Двигатель остаётся в структуре, но ложное мероприятие «Досмазывание» в карту не добавляется.':'Сначала подтвердите фактическую обслуживаемость DE/NDE и наличие точек подачи. LUBRICA не придумывает внутренние подшипники по одному названию двигателя.'):'LUBRICA не создаёт условные «левую/правую» опоры автоматически. Сначала добавьте или подтвердите реальные подшипники/опоры в структуре, либо создайте точку вручную из «Карты смазки». '}</span></div>`}</div>
     ${specs.length?`<div class="wizard-note"><b>Мероприятия выбираются из справочника категории.</b><span>Для нестандартной операции отметьте «Другое» и задайте название. Все созданные мероприятия получают статус «Требует проверки».</span></div>`:''}
     <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Подтвердить и создать</button>':(source==='equipment'&&template?.id==='conveyor_arrangement'?'<button type="button" class="btn primary" data-save>Сохранить тип без точек</button>':'')}</menu>
