@@ -57,7 +57,7 @@
 
 | Объект | Статус | Что уже есть | Что осталось |
 |---|---|---|---|
-| Generic conveyor | READY/PARTIAL | arrangement engine, 4 supports, manual parity | field-specific extensions |
+| Generic conveyor | PARTIAL | `belt` и `chain_scraper` на двухвальном четырёхопорном engine; manual parity | Не применяется автоматически к роликовым, ламельным, шнековым, поворотным и комбинированным |
 | Chain scraper conveyor | READY/PARTIAL | dedicated constructor | expand from real equipment |
 | Fan arrangements | READY/PARTIAL | no virtual supports, OEM-specific rules | add new manufacturers modularly |
 | Izoteh PP-53736 | READY | full machine profile; full-machine acceptance PASS; 102 bearing positions, 8 chains, 4 screws, 13 gearbox-oil points; routes/runtime planning/export verified; 5000/500 h resolved; all SEW M1–M6 handled by configuration workflow | расширять только при изменении реальной машины/документации |
@@ -65,3 +65,26 @@
 ## Правило обновления
 
 При добавлении нового конструктора, OEM-таблицы или расчётного модуля обязательно обновить эту матрицу.
+
+## Пробелы конструкторов по производственной базе 2026-11-05 (Stage 5)
+
+Полный аудит: [EQUIPMENT_CONSTRUCTOR_GAP_AUDIT_20261105_RU.md](EQUIPMENT_CONSTRUCTOR_GAP_AUDIT_20261105_RU.md). Среди 1188 `equipment`: `conveyor` — 293, `fan` — 28, `spindle` — 32, `rotating_shaft` — 12, `other` — 812. `other` включает структурные и несмазываемые объекты, не является числом пропущенных конструкторов.
+
+| Машина/семейство | Статус конструктора | Следующая задача |
+|---|---|---|
+| Центрифуги и маслораспылители шпинделей | **PLANNED** — сейчас только Rotating / element-level | Centrifuge + spindle lubrication composition, фактическая подача масла, источники |
+| Роликовые/ламельные/шнековые конвейеры | **PARTIAL** — не подтверждена применимость двухвальной схемы | Расширить Conveyor Arrangement для разных физических layouts |
+| Пилы, гильотины, каретки резки | **PLANNED** — element-level | Saw / Cut & Traverse с каретками, направляющими и опорами |
+| Колосниковые и дозирующие питатели | **PLANNED** — элементные расчёты | Feeder Arrangement по фактическим валам и приводам |
+| Щеточная очистка / очистка ламелей | **PLANNED** — вращающиеся узлы | Brush/Cleaning Arrangement |
+| Штабеллеры / механизмы упаковки и подъёма | **PLANNED** — элементные узлы | Handling/Stacker Composition |
+| Измельчители LINDNER VEGA 1500 | **SOURCE_REQUIRED** | Shredder Rotor после OEM/осмотра |
+| Насосы / гидростанции | **PARTIAL** — `pump_oem_check` / `oil_system` | Oil System Arrangement без вымышленных полостей |
+| Мотор-редукторы / мотор-барабаны | **PARTIAL** — элементные шаблоны | Drive-unit Composition с OEM-подтверждением |
+
+Не расширять `Fan`, `PP53736`, `Conveyor` или OEM через перенос не подтверждённой физической схемы. Сначала `Stage 5A` — read-only gap control; затем приоритетные конструкторы по оборудованию реальных линий.
+
+
+### Проверка фактического парка конвейеров — 2026-11-05
+
+[CONVEYOR_CONSTRUCTORS_GAP_AUDIT_20261105_RU.md](CONVEYOR_CONSTRUCTORS_GAP_AUDIT_20261105_RU.md): в production JSON 293 оборудования с типом `conveyor`, из них 226 отдельных конвейерных наименований, 35 групповых позиций и 32 связанных подсистем. 94 прямо попадают под старые правила (`belt` 87, `chain_scraper` 7), в числе них 1 гибрид, ошибочно распознанный как belt. Приоритетные пробелы: роликовые (54), угловые/поворотные (21), цепные (12), ламельные (6), шнековые (4); ременные из существующих 107 ленточных/ременных требуют расширения. Числа — по названиям, не по подтверждённой физической схеме/точкам.
