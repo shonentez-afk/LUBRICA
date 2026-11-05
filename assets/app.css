@@ -3557,3 +3557,14 @@ button.btn,
 .qa-task-evidence p{margin:5px 0;font-size:11px;overflow-wrap:anywhere}
 .qa-task-pager{justify-content:flex-end}
 @media(max-width:800px){.qa-task-ready-list{grid-template-columns:1fr}.qa-task-next{flex-wrap:wrap}.qa-task-next button{min-width:110px}}
+
+/* Stage 3: engineer evidence before copying data from a physical analog */
+.analog-engineer-confirm{border:1px solid #d7e1df;border-radius:10px;background:#f6faf9;padding:12px;display:flex;flex-direction:column;gap:10px}
+.analog-engineer-confirm>label{font-size:12px;display:flex;flex-direction:column;gap:5px;font-weight:600}
+.analog-engineer-confirm .analog-physical-match{flex-direction:row;align-items:flex-start;gap:9px}
+.analog-engineer-confirm .analog-physical-match input{flex-shrink:0;margin-top:3px}
+.analog-engineer-confirm textarea,.analog-engineer-confirm input:not([type=checkbox]){box-sizing:border-box;width:100%;font:inherit;padding:9px;border-radius:8px;border:1px solid #c3d1cf;background:#fff;min-height:37px}
+.analog-safety-preview{font-size:11px;border:1px solid #d6e0de;border-radius:8px;padding:10px;background:#f7f9f8;line-height:1.4}
+.analog-safety-preview ul{margin:6px 0;padding-left:20px}
+.analog-safety-preview .analog-error{color:#9e2d26;font-weight:600}
+@media(max-width:800px){.analog-engineer-confirm{padding:9px}}
