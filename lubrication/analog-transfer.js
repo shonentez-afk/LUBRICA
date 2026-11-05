@@ -85,6 +85,10 @@
     if(!target||!source)return{ok:false,errors,warnings};
     if(target.category!=='bearing'||source.category!=='bearing')errors.push('Сейчас инженерный перенос доступен только для подшипников.');
     if(!sameModel(target,source))errors.push('Не совпадает подтверждённое обозначение/каталожная запись подшипника.');
+    for(const p of [target,source]){
+      if(!byId(d.equipment,p.equipmentId)||!byId(d.nodes,p.nodeId))
+       errors.push('Исходная или целевая точка не имеет подтверждённой привязки к реальному оборудованию и узлу.');
+    }
     const ts=tasksFor(d,target),srcTasks=tasksFor(d,source);
     if(!srcTasks.length)errors.push('У исходной точки отсутствуют мероприятия.');
     if(ts.some(approved))errors.push('На целевой точке есть утверждённое мероприятие; его нельзя перезаписывать по аналогу.');
