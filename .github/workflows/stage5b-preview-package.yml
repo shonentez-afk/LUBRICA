@@ -8,6 +8,7 @@ on:
       - 'import/component-classifier.js'
       - 'import/candidate-finalizer.js'
       - 'structure/entity-dialogs.js'
+      - 'structure/detail-ui.js'
       - 'test/test_release_1_0_33_73_conveyor_families.js'
       - '.github/workflows/stage5b-preview-package.yml'
   workflow_dispatch:
@@ -33,6 +34,7 @@ jobs:
           node --check conveyors/conveyor-arrangement.js
           node --check import/candidate-finalizer.js
           node --check structure/entity-dialogs.js
+          node --check structure/detail-ui.js
           node test/test_release_1_0_33_73_conveyor_families.js
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
           node tests/test_release_1_0_33_14_manual_conveyor_parity.js
