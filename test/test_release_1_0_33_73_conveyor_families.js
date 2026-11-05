@@ -68,6 +68,18 @@ assert.equal(rEv.count,1);
 assert.equal(rEv.supportLayout,null);
 let typed=C.classifyEquipment(db,lamella);
 assert.equal(typed.maintenanceTemplate.evidence.byCategory.chain,1);
+const lamellaRoles=Arr.composeEvidence(typed.maintenanceTemplate);
+assert.equal(lamellaRoles.subtype,'lamella');
+assert.equal(lamellaRoles.createsPoints,false,'composition must not create any points');
+assert.equal(lamellaRoles.sections.find(x=>x.role==='chains').count,1);
+assert.equal(lamellaRoles.sections.find(x=>x.role==='ancillary').count,1,'chain-lube subsystem must appear');
+for(const subtype of ['roller','lamella','chain','screw','turning','hybrid','weighing']){
+ const profile=Arr.composeEvidence({conveyorSubtype:subtype,evidence:{actual:[],assets:[],context:[],ancillary:[]}});
+ assert.equal(profile.subtype,subtype);
+ assert(profile.unsupportedGeometry,'compound variant cannot assume 2x2 supports: '+subtype);
+ assert(profile.sections.every(x=>x.count===0),'no implicit physical support: '+subtype);
+}
+
 assert.equal(JSON.stringify(db),snap,'classification and evidence are read-only');
 const breaker=equipment('B','Конвейер ленточный');
 db.equipment.push(breaker);
@@ -105,4 +117,8 @@ const finalizer=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),
 assert(finalizer.includes('transactionalConveyor'),'conveyor save uses cloned database');
 assert(finalizer.includes('usedTaskIds'),'approved/route/fact reapply protection');
 assert(finalizer.includes('физическое место обслуживания'),'service positions required');
+assert(finalizer.includes('conveyorSubtypeChoice'),'all conveyor subtypes selectable in the constructor');
+assert(finalizer.includes('Сохранить тип без точек'),'subtype can be stored without virtual service points');
+assert(finalizer.includes('previewConveyorSubtype'),'subtype change rebuilds read-only evidence');
+
 console.log('PASS Stage 5B conveyor families: 12 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
