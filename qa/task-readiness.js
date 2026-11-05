@@ -64,7 +64,7 @@ function needsMaterial(t){
  const type=clean(t?.activityType).toLowerCase();
  const op=clean(t?.operation).toLowerCase();
  if(MATERIAL_FREE.has(type)||MATERIAL_FREE_LABELS.has(op))return false;
- return clean(t?.materialMode).toLowerCase()!=='none';
+ return true;
 }
 function quantity(t){
  const q=t?.quantity?.approved??t?.approvedQuantity??t?.quantityApproved??t?.legacy?.qty;
