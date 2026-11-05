@@ -88,7 +88,7 @@ P0: инженерные QA checks + read-only кандидатная очере
 - Edge `file://` и recovery на новой пользовательской базе — ручная приёмка, после неё можно закрывать Issue #12.
 
 
-## Stage 3 (task readiness and analog safety) — реализованный контракт
+## Stage 3 (task readiness and analog safety) — реализован и слит в main, PR #18, full CI PASS
 
 - `qa/task-readiness.js` — read-only сводка по каждому task отдельно, 7 шагов и одно следующее действие из QA evidence.
 - `qa/task-readiness-ui.js` — компактная очередь в «Контроле» с линией/статусом/поиском и переходом к задаче; технический код только в «Почему требуется действие».
