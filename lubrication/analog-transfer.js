@@ -53,31 +53,122 @@
     const ts=tasksFor(d,p),mats=[...new Set(ts.map(t=>effectiveMaterial(t,p)).filter(Boolean).map(id=>byId(d.materials,id)?.name||id))];
     return `${designation(p)||'Без обозначения'} · ${ts.length} мер. · ${mats.length?mats.join(', '):'материал не задан'}${p.bearing?.calculation?' · расчёт есть':''}`;
   }
+
+  function approved(t){return ['approved','ready'].includes(String(t?.approvalStatus||'').toLowerCase())||t?.verified===true}
+  function protectedByHistory(d,point,ts){
+    const ids=[String(point.id),...ts.map(t=>String(t.id))],lookup=new Set(ids);
+    const collections=['routes','routeRevisions','checklistRuns','routePlanItems','routeHistory','routePlans'];
+    for(const name of collections)for(const record of (d[name]||[])){
+      const raw=JSON.stringify(record);
+      if(ids.some(id=>raw.includes('"'+id+'"')))return name;
+    }
+    return '';
+  }
+  function physicalMismatch(target,source){
+    const a=target.bearing||{},b=source.bearing||{},issues=[];
+    if(a.bearingType&&b.bearingType&&!['unknown','other'].includes(a.bearingType)&&
+      !['unknown','other'].includes(b.bearingType)&&a.bearingType!==b.bearingType)
+      issues.push('Не совпадает фактический тип подшипника.');
+    for(const k of ['d','D','B']){
+      const aa=Number(a[k]),bb=Number(b[k]);
+      if(a[k]!=null&&b[k]!=null&&Number.isFinite(aa)&&Number.isFinite(bb)&&aa>0&&bb>0&&Math.abs(aa-bb)>0.01)
+        issues.push('Не совпадает размер '+k+' (мм).');
+    }
+    const sa=String(a.housingFamily||target.fanLubrication?.bearingHousingFamily||'').toUpperCase();
+    const sb=String(b.housingFamily||source.fanLubrication?.bearingHousingFamily||'').toUpperCase();
+    if(sa&&sb&&sa!==sb)issues.push('Разные типы подшипникового корпуса.');
+    return issues;
+  }
+  function previewTransfer(d,target,source,fields,proof={}){
+    const errors=[],warnings=[];
+    if(!d||!target||!source||target.id===source.id)errors.push('Выберите две разные существующие физические точки.');
+    if(!target||!source)return{ok:false,errors,warnings};
+    if(target.category!=='bearing'||source.category!=='bearing')errors.push('Сейчас инженерный перенос доступен только для подшипников.');
+    if(!sameModel(target,source))errors.push('Не совпадает подтверждённое обозначение/каталожная запись подшипника.');
+    const ts=tasksFor(d,target),srcTasks=tasksFor(d,source);
+    if(!srcTasks.length)errors.push('У исходной точки отсутствуют мероприятия.');
+    if(ts.some(approved))errors.push('На целевой точке есть утверждённое мероприятие; его нельзя перезаписывать по аналогу.');
+    const history=protectedByHistory(d,target,ts);
+    if(history)errors.push('На целевую точку есть ссылки в '+history+'. Перенос запрещён.');
+    const difference=physicalMismatch(target,source);
+    errors.push(...difference);
+    if((fields.technical||fields.quantity||fields.schedule)&&!proof.physicalConfirmed)
+      errors.push('Подтвердите одинаковую фактическую конструкцию и условия обслуживания.');
+    if(!proof.physicalConfirmed)errors.push('Подтвердите фактическое соответствие двух физических узлов.');
+    if(String(proof.reason||'').trim().length<8)errors.push('Укажите, почему конкретные узлы являются аналогами (не менее 8 символов).');
+    if(!String(proof.sourceReference||'').trim())errors.push('Укажите источник проверки: осмотр, чертёж или OEM.');
+    if(fields.quantity)for(const st of srcTasks){
+      const dt=ts.find(t=>taskKey(t)===taskKey(st));
+      if(dt&&String(dt.quantity?.approved??'').trim())warnings.push('Норма '+(dt.operation||dt.id)+' у цели уже заполнена: она будет сохранена, предложение по аналогу записано отдельно.');
+    }
+    if(fields.technical)warnings.push('Фактические размеры, положение и рассчитанный OEM-профиль целевого подшипника не копируются.');
+    if(fields.quantity||fields.schedule)warnings.push('Норма и периодичность сохраняются как предложения; применить их должен инженер через соответствующую карточку/расчёт.');
+    if(fields.tasks)warnings.push('Новые мероприятия создаются только на существующей физической точке и остаются review.');
+    return {ok:errors.length===0,errors,warnings,targetId:String(target.id),sourceId:String(source.id),
+     taskCount:srcTasks.length,fields:{...fields},proof:{reason:String(proof.reason||'').trim(),sourceReference:String(proof.sourceReference||'').trim()}};
+  }
   function transferPointFields(target,source,fields){
-    if(fields.technical&&source.category==='bearing')target.bearing=clone(source.bearing||{});
-    if(fields.material){target.currentMaterialId=source.currentMaterialId||null;target.targetMaterialId=source.targetMaterialId||null;target.oemMaterial=source.oemMaterial||'';target.materialRationale=source.materialRationale||''}
-    target.status='review';
+    // Do not replace current lubricant, OEM bearing record, geometry or machine-specific mounting position.
+    if(fields.material){
+      target.targetMaterialId=source.targetMaterialId||target.targetMaterialId||null;
+      target.materialRationale=target.materialRationale||'Материал предложен из аналога; требуется инженерное подтверждение';
+    }
+    if(target.status!=='review')target.status='review';
   }
-  function copyTaskPayload(dst,src,fields,sourcePointId){
-    if(fields.material){dst.materialMode=src.materialMode;dst.materialId=src.materialId||null;dst.materialName=src.materialName||'';dst.toolId=src.toolId||null}
-    if(fields.quantity)dst.quantity=clone(src.quantity||{});
-    if(fields.schedule)dst.schedule=clone(src.schedule||{});
-    if(fields.sources){dst.source=src.source||dst.source||'Аналог';if(dst.quantity&&src.quantity?.source)dst.quantity.source=src.quantity.source;if(dst.schedule&&src.schedule?.source)dst.schedule.source=src.schedule.source}
-    dst.approvalStatus='review';dst.verified=false;dst.analogSourcePointId=sourcePointId;dst.analogTransferredAt=new Date().toISOString();
+  function copyTaskPayload(dst,src,fields,sourcePointId,proof){
+    if(fields.material){
+      if(!dst.materialId)dst.materialId=src.materialId||null;
+      if(!dst.materialName)dst.materialName=src.materialName||'';
+      if(!dst.toolId)dst.toolId=src.toolId||null;
+      if(!dst.materialMode)dst.materialMode=src.materialMode||'point_target';
+    }
+    if(fields.quantity){
+      const value=src.quantity?.approved??src.approvedQuantity??null;
+      if(value!==null&&String(value).trim()!==''){
+        dst.quantity={...(dst.quantity||{}),analogSuggested:{
+          value,unit:src.quantity?.unit||'',sourcePointId,
+          reason:proof.reason,sourceReference:proof.sourceReference}};
+      }
+      // Never transfer quantity.approved or approved calculations from another physical point.
+    }
+    if(fields.schedule){
+      const interval=src.schedule?.legacyText||src.schedule?.interval||src.interval||'';
+      if(interval)dst.schedule={...(dst.schedule||{}),analogSuggested:{
+        interval,sourcePointId,reason:proof.reason,sourceReference:proof.sourceReference}};
+    }
+    dst.approvalStatus='review';dst.verified=false;
+    dst.analogSourcePointId=sourcePointId;dst.analogTransferredAt=new Date().toISOString();
+    dst.analogEvidence={reason:proof.reason,sourceReference:proof.sourceReference,
+      physicalConfirmed:true,fields:Object.keys(fields).filter(k=>fields[k])};
   }
-  function applyTransfer(d,target,source,fields){
+  function applyTransfer(d,target,source,fields,proof={}){
+    const result=previewTransfer(d,target,source,fields,proof);
+    if(!result.ok)throw new Error(result.errors.join(' '));
     transferPointFields(target,source,fields);
     const srcTasks=tasksFor(d,source),dstTasks=tasksFor(d,target),byKey=new Map(dstTasks.map(t=>[taskKey(t),t]));
     if(fields.tasks){
       for(const st of srcTasks){
         const k=taskKey(st);let dt=byKey.get(k);
-        if(!dt){dt={id:global.LubricaCore.IDs.nextFrom(d.tasks,'TASK',6),lubricationPointId:target.id,activityType:st.activityType||'',operation:st.operation||'',origin:'analog',legacyManaged:false};d.tasks.push(dt);byKey.set(k,dt)}
-        dt.activityType=st.activityType||dt.activityType;dt.operation=st.operation||dt.operation;copyTaskPayload(dt,st,fields,source.id);
+        if(!dt){
+          dt={id:global.LubricaCore.IDs.nextFrom(d.tasks,'TASK',6),lubricationPointId:target.id,
+            activityType:st.activityType||'',operation:st.operation||'',origin:'analog',
+            legacyManaged:false,approvalStatus:'review'};
+          d.tasks.push(dt);byKey.set(k,dt);
+        }
+        dt.activityType=st.activityType||dt.activityType;dt.operation=st.operation||dt.operation;
+        copyTaskPayload(dt,st,fields,source.id,result.proof);
       }
     }else{
-      for(const dt of dstTasks){const st=srcTasks.find(x=>taskKey(x)===taskKey(dt));if(st)copyTaskPayload(dt,st,fields,source.id)}
+      for(const dt of dstTasks){
+        const st=srcTasks.find(x=>taskKey(x)===taskKey(dt));
+        if(st)copyTaskPayload(dt,st,fields,source.id,result.proof);
+      }
     }
-    target.analogTransfer={sourcePointId:source.id,sourceDesignation:designation(source),transferredAt:new Date().toISOString(),fields:Object.keys(fields).filter(k=>fields[k])};
+    target.analogTransfer={sourcePointId:source.id,sourceDesignation:designation(source),
+      transferredAt:new Date().toISOString(),fields:Object.keys(fields).filter(k=>fields[k]),
+      physicalConfirmed:true,reason:result.proof.reason,sourceReference:result.proof.sourceReference,
+      approvalTransferred:false,amountsAndIntervalsSuggestedOnly:true};
+    return{ok:true,reviewRequired:true,targetPointId:String(target.id),sourcePointId:String(source.id)};
   }
   function selectedFields(form){
     const mode=form.elements.mode.value;
