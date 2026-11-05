@@ -1,6 +1,6 @@
 # LUBRICA 1.0.33.69 — Plant Lubrication Point Completion
 
-**Статус:** план утверждён к реализации, итерация P0/P1 в рабочей ветке `work/plant-point-completion-1-0-33-69`. Production predecessor: **1.0.33.68**. Основной продукт: автономный desktop / Edge / `file://`.
+**Статус:** Stage 1 (read-only QA + очередь) слит в `main` через PR #15, CI PASS; последующие этапы Issues #11–#14 остаются открытыми. Production predecessor: **1.0.33.68**. Основной продукт: автономный desktop / Edge / `file://`.
 
 ## Цель
 
