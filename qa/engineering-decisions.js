@@ -113,7 +113,7 @@ function referenceExists(db,ids){
 function previewUndo(db,id){
  const c=get(db,id),d=c?.engineeringDecision,errors=[],warnings=[],pointIds=arr(d?.createdPointIds).map(String);
  if(!d){errors.push('Сохранённое решение отсутствует.');return{allowed:false,errors,warnings}}
- if(!sameIdentity(c,d.identity))errors.push('После решения изменились оборудование, категория или имя ТМЦ. Требуется ручная сверка.');
+ if(!sameIdentity(c,d.identity)){if(d.action==='point')errors.push('После решения изменились оборудование, категория или имя ТМЦ. Для созданной точки нужна ручная сверка привязки.');else warnings.push('Исходная ТМЦ изменилась после решения. Отмена оставит текущую запись ТМЦ и вернёт её на инженерную проверку.');}
  let taskIds=[];
  if(d.action==='point'){
   if(!pointIds.length)errors.push('Список созданных физических точек отсутствует.');
