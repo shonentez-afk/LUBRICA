@@ -96,6 +96,11 @@ function recordCreated(db,id,context,pointIds=[]){
  const createdTaskIds=arr(db.tasks).filter(t=>points.some(p=>String(p.id)===String(t.lubricationPointId))).map(t=>String(t.id));
  if(!createdTaskIds.length)throw new Error('Мастер не создал мероприятий для точки.');
  const at=new Date().toISOString();
+ for(const point of points){
+  point.engineeringSources={...(point.engineeringSources||{}),physical:{
+   status:'engineer_confirmed',sourceComponentId:String(id),reference:clean(context.sourceReference),
+   reason:clean(context.reason),confirmedAt:at}};
+ }
  const createdNodeIds=arr(db.nodes).filter(n=>clean(n.candidateOriginKey).startsWith(originPrefix(id))&&
   !arr(context.existingNodeIds).map(String).includes(String(n.id))).map(n=>String(n.id));
  c.engineeringDecision={version:1,action:'point',reason:clean(context.reason),
