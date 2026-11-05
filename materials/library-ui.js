@@ -130,8 +130,41 @@ function materialDialog36(view,item=null){
  {label:edit?'Сохранить':'Добавить',kind:'primary',run:()=>{
    const name=$('#libMatName').value.trim(),kind=$('#libMatKind').value;if(!name){toast('Введите наименование материала','warn');return false}
    const x=item||{},code=item?.code||nextDisplayCode36(matPrefix37(kind),d.materials);
-   Object.assign(x,{id:x.id||LubricaCore.IDs.nextFrom(d.materials,'MAT',4),code,name,kind,manufacturer:$('#libMatManufacturer').value.trim(),productCode:$('#libMatProductCode').value.trim(),nlgi:$('#libMatNlgi').value.trim(),isoVg:$('#libMatIsoVg').value.trim(),thickener:$('#libMatThickener').value.trim(),baseOil:$('#libMatBaseOil').value.trim(),baseViscosity40:$('#libMatVis40').value.trim(),density:$('#libMatDensity').value.trim(),densitySource:$('#libMatDensitySource').value.trim(),sourceReference:$('#libMatSourceReference').value.trim(),tempMin:$('#libMatTmin').value.trim(),tempMax:$('#libMatTmax').value.trim(),foodGrade:$('#libMatFood').checked,ep:$('#libMatEP').checked,waterResistance:$('#libMatWater').value,packageSize:$('#libMatPackage').value.trim(),packageUnit:$('#libMatPackageUnit').value,color:$('#libMatColor').value||'#e6a42a',symbol:$('#libMatSymbol').value,approved:$('#libMatApproved').checked,status:$('#libMatStatus').value,notes:$('#libMatNotes').value.trim()});
-   if(!item)d.materials.push(x);LubricaCore.State.setDatabase(d);state=LubricaCore.Database.toLegacy(d);renderMaterials(view);toast(edit?'Материал изменён':`Материал добавлен: ${code}`)
+   const proposal={id:x.id||LubricaCore.IDs.nextFrom(d.materials,'MAT',4),code,name,kind,manufacturer:$('#libMatManufacturer').value.trim(),productCode:$('#libMatProductCode').value.trim(),nlgi:$('#libMatNlgi').value.trim(),isoVg:$('#libMatIsoVg').value.trim(),thickener:$('#libMatThickener').value.trim(),baseOil:$('#libMatBaseOil').value.trim(),baseViscosity40:$('#libMatVis40').value.trim(),density:$('#libMatDensity').value.trim(),densitySource:$('#libMatDensitySource').value.trim(),sourceReference:$('#libMatSourceReference').value.trim(),tempMin:$('#libMatTmin').value.trim(),tempMax:$('#libMatTmax').value.trim(),foodGrade:$('#libMatFood').checked,ep:$('#libMatEP').checked,waterResistance:$('#libMatWater').value,packageSize:$('#libMatPackage').value.trim(),packageUnit:$('#libMatPackageUnit').value,color:$('#libMatColor').value||'#e6a42a',symbol:$('#libMatSymbol').value,approved:$('#libMatApproved').checked,status:$('#libMatStatus').value,notes:$('#libMatNotes').value.trim()};
+   if(!edit){Object.assign(x,proposal);d.materials.push(x);LubricaCore.State.setDatabase(d);state=LubricaCore.Database.toLegacy(d);renderMaterials(view);toast(`Материал добавлен: ${code}`);return}
+   const Guard=window.LubricaMaterialCorrection;
+   if(!Guard){toast('Модуль инженерной проверки недоступен','warn');return false}
+   const initial=Guard.preview(d,item.id,proposal,{});
+   if(!initial.changed){toast('Нет изменений в карточке','info');return}
+   const labels={density:'Плотность, г/см³',baseViscosity40:'Вязкость при 40 °C',isoVg:'ISO VG',sourceReference:'Источник данных',densitySource:'Источник плотности',nlgi:'NLGI',kind:'Тип материала',name:'Наименование',approved:'Разрешён к применению'};
+   const htmlSafe=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+   const previewRows=initial.changes.map(c=>'<tr><td>'+htmlSafe(labels[c.field]||c.field)+'</td><td>'+htmlSafe(c.before)+'</td><td>'+htmlSafe(c.after)+'</td></tr>').join('');
+   const alert=initial.approvedTaskIds.length?'<p class="wizard-note">Затронуто утверждённых мероприятий: '+initial.approvedTaskIds.length+'. Их утверждение не меняется автоматически; требуется инженерная перепроверка.</p>':'';
+   queueMicrotask(()=>openAction('Проверить изменения материала','Перед сохранением проверьте источник. Сначала будет скачана резервная копия всей текущей базы.',[
+    {label:'Отмена',kind:'ghost'},
+    {label:'Подтвердить и сохранить',kind:'primary',run:()=>{
+     const reason=$('#matCorrectionReason').value.trim(),source=$('#matCorrectionEvidence').value.trim();
+     proposal.sourceReference=source;
+     const proof={reason};
+     const review=Guard.preview(d,item.id,proposal,proof);
+     if(!review.allowed){toast(review.errors.join(' '),'warn');return false}
+     if(!review.changed){toast('Изменения отсутствуют','info');return false}
+     try{
+      const snapshot=JSON.stringify(d,null,2);
+      const backup=new Blob([snapshot],{type:'application/json;charset=utf-8'});
+      const u=URL.createObjectURL(backup),a=document.createElement('a');
+      a.href=u;a.download='LUBRICA_material_backup_'+String(item.id).replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);
+      Guard.apply(d,review,proposal,proof);
+      LubricaCore.State.setDatabase(d);state=LubricaCore.Database.toLegacy(d);renderMaterials(view);
+      toast('Паспорт материала изменён. Резервная копия базы подготовлена к скачиванию.','info');
+     }catch(e){toast('Не удалось сохранить паспорт: '+(e.message||e),'warn');return false}
+    }}
+   ],'<div class="catalog-editor-form material-editor-form"><p>Изменённых полей: '+initial.changes.length+'. Связанных мероприятий: '+initial.affectedTaskIds.length+'.</p>'+alert+
+    '<div style="max-height:240px;overflow:auto"><table class="data-table"><thead><tr><th>Параметр</th><th>Было</th><th>Предлагается</th></tr></thead><tbody>'+previewRows+'</tbody></table></div>'+
+    '<label>Основание корректировки<input id="matCorrectionReason" placeholder="Причина, не менее 8 символов"></label>'+
+    '<label>Источник данных/TDS<input id="matCorrectionEvidence" value="'+htmlSafe(proposal.sourceReference||'')+'" placeholder="Наименование документа, редакция и раздел"></label></div>'));
+
  }}],`<div class="catalog-editor-form material-editor-form"><div class="form-grid"><label>Номер<input id="libMatCode" value="${esc(initialCode)}" readonly></label><label>Тип<select id="libMatKind">${Object.keys(MATERIAL_KINDS37).map(k=>`<option ${k===initialKind?'selected':''}>${esc(k)}</option>`).join('')}</select></label></div>
  <label class="catalog-span-2">Наименование *<input id="libMatName" value="${esc(item?.name||'')}"></label>
  <div class="form-grid"><label>Производитель<input id="libMatManufacturer" value="${esc(item?.manufacturer||'')}"></label><label>Артикул / код производителя<input id="libMatProductCode" value="${esc(item?.productCode||'')}"></label></div>
