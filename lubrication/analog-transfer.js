@@ -89,8 +89,9 @@
       if(!byId(d.equipment,p.equipmentId)||!byId(d.nodes,p.nodeId))
        errors.push('Исходная или целевая точка не имеет подтверждённой привязки к реальному оборудованию и узлу.');
     }
-    const ts=tasksFor(d,target),srcTasks=tasksFor(d,source);
+    const ts=tasksFor(d,target),srcTasks=tasksFor(d,source).filter(t=>String(t.approvalStatus||'').toLowerCase()!=='disabled');
     if(!srcTasks.length)errors.push('У исходной точки отсутствуют мероприятия.');
+    if(!Object.values(fields||{}).some(Boolean))errors.push('Выберите хотя бы один вид данных для переноса.');
     if(ts.some(approved))errors.push('На целевой точке есть утверждённое мероприятие; его нельзя перезаписывать по аналогу.');
     const history=protectedByHistory(d,target,ts);
     if(history)errors.push('На целевую точку есть ссылки в '+history+'. Перенос запрещён.');
@@ -149,7 +150,7 @@
     const result=previewTransfer(d,target,source,fields,proof);
     if(!result.ok)throw new Error(result.errors.join(' '));
     transferPointFields(target,source,fields);
-    const srcTasks=tasksFor(d,source),dstTasks=tasksFor(d,target),byKey=new Map(dstTasks.map(t=>[taskKey(t),t]));
+    const srcTasks=tasksFor(d,source).filter(t=>String(t.approvalStatus||'').toLowerCase()!=='disabled'),dstTasks=tasksFor(d,target),byKey=new Map(dstTasks.map(t=>[taskKey(t),t]));
     if(fields.tasks){
       for(const st of srcTasks){
         const k=taskKey(st);let dt=byKey.get(k);
