@@ -198,12 +198,12 @@
     dlg.innerHTML=`<form method="dialog" class="analog-form">
       <div class="dialog-head"><div><span class="eyebrow">АНАЛОГ ТОЧКИ · ИНЖЕНЕРНОЕ ПОДТВЕРЖДЕНИЕ</span>
         <h2>Заполнить по аналогичной точке</h2>
-        <p>Обозначение подшипника: <b>${{esc(designation(target)||'не определено')}</b></p></div>
+        <p>Обозначение подшипника: <b>${esc(designation(target)||'не определено')}</b></p></div>
         <button class="icon-btn" value="cancel">×</button></div>
-      <section class="analog-target"><span>Фактическая целевая точка</span><b>${{esc(target.name||target.id)}</b>
-        <small>${{esc(locationLabel(d,target))}</small></section>
+      <section class="analog-target"><span>Фактическая целевая точка</span><b>${esc(target.name||target.id)}</b>
+        <small>${esc(locationLabel(d,target))}</small></section>
       <label>Источник данных<select name="sourcePoint">
-        ${{list.map((p,i)=>`<option value="${{esc(p.id)}" ${{i===0?'selected':''}>${{esc(p.name||p.id)} — ${{esc(locationLabel(d,p))} [${{sourceScore(d,p)}]</option>`).join('')}
+        ${list.map((p,i)=>`<option value="${esc(p.id)}" ${i===0?'selected':''}>${esc(p.name||p.id)} — ${esc(locationLabel(d,p))} [${sourceScore(d,p)}]</option>`).join('')}
       </select></label>
       <div id="analogSourcePreview" class="analog-source-preview"></div>
       <fieldset class="analog-modes"><legend>Какие данные предложить</legend>
@@ -252,9 +252,9 @@
         key=JSON.stringify({pointId:sel.value,...v}),
         plan=previewTransfer(d,target,selected,v.fields,v.proof);
       if(mark)checked=plan.ok?key:'';
-      panel.innerHTML=`<b>${{plan.ok?'Сопоставление разрешено':'Нужны дополнительные данные'}</b>
-        <ul>${{[...plan.errors.map(x=>`<li class="analog-error">${{esc(x)}</li>`),
-         ...plan.warnings.map(x=>`<li>${{esc(x)}</li>`)].join('')}</ul>
+      panel.innerHTML=`<b>${plan.ok?'Сопоставление разрешено':'Нужны дополнительные данные'}</b>
+        <ul>${[...plan.errors.map(x=>`<li class="analog-error">${esc(x)}</li>`),
+         ...plan.warnings.map(x=>`<li>${esc(x)}</li>`)].join('')}</ul>
         <small>Данные будут записаны только после подтверждения.</small>`;
       confirm.disabled=!plan.ok||checked!==key;
       return plan;
