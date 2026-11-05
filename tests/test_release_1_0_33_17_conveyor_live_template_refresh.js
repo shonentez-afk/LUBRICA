@@ -7,7 +7,7 @@ const refresh=s.indexOf('Stage 5B: opening a constructor is read-only');
 const template=s.indexOf("const template=source==='equipment'?previewRecord.maintenanceTemplate:previewRecord.candidateTemplate;",refresh);
 const specs=s.indexOf('const specs=specsFor(previewRecord,source);',refresh);
 ok(refresh>=0,'live conveyor read-only refresh missing');
-ok(s.includes('LubricaClassifier?.conveyorEvidence?.(database,equipment)'), 'live conveyorEvidence call missing');
+ok(s.includes('LubricaClassifier?.conveyorEvidence?.(database,previewEquipment)'), 'live conveyorEvidence call missing');
 ok(template>refresh && specs>template,'template/specs must be computed after live evidence refresh');
 ok(s.includes("previewRecord={...record,maintenanceEquipmentType:'conveyor'"),'read-only rendering snapshot missing');
 ok(!s.includes("record.maintenanceTemplate={...(record.maintenanceTemplate||{}),id:'conveyor_arrangement'"), 'must not modify persisted equipment merely by opening constructor');
