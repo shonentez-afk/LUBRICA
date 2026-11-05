@@ -136,35 +136,40 @@ function materialDialog36(view,item=null){
    if(!Guard){toast('Модуль инженерной проверки недоступен','warn');return false}
    const initial=Guard.preview(d,item.id,proposal,{});
    if(!initial.changed){toast('Нет изменений в карточке','info');return}
-   const labels={density:'Плотность, г/см³',baseViscosity40:'Вязкость при 40 °C',isoVg:'ISO VG',sourceReference:'Источник данных',densitySource:'Источник плотности',nlgi:'NLGI',kind:'Тип материала',name:'Наименование',approved:'Разрешён к применению'};
+   const labels={density:'Плотность, г/см³',baseViscosity40:'Вязкость при 40 °C',isoVg:'ISO VG',sourceReference:'Источник данных',densitySource:'Источник плотности',nlgi:'NLGI',kind:'Тип материала',name:'Наименование',approved:'Разрешён к применению',status:'Статус'};
    const htmlSafe=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
    const previewRows=initial.changes.map(c=>'<tr><td>'+htmlSafe(labels[c.field]||c.field)+'</td><td>'+htmlSafe(c.before)+'</td><td>'+htmlSafe(c.after)+'</td></tr>').join('');
-   const alert=initial.approvedTaskIds.length?'<p class="wizard-note">Затронуто утверждённых мероприятий: '+initial.approvedTaskIds.length+'. Их утверждение не меняется автоматически; требуется инженерная перепроверка.</p>':'';
-   queueMicrotask(()=>openAction('Проверить изменения материала','Перед сохранением проверьте источник. Сначала будет скачана резервная копия всей текущей базы.',[
+   const alert=initial.approvedTaskIds.length?'<p class="wizard-note">Затронуто утверждённых мероприятий: '+initial.approvedTaskIds.length+'. Их утверждения, нормы, маршруты и факты не изменятся автоматически; проверьте применимость после корректировки.</p>':'';
+   const sourceCaption=proposal.sourceReference?'<p>Источник данных: <b>'+htmlSafe(proposal.sourceReference)+'</b></p>':'<p class="wizard-note">Источник данных не указан в карточке. Для инженерных параметров вернитесь к редактированию и укажите паспорт или TDS.</p>';
+   const warnings=initial.warnings.length?'<p class="wizard-note">'+initial.warnings.map(htmlSafe).join(' ')+'</p>':'';
+   queueMicrotask(()=>openAction('Проверить изменения материала','Сверьте все значения. Сохранение запрашивает скачивание полного JSON до изменения рабочей базы.',[
     {label:'Отмена',kind:'ghost'},
     {label:'Подтвердить и сохранить',kind:'primary',run:()=>{
-     const reason=$('#matCorrectionReason').value.trim(),source=$('#matCorrectionEvidence').value.trim();
-     proposal.sourceReference=source;
-     const proof={reason};
-     const review=Guard.preview(d,item.id,proposal,proof);
+     const reason=$('#matCorrectionReason').value.trim(),proof={reason};
+     if(LubricaCore.State.getDatabase()!==d){toast('Рабочая база изменилась. Повторите редактирование материала.','warn');return false}
+     const working=JSON.parse(JSON.stringify(d));
+     const review=Guard.preview(working,item.id,proposal,proof);
      if(!review.allowed){toast(review.errors.join(' '),'warn');return false}
      if(!review.changed){toast('Изменения отсутствуют','info');return false}
+     if(JSON.stringify(review.changes)!==JSON.stringify(initial.changes)){
+      toast('Изменились поля паспорта после предпросмотра. Повторите проверку.','warn');return false
+     }
      try{
-      const snapshot=JSON.stringify(d,null,2);
-      const backup=new Blob([snapshot],{type:'application/json;charset=utf-8'});
+      const backup=new Blob([JSON.stringify(d,null,2)],{type:'application/json;charset=utf-8'});
       const u=URL.createObjectURL(backup),a=document.createElement('a');
       a.href=u;a.download='LUBRICA_material_backup_'+String(item.id).replace(/[^a-zA-Z0-9_-]/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.json';
-      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);
-      Guard.apply(d,review,proposal,proof);
-      LubricaCore.State.setDatabase(d);state=LubricaCore.Database.toLegacy(d);renderMaterials(view);
-      toast('Паспорт материала изменён. Резервная копия базы подготовлена к скачиванию.','info');
+      document.body.appendChild(a);
+      try{a.click()}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)}
+      Guard.apply(working,review,proposal,proof);
+      state=LubricaCore.State.setDatabase(working);
+      renderMaterials(view);
+      toast('Паспорт изменён. Скачивание JSON-копии запрошено; проверьте файл в загрузках.','info');
      }catch(e){toast('Не удалось сохранить паспорт: '+(e.message||e),'warn');return false}
     }}
-   ],'<div class="catalog-editor-form material-editor-form"><p>Изменённых полей: '+initial.changes.length+'. Связанных мероприятий: '+initial.affectedTaskIds.length+'.</p>'+alert+
+   ],'<div class="catalog-editor-form material-editor-form"><p>Изменённых полей: '+initial.changes.length+'. Связанных мероприятий: '+initial.affectedTaskIds.length+'.</p>'+alert+warnings+sourceCaption+
     '<div style="max-height:240px;overflow:auto"><table class="data-table"><thead><tr><th>Параметр</th><th>Было</th><th>Предлагается</th></tr></thead><tbody>'+previewRows+'</tbody></table></div>'+
-    '<label>Основание корректировки<input id="matCorrectionReason" placeholder="Причина, не менее 8 символов"></label>'+
-    '<label>Источник данных/TDS<input id="matCorrectionEvidence" value="'+htmlSafe(proposal.sourceReference||'')+'" placeholder="Наименование документа, редакция и раздел"></label></div>'));
-
+    '<label>Основание корректировки<input id="matCorrectionReason" placeholder="Причина, не менее 8 символов для технических параметров и допуска"></label>'+
+    '<p><small>Для изменения источника данных вернитесь в карточку: сохранённые значения полностью совпадают с показанными в таблице.</small></p></div>'));
  }}],`<div class="catalog-editor-form material-editor-form"><div class="form-grid"><label>Номер<input id="libMatCode" value="${esc(initialCode)}" readonly></label><label>Тип<select id="libMatKind">${Object.keys(MATERIAL_KINDS37).map(k=>`<option ${k===initialKind?'selected':''}>${esc(k)}</option>`).join('')}</select></label></div>
  <label class="catalog-span-2">Наименование *<input id="libMatName" value="${esc(item?.name||'')}"></label>
  <div class="form-grid"><label>Производитель<input id="libMatManufacturer" value="${esc(item?.manufacturer||'')}"></label><label>Артикул / код производителя<input id="libMatProductCode" value="${esc(item?.productCode||'')}"></label></div>
