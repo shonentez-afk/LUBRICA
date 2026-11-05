@@ -11,7 +11,7 @@
 5. Очередь фактических компонентов: группировка по `equipmentId`, сортировка по инженерным категориям, исключение уже связанных `sourceComponentId`; категория `other`/статусы `excluded` в очередь не попадают.
 6. Вкладка «Контроль» сохраняет прежнюю структуру и открывает реальное оборудование.
 7. `test/test_release_1_0_33_69_plant_point_completion.js` и существующие Stage 9.8 QA tests — PASS.
-8. Полный regression `bash test/run_all.sh` — PASS в GitHub Actions до завершающего version sync (финальная проверка RC должна быть зелёной).
+8. Полный regression `bash test/run_all.sh` — **PASS** на финальном 1.0.33.69 RC (GitHub Actions run `41967801975`); Project Memory Audit — **PASS** (run `41967801606`).
 
 ## Границы
 
