@@ -75,7 +75,7 @@ function candidateQueue(database=db()){
 }
 function skfSealedSpherical(p){
  const bearing=p?.bearing||{},calc=bearing.calculation||{},designation=clean(bearing.effectiveDesignation||bearing.actualDesignation||bearing.structuralDesignation).toUpperCase().replace(/\s+/g,'');
- return bearing.bearingType==='spherical_roller'&&(/\bSKF\b/i.test(clean(calc.manufacturer))||/\bSKF\b/i.test(clean(calc.oemSource))||designation.startsWith('BS2-'))&&(/-2CS(?:2|5)?(?:\/|$)/.test(designation)||/^2CS(?:2|5)?$/.test(clean(bearing.sealingCode).toUpperCase()));
+ return bearing.bearingType==='spherical_roller'&&(/\bSKF\b/i.test(clean(calc.manufacturer))||/\bSKF\b/i.test(clean(calc.oemSource))||/^BRG-SKF/.test(clean(bearing.catalogId).toUpperCase()))&&(/-2CS(?:2|5)?(?:\/|$)/.test(designation)||/^2CS(?:2|5)?$/.test(clean(bearing.sealingCode).toUpperCase()));
 }
 
 function audit(database=db()){
@@ -163,7 +163,7 @@ function audit(database=db()){
  for(const m of materials.values()){
    const densityText=clean(m.density),density=num(m.density);
    if(densityText)check('materials',density!==null&&density>=.5&&density<=2,issue('MATERIAL_DENSITY_IMPLAUSIBLE','materials','error','material',m.id,'Проверить плотность материала',`${m.code||m.id} · ${m.name||''}: значение «${densityText}» не похоже на плотность в г/см³. Сверьте паспорт и не используйте это значение для перевода массы/объёма до исправления.`,'Открыть материал'));
-   const isOil=/масл|\\boil\\b/i.test(clean(m.kind)),vg=num(m.isoVg),v40=num(m.baseViscosity40);
+   const isOil=/масл|\boil\b/i.test(clean(m.kind)),vg=num(m.isoVg),v40=num(m.baseViscosity40);
    if(isOil&&vg>0&&v40>0)check('materials',Math.abs(v40-vg)/vg<=.15,issue('MATERIAL_OIL_VG_CONFLICT','materials','warn','material',m.id,'Масло: ISO VG и вязкость при 40°C не согласованы',`${m.code||m.id} · ${m.name||''}: ISO VG ${vg}, но вязкость при 40°C записана как ${v40} мм²/с. Сверьте TDS; для редукторного масла эти данные требуют проверки.`,'Открыть материал'));
  }
  // ROUTES: current references, tools and coverage for approved tasks.
