@@ -10,6 +10,7 @@ on:
       - 'structure/entity-dialogs.js'
       - 'structure/detail-ui.js'
       - 'test/test_release_1_0_33_73_conveyor_families.js'
+      - 'test/test_release_1_0_33_75_composite_conveyor_ui.js'
       - 'test/run_all.sh'
       - '.github/workflows/conveyor-stage5b.yml'
   workflow_dispatch:
@@ -46,6 +47,7 @@ jobs:
       - name: Stage 5B subtype and physical-evidence acceptance
         run: node test/test_release_1_0_33_73_conveyor_families.js
           node test/test_release_1_0_33_74_conveyor_header.js
+          node test/test_release_1_0_33_75_composite_conveyor_ui.js
       - name: Historical conveyor targeted acceptance
         run: |
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
