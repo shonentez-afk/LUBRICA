@@ -57,7 +57,7 @@ function conveyorIdentity(name='',type='',record=null){
  const mentions=/(конвейер|транспортер|транспортёр)/.test(n)||byType==='conveyor';
  if(!mentions)return null;
  const group=/^(конвейеры|транспортеры|транспортёры)(?:\s|$)/.test(n);
- const ancillary=/^(?:система|механизм|фильтр|фильтры|короб|опора|узел|лифт|площадка|рама|привод|средство)(?:\s|$)/.test(n)&&/(конвейер|транспортер|транспортёр)/.test(n);
+ const ancillary=/^(?:система|механизм|фильтр|фильтры|короб|опора|узел|лифт|площадка|рама|привод|средство)(?:\s|$)/.test(n)&&(/(конвейер|транспортер|транспортёр)/.test(n)||byType==='conveyor');
  const role=group?'group':ancillary?'ancillary':'machine';
  if(role!=='machine')return {role,subtype:'unknown',label:group?'Группа конвейеров':'Связанная система конвейера',confidence:.98,twoShaft:false};
  let subtype='';
