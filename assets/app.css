@@ -1902,6 +1902,7 @@ body.demo-mode .database-current .status-dot{background:#d79b20;box-shadow:0 0 0
 .qa-engineer-dialog .structure-form>label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600}
 .qa-engineer-dialog .structure-form select,.qa-engineer-dialog .structure-form input:not([type=checkbox]),.qa-engineer-dialog .structure-form textarea{width:100%;min-width:0;box-sizing:border-box;padding:9px;border:1px solid #cbd5d7;border-radius:8px;background:#fff;font:inherit}
 .qa-engineer-dialog .structure-form .qa-physical-confirm{flex-direction:row;align-items:center;gap:9px}
+.qa-engineer-dialog .structure-form .qa-physical-confirm[hidden]{display:none!important}
 .qa-engineer-dialog .qa-decision-preview{padding:10px 12px;border:1px solid #dce4e3;background:#f3f8f6;border-radius:8px;font-size:12px}
 .qa-engineer-dialog .qa-decision-preview ul{margin:7px 0;padding-left:20px;line-height:1.5}
 .qa-engineer-dialog .qa-decision-preview .qa-decision-error{color:#a62e25;font-weight:600}
