@@ -100,7 +100,7 @@ function audit(database=db()){
   const current={equipmentId:clean(c.equipmentId),externalCode:clean(c.externalCode),
    name:clean(c.name),category:clean(c.candidateCategory)};
   const drift=Object.keys(current).some(key=>current[key]!==clean(prior[key]));
-  check('structure',!drift,issue('ENGINEERING_DECISION_SOURCE_CHANGED','structure','warn','equipment',c.equipmentId,
+  check('structure',!drift,issue('ENGINEERING_DECISION_SOURCE_CHANGED','structure','warn','component',c.id,
    'Изменился исходный ТМЦ после инженерного решения',
    c.id+' · '+(c.name||'ТМЦ')+': изменена идентичность, категория или оборудование. Перепроверьте ранее сохранённое инженерное решение и его доказательство.',
    'Открыть оборудование'));
