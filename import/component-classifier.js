@@ -53,7 +53,7 @@ const CONVEYOR_SUBTYPE_LABELS=Object.freeze({
 });
 const CONVEYOR_TWO_SHAFT=new Set(['belt','chain_scraper']);
 function conveyorIdentity(name='',type='',record=null){
- const n=norm(name),byType=norm(type),specified=record?.manualConveyorSetup?.conveyorSubtype||record?.confirmedConveyorSubtype||'';
+ const n=norm(name),byType=norm(type),specified=record?.previewConveyorSubtype||record?.confirmedConveyorSubtype||record?.manualConveyorSetup?.conveyorSubtype||'';
  const mentions=/(конвейер|транспортер|транспортёр)/.test(n)||byType==='conveyor';
  if(!mentions)return null;
  const group=/^(конвейеры|транспортеры|транспортёры)(?:\s|$)/.test(n);
