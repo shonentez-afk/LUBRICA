@@ -106,7 +106,7 @@
 
 ## Продолжение после 1.0.33.68
 
-Текущий функциональный этап: **Plant Lubrication Point Completion** (1.0.33.69, PR #15, Issues #11–#14). Перед следующими изменениями прочитать `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
+Текущий функциональный этап: **Plant Lubrication Point Completion** (1.0.33.69 Stage 1 в `main` после PR #15; дальнейшая работа — Issues #11–#14). Перед следующими изменениями прочитать `project/PLANT_POINT_COMPLETION_PLAN_RU.md`.
 
 Важный OEM-вывод: SKF sealed spherical roller 2CS/VT143 **может** требовать досмазывания, но не по универсальной формуле открытого подшипника без проверки grease life, доступа к каналам, совместимости материала и SKF OEM; автоматический запрет любой релубрикации тоже неверен.
 
