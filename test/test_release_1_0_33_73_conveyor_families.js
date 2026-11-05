@@ -419,4 +419,92 @@ for(const [line,external,eqid,parts] of [
  assert.equal(JSON.stringify(site),sourceSnapshot,external+' read-only audit must not mutate DB');
 }
 
+
+// Stage 5B — actual Line 1 packaging hierarchy shown by user:
+// 10111293 (turning station) = 10111294 roller SPZ1600 + 10111321 vertical belt PTM800.
+// The two children must keep independent mechanical/evidence/service ownership.
+const turn111=equipment('EQ-000855','Конвейер поворотный поз. 111');
+turn111.externalCode='10111293';
+const roller111=equipment('EQ-000856','Конвейер роликовый SPZ1600xL=5500',turn111.id);
+roller111.externalCode='10111294';
+const belt111=equipment('EQ-000857','Конвейер ленточный вертикальный PTM800xL=4650',turn111.id);
+belt111.externalCode='10111321';
+const turnDb={equipment:[turn111,roller111,belt111],components:[],
+ nodes:[],lubricationPoints:[],tasks:[],routes:[],checklistRuns:[],routePlanItems:[]};
+const cmp=(id,eq,name,cat=null,type=null)=>turnDb.components.push(component(id,eq.id,name,cat,type));
+for(const [i,len] of [440,785,1130,1425,1480,1665].entries())
+ cmp('ROLLER-P-'+i,roller111,'Ролик SSK2-76-FFK-SPZ-'+len);
+cmp('ROLLER-SY',roller111,'Узел подшипниковый SY 30 TF','bearing');
+cmp('ROLLER-TU',roller111,'Узел подшипниковый TU 30 TF','bearing');
+cmp('ROLLER-DRIVE',roller111,'Мотор-редуктор R67DV100M4/TF/M1',null,'motor_gearbox');
+for(const code of ['TB 1610-30','TB 2012-30','TB 1610-35'])cmp('ROLLER-'+code.replace(/\s/g,''),roller111,'Втулка '+code,'bushing');
+cmp('BELT-DRIVE',belt111,'Мотор-редуктор S47DT80N4/TF/M5/B/180',null,'motor_gearbox');
+cmp('BELT-YAR',belt111,'Подшипник YAR 206-2F','bearing');
+cmp('BELT-6005',belt111,'Подшипник 6005-2RS1','bearing');
+for(const code of ['TB 1615-30','TB 1615-25'])cmp('BELT-'+code.replace(/\s/g,''),belt111,'Втулка '+code,'bushing');
+const beforeTurn=JSON.stringify(turnDb);
+const parentAssembly=C.conveyorAssembly(turnDb,turn111);
+assert.equal(parentAssembly.kind,'multi_conveyor');
+assert.equal(parentAssembly.parentEquipmentId,'EQ-000855');
+assert.equal(parentAssembly.childCount,2,'real machine has two independently serviceable sub-conveyors');
+assert.deepEqual(Array.from(parentAssembly.children.map(ch=>ch.externalCode)),['10111294','10111321']);
+assert.deepEqual(Array.from(parentAssembly.children.map(ch=>ch.subtype)),['roller','belt']);
+assert(parentAssembly.children.every(ch=>ch.maintenanceOwnerEquipmentId===ch.id),'each child owns its own maintenance records');
+assert.equal(C.conveyorAssembly(turnDb,roller111),null,'roller child is not a composite');
+assert.equal(C.conveyorAssembly(turnDb,belt111),null,'vertical belt child is not a composite');
+const parentClass=C.classifyEquipment(turnDb,turn111);
+const parentEv=parentClass.maintenanceTemplate.evidence;
+assert.equal(parentClass.maintenanceEquipmentSubtype,'turning');
+assert.equal(parentClass.maintenanceTemplate.mode,'composite');
+assert(parentClass.maintenanceTemplate.summary.includes('2 самостоятельных механизма'));
+assert.equal(parentEv.assembly.childCount,2);
+assert.equal(parentEv.actual.length,0,'parent must not absorb actual child bearings');
+assert.equal(parentEv.assets.length,0,'parent must not duplicate independent drives');
+assert.equal(parentEv.context.length,0,'parent must not copy children rollers');
+assert.equal(parentEv.supportLayout,null);
+assert.equal(F.specsFor(parentClass,'equipment').length,0,'parent has no duplicate lubrication proposals');
+assert.equal(C.conveyorDescendants(turnDb,turn111).length,0,'independent children excluded from parent evidence traversal');
+const r111=C.classifyEquipment(turnDb,roller111);
+const rv=r111.maintenanceTemplate.evidence;
+assert.equal(r111.maintenanceEquipmentSubtype,'roller');
+assert.equal(rv.context.length,6,'six actual roller component records retained');
+assert.equal(rv.byCategory.bearing,2,'SY 30 TF and TU 30 TF belong only to roller child');
+assert.equal(rv.assets.length,1);
+assert.equal(rv.excluded.filter(x=>x.servicePolicy==='NON_LUBRICATED_MOUNTING_ELEMENT').length,3,
+ 'three TB1610/2012 mounting bushes are not lubrication points');
+assert.equal(rv.supportLayout,null);
+const rSpecs=F.specsFor(r111,'equipment');
+assert.equal(rSpecs.filter(x=>x.category==='bearing').length,2,'two separate roller bearing sources');
+assert(!rSpecs.some(x=>x.sourceRef?.name.includes('Втулка TB')),'TB mountings omitted from grease proposals');
+const b111=C.classifyEquipment(turnDb,belt111);
+const bv=b111.maintenanceTemplate.evidence;
+assert.equal(b111.maintenanceEquipmentSubtype,'belt');
+assert.equal(bv.byCategory.bearing,1,'YAR 206-2F stays in bearing evidence');
+assert.equal(bv.assets.length,1);
+assert.equal(bv.excluded.filter(x=>x.servicePolicy==='NON_LUBRICATED_MOUNTING_ELEMENT').length,2,
+ 'both TB1615 mounting bushes excluded');
+assert.equal(bv.excluded.filter(x=>x.servicePolicy==='FACTORY_SEALED_NO_REGREASE').length,1,
+ '6005-2RS1 stays mechanical but is not a routine regrease point');
+assert.equal(bv.supportLayout,null,'old importer must not infer 2x2 shafts in belt child');
+const bSpecs=F.specsFor(b111,'equipment');
+assert.equal(bSpecs.filter(x=>x.category==='bearing').length,1);
+assert.equal(bSpecs.find(x=>x.category==='bearing').sourceRef.id,'BELT-YAR');
+assert(!bSpecs.some(x=>x.sourceRef?.id==='BELT-6005'));
+assert(C.isFactorySealed6005Bearing('Подшипник 6005-2RS1'));
+assert.equal(C.isFactorySealed6005Bearing('Подшипник YAR 206-2F'),false,
+ 'YAR 206-2F must not be confused with sealed 6005-2RS1');
+assert.equal(C.classifyComponentText('Подшипник 6005-2RS1').state,'excluded');
+for(const bushing of ['Втулка TB 1610-30','Втулка TB 1610-35','Втулка TB 2012-30','Втулка TB 1615-25','Втулка TB 1615-30']){
+ assert(C.isMountingTaperBushing(bushing),bushing+' should not be offered for relubrication');
+}
+assert(!C.isMountingTaperBushing('Втулка 30/40x30-50x5'),'unverified sliding sleeve must not be excluded');
+const ui=fs.readFileSync(path.join(root,'import/candidate-finalizer.js'),'utf8');
+const detailUi=fs.readFileSync(path.join(root,'structure/detail-ui.js'),'utf8');
+assert(ui.includes('conveyorAssemblyPanel(template)'),'parent wizard shows independent child machines');
+assert(ui.includes('data-open-conveyor-child'),'parent wizard has child-opening controls');
+assert(detailUi.includes('data-conveyor-child-id'),'Structure detail shows child machine constructors');
+assert.equal(JSON.stringify(turnDb),beforeTurn,'parent and child previews must leave original data unchanged');
+assert.equal(turnDb.lubricationPoints.length,0);
+assert.equal(turnDb.tasks.length,0);
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
