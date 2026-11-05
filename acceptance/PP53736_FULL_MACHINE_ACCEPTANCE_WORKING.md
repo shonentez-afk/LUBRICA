@@ -52,17 +52,19 @@ Acceptance result:
 - approved machine task belongs to exactly one route: PASS
 - held review task does not enter approved route: PASS
 
-## Planning blocker
+## Runtime-hour planning
 
-Current calendar planning parses days/weeks/months/years, but PP-53736 maintenance is specified by runtime:
+The blocker found during the first acceptance pass has been implemented in the working branch.
 
-- bearings/chains/open gears: 200 h
-- lift screws: 800 h
-- gearboxes: 5000 h
+Rules now are:
+- `planningAnchorDate` is an explicit first planned date entered by the user;
+- without `runtimePlanningHoursPerDay`, LUBRICA creates only that one explicit date and warns that recurrence is not forecast;
+- with `runtimePlanningHoursPerDay`, repeated dates are forecast from the original 200/800/5000 h interval;
+- completed route fact becomes the next forecast anchor;
+- every generated item stores `planningBasis`, `runtimeIntervalHours`, `runtimePlanningHoursPerDay` and `runtimeForecast`;
+- no hidden conversion from motohours to calendar days is performed.
 
-LUBRICA correctly refuses to invent calendar dates from these intervals.
-
-A runtime-hours planning model is required (Issue #7). It must use an explicit operating-hours basis or manual next-date fallback.
+Focused runtime-hour regression: **PASS**.
 
 ## Excel traceability
 
@@ -76,7 +78,7 @@ Export projection preserves one row per task:
 
 Targeted full-machine acceptance: **PASS_WITH_BLOCKERS**.
 
-Full regression was executed in continuation blocks due environment timeout:
+Full regression was executed after the runtime-planning change in continuation blocks due environment timeout:
 
 - checkpoints 1–47: PASS
 - checkpoints 48–70: PASS
@@ -89,6 +91,4 @@ Full regression was executed in continuation blocks due environment timeout:
 1. Issue #1 — R77 #5–#8 Line 1 physical mounting position.
 2. Issue #2 — meaning of 500 in `5000/500 h`.
 3. Issue #3 — actual M1–M6 for K37/KF37R17/S37.
-4. Issue #7 — runtime-hour planning model.
-
-Until these are resolved, PP-53736 is considered **programmatically integrated but not fully field-closed**.
+Until Issues #1–#3 are resolved, PP-53736 is considered **programmatically integrated and planning-capable, but not fully field-closed**.
