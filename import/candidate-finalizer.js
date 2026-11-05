@@ -373,7 +373,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       if(ev.byCategory?.chain)bits.push('цепи: '+ev.byCategory.chain);
       if(ev.assets?.length)bits.push('приводные агрегаты: '+ev.assets.length);
       const subtype=identity?.subtype||'unknown',title=identity?.label||'Конвейер: подтвердите конструкцию';
-      previewRecord={...record,maintenanceEquipmentType:'conveyor',maintenanceEquipmentSubtype:subtype,
+      previewRecord={...record,maintenanceEquipmentType:'conveyor',maintenanceEquipmentSubtype:subtype,maintenanceLabel:title,
         maintenanceTemplate:{...(record.maintenanceTemplate||{}),id:'conveyor_arrangement',title,
           conveyorSubtype:subtype,requiresEngineerConfirmation:true,evidence:ev,
           mode:ev.count||ev.assets?.length?'use_actual':'needs_components',
@@ -385,7 +385,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
   const specs=specsFor(previewRecord,source);
   const dlg=document.getElementById('structureDialog');
   if(!dlg)return;
-  const title=source==='equipment'?(previewRecord.maintenanceLabel||previewRecord.name):(previewRecord.candidateLabel||previewRecord.name||'Кандидат');
+  const title=source==='equipment'?(template?.id==='conveyor_arrangement'?(template.title||previewRecord.maintenanceLabel||previewRecord.name):(previewRecord.maintenanceLabel||previewRecord.name)):(previewRecord.candidateLabel||previewRecord.name||'Кандидат');
   dlg.classList.add('candidate-finalize-dialog');
   dlg.innerHTML=`<form method="dialog" class="structure-form">
     <div class="dialog-head"><div><span class="eyebrow">ИНЖЕНЕРНОЕ ПОДТВЕРЖДЕНИЕ</span><h2>${esc(title)}</h2></div><button type="button" class="icon-btn" data-cancel>×</button></div>
@@ -520,6 +520,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       target.confirmedConveyorSubtype=template.conveyorSubtype||'unknown';
       target.maintenanceEquipmentSubtype=target.confirmedConveyorSubtype;
       target.maintenanceEquipmentType='conveyor';
+      target.maintenanceLabel=template.title||target.name;
       target.maintenanceTemplate={...template};
       target.maintenanceCandidateState='review';
       target.conveyorArrangement={...(target.conveyorArrangement||{}),version:'1.0.33.72',
@@ -582,7 +583,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     const targetDatabase=(decisionContext||transactionalConveyor)?Core.DatabaseSchema.clone(database):database;
     const targetRecord=(decisionContext||transactionalConveyor)?sourceRecord(targetDatabase,source,id):record;
     const targetEquipment=(decisionContext||transactionalConveyor)?sourceEquipment(targetDatabase,source,targetRecord):equipment;
-    if(transactionalConveyor){targetRecord.maintenanceEquipmentType='conveyor';targetRecord.maintenanceEquipmentSubtype=previewRecord.maintenanceEquipmentSubtype;targetRecord.confirmedConveyorSubtype=template.conveyorSubtype||previewRecord.maintenanceEquipmentSubtype||'unknown';targetRecord.maintenanceTemplate={...template};if(targetRecord.origin==='manual'&&targetRecord.manualConveyorSetup)targetRecord.manualConveyorSetup={...targetRecord.manualConveyorSetup,conveyorSubtype:targetRecord.confirmedConveyorSubtype};}
+    if(transactionalConveyor){targetRecord.maintenanceEquipmentType='conveyor';targetRecord.maintenanceLabel=template.title||targetRecord.name;targetRecord.maintenanceEquipmentSubtype=previewRecord.maintenanceEquipmentSubtype;targetRecord.confirmedConveyorSubtype=template.conveyorSubtype||previewRecord.maintenanceEquipmentSubtype||'unknown';targetRecord.maintenanceTemplate={...template};if(targetRecord.origin==='manual'&&targetRecord.manualConveyorSetup)targetRecord.manualConveyorSetup={...targetRecord.manualConveyorSetup,conveyorSubtype:targetRecord.confirmedConveyorSubtype};}
     const applied=applyConfirmedSpecs(targetDatabase,source,targetRecord,targetEquipment,template,chosen);
     if(decisionContext){
       global.LubricaEngineeringDecisions.recordCreated(targetDatabase,id,decisionContext,applied.createdPointIds);
