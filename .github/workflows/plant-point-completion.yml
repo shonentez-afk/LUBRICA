@@ -1,4 +1,4 @@
-name: Plant Point Completion Stage 1-2
+name: Plant Point Completion Stage 1-3
 
 on:
   pull_request:
@@ -10,6 +10,10 @@ on:
       - 'index.html'
       - 'assets/app.css'
       - 'test/test_release_1_0_33_69_candidate_decisions.js'
+      - 'test/test_release_1_0_33_71_task_readiness_safe_analog.js'
+      - 'qa/task-readiness.js'
+      - 'qa/task-readiness-ui.js'
+      - 'lubrication/analog-transfer.js'
       - 'test/test_release_1_0_33_69_plant_point_completion.js'
       - 'test/run_all.sh'
       - '.github/workflows/plant-point-completion.yml'
@@ -42,6 +46,8 @@ jobs:
         run: node test/test_release_1_0_33_69_plant_point_completion.js
       - name: Stage 2 physical candidate decisions
         run: node test/test_release_1_0_33_69_candidate_decisions.js
+      - name: Stage 3 readiness and safe physical analog
+        run: node test/test_release_1_0_33_71_task_readiness_safe_analog.js
       - name: Existing QA contracts
         run: |
           node test/test_stage9_8_program_qa.js
