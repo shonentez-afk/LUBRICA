@@ -16,6 +16,7 @@ on:
       - 'lubrication/analog-transfer.js'
       - 'materials/**'
       - 'test/test_release_1_0_33_72_material_passport_guard.js'
+      - 'test/test_release_1_0_33_72_material_ui_smoke.js'
       - 'test/test_release_1_0_33_69_plant_point_completion.js'
       - 'test/run_all.sh'
       - '.github/workflows/plant-point-completion.yml'
@@ -52,6 +53,8 @@ jobs:
         run: node test/test_release_1_0_33_71_task_readiness_safe_analog.js
       - name: Stage 4 material passport correction
         run: node test/test_release_1_0_33_72_material_passport_guard.js
+      - name: Stage 4 offline material editor smoke
+        run: node test/test_release_1_0_33_72_material_ui_smoke.js
       - name: Existing QA contracts
         run: |
           node test/test_stage9_8_program_qa.js
