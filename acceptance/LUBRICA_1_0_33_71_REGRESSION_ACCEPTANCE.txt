@@ -3,10 +3,10 @@ Release candidate: Plant Point Completion Stage 3 — Task Readiness & Safe Phys
 Date: 2026-11-05
 
 STATUS
-- Stage 1 QA and Stage 2 candidate decisions: PASS on previous feature head.
-- Stage 3 per-task readiness and safe analog proposed values: PASS on previous feature head.
+- Stage 1 QA and Stage 2 candidate decisions: PASS on synchronized 1.0.33.71 RC (run 41981795174).
+- Stage 3 per-task readiness and safe analog proposed values: PASS on synchronized 1.0.33.71 RC (run 41981795174).
 - Full regression before version-only synchronization: PASS (GitHub Actions run 41981419569).
-- Final 1.0.33.71 RC head: PENDING final targeted/full CI and memory audit confirmation.
+- Final 1.0.33.71 RC: PASS targeted + full regression (run 41981795174) and Project Memory Audit (run 41981795119).
 
 CHECKS
 - Seven independent applicable steps per task, no point/task conflation.
