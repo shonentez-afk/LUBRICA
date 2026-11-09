@@ -3,7 +3,7 @@ const fs=require('fs'),vm=require('vm'),path=require('path'),assert=require('ass
 const root=path.resolve(__dirname,'..'),win={};win.window=win;
 win.LubricaLubricationDomainCleanup={classifyStaticEquipment:()=>null};
 const box=vm.createContext({window:win,console,Date,JSON});
-for(const file of ['import/component-classifier.js','conveyors/conveyor-coverage.js']){
+for(const file of ['import/component-classifier.js','conveyors/conveyor-arrangement.js','conveyors/conveyor-coverage.js']){
  const source=fs.readFileSync(path.join(root,file),'utf8');
  new vm.Script(source,{filename:file}).runInContext(box);
 }
@@ -33,11 +33,17 @@ const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,extra,motor
  components:[
   comp('R-ROLLER','ROLLER','Ролик приводной 1200 мм'),
   comp('R-SY','ROLLER','Узел подшипниковый SY 30 TF','bearing'),
+  comp('R-LEGACY','ROLLER','Подшипник UCP 208','bearing'),
   comp('R-TB','ROLLER','Втулка TB 1610-30','bushing'),
   comp('R-DRIVE','ROLLER','Мотор-редуктор R67DV100M4',null,'motor_gearbox'),
   comp('B-YAR','BELT','Подшипник YAR 206-2F','bearing'),
   comp('B-6005','BELT','Подшипник 6005-2RS1','bearing'),
   comp('A-CHAIN','LUBE','Цепь роликовая 12B-2','chain'),
+  // Real 10101093 physically contains a belt and drive/tension drums. These
+  // TMCs may have been rejected only as service candidates, not as equipment.
+  {...comp('U-BELT','UNKNOWN','Лента конвейерная 500x54400 EP 400/3-4/2 Y'),candidateState:'rejected',externalCode:'10101098'},
+  {...comp('U-DRIVE','UNKNOWN','Барабан приводной'),candidateState:'confirmed',externalCode:'10101099'},
+  {...comp('U-RETURN','UNKNOWN','Барабан натяжной'),candidateState:'confirmed',externalCode:'10101103'},
   comp('S-SCREW','SCREW','Шнек L=5390 мм d=350 мм'),
   comp('S-MOTOR','SCREW','Электродвигатель M2AA 90L4 B5',null,'motor'),
   comp('S-GEAR','SCREW','Редуктор C513/P 1:93,0 B3 PAM 90',null,'gearbox'),
@@ -46,7 +52,7 @@ const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,extra,motor
  ],
  lubricationPoints:[
   {id:'P-R1',equipmentId:'ROLLER',componentBinding:{sourceComponentId:'R-SY'}},
-  {id:'P-R2',equipmentId:'ROLLER'},
+  {id:'P-R2',equipmentId:'ROLLER',candidateOriginKey:'component:R-LEGACY:bearing_left'},
   {id:'P-A1',equipmentId:'LUBE',componentBinding:{sourceComponentId:'A-CHAIN'}}
  ],
  tasks:[
@@ -78,18 +84,24 @@ assert.equal(get('TURN').status,'COMPOSITE_REVIEW');
 assert.equal(get('TURN').childConveyorCount,2);
 assert.deepEqual(Array.from(get('TURN').childIds),['ROLLER','BELT']);
 assert.equal(get('TURN').relatedPointCount,0,'parent never duplicates child lubrication points');
-assert.equal(get('ROLLER').actualCount,1,'SY 30 TF remains a service candidate, TB excluded');
+assert.equal(get('ROLLER').actualCount,2,'SY 30 TF and legacy UCP208 source bearing stay distinct, TB excluded');
 assert.equal(get('ROLLER').excludedCount,1,'TB 1610 is an excluded mounting element');
 assert.equal(get('ROLLER').ownPointCount,2);
 assert.equal(get('ROLLER').relatedPointCount,2);
 assert.equal(get('ROLLER').relatedTaskCount,3,'tasks counted exactly once per point');
-assert.equal(get('ROLLER').unlinkedCandidateCount,0,'source-linked bearing is not a missing point');
+assert.equal(get('ROLLER').unlinkedCandidateCount,0,'componentBinding and legacy candidateOriginKey both resolve source ID');
 assert.equal(get('BELT').actualCount,2,'YAR plus chain from child lubrication subsystem');
 assert.equal(get('BELT').excludedCount,1,'6005-2RS1 not a grease proposal');
 assert.equal(get('BELT').ownPointCount,0,'no accidental transfer of ancillary source ownership');
 assert.equal(get('BELT').relatedPointCount,1,'ancillary lubrication point counted on belt scope only');
 assert.equal(get('BELT').relatedTaskCount,1);
 assert.equal(get('UNKNOWN').status,'SUBTYPE_UNKNOWN');
+assert.equal(get('UNKNOWN').subtype,'unknown','TMC hint cannot silently change type');
+assert.equal(get('UNKNOWN').subtypeSuggestion?.subtype,'belt','physical belt + drums yield a review-only hint');
+assert.equal(get('UNKNOWN').subtypeSuggestion?.status,'ENGINEERING_HINT_NOT_CONFIRMED');
+assert.equal(get('UNKNOWN').subtypeSuggestion?.changesDatabase,false);
+assert.deepEqual(Array.from(get('UNKNOWN').subtypeSuggestion?.sourceComponentIds||[]),['U-BELT','U-DRIVE']);
+assert.equal(r.withSubtypeSuggestion,1);
 assert.equal(get('MANUAL').status,'EVIDENCE_MISSING');
 assert.equal(get('IMPORTED-OTHER').status,'EVIDENCE_MISSING');
 assert.equal(get('IMPORTED-OTHER').importType,'other');
@@ -102,6 +114,7 @@ const csv=A.csv(r);
 assert(csv.includes('EXT-ROLLER')&&csv.includes('EXT-TURN'));
 assert(!csv.includes('SKIP-CENT')&&!csv.includes('SKIP-COOL'));
 assert(csv.startsWith('"Оборудование ID";"Код";"Исходный тип";'));
+assert(csv.includes('U-BELT')&&csv.includes('Ленточный / ременный конвейер'), 'CSV carries evidence hint but no automatic classification');
 assert.equal(csv.split('\n').length,r.machineCount+1);
 assert.equal(JSON.stringify(d),before,'entire existing database, approval, routes, plan and facts untouched');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
@@ -112,6 +125,8 @@ const qa=fs.readFileSync(path.join(root,'qa/qa-ui.js'),'utf8');
 assert(qa.includes('function installConveyorCoverage(host,coverage,redraw)'));
 assert(qa.includes('installConveyorCoverage(host,conveyorCoverage,draw)'));
 assert(qa.includes('data-qa-conveyor-line')&&qa.includes('data-qa-conveyor-export'));
+assert(qa.includes('data-qa-conveyor-filter')&&qa.includes('value="suggested"'));
+assert(qa.includes('Подсказка по ТМЦ (тип не подтверждён)'), 'QA explicitly labels hint unapproved');
 assert(qa.includes('data-qa-open-equipment'), 'equipment navigation uses existing QA infrastructure');
 assert(!qa.includes('new LubricaRoute'),'coverage never creates a production route');
 console.log('PASS Stage 5B.6 read-only conveyor constructor coverage: 2 lines, composite children, no-lube exclusions and unchanged production data');
