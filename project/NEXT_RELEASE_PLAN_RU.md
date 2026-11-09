@@ -22,6 +22,12 @@ PP-53736 программно завершён в 1.0.33.68. Монтажные 
 
 Актуальные документы: [мастер-план](FINAL_LUBRICATION_MAP_AND_ROUTES_MASTER_PLAN_RU.md), [Stage 5B implementation](CONVEYOR_STAGE5B_IMPLEMENTATION_RU.md), [START_NEW_CHAT_RU.md](../START_NEW_CHAT_RU.md).
 
+## Этап 5B.9 — двухвальные конвейеры без виртуальных 4 опор
+
+Последний **кодовый** пакет `f865a1d`: в конструкторе `belt/chain_scraper` четыре слота — только потенциальные позиции; инженер сам выбирает реальные опоры, назначает исходный подшипниковый ТМЦ, место и документ/осмотр, подтверждает их перед сохранением. Можно сохранить тип с существующими ТМЦ без создания точек; старые approval/route/fact защищены. Тест `test/test_release_1_0_33_77_two_shaft_support_guard.js`. [Stage5B targeted + полный regression PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42552062979), [Plant Point PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42552062925), [ZIP PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42552062938).
+
+**Это не завершение всех конструкторов.** Следующий обязательный блок — инженерная сверка оставшегося парка конвейеров на реальной копии JSON в Edge, доказательство физики каждой доступной опоры; центрифуги/охлаждение — вне объёма. К маршрутам не переходить.
+
 ## Текущий функциональный этап
 
 **Plant Lubrication Point Completion** — подробный рабочий план: [PLANT_POINT_COMPLETION_PLAN_RU.md](PLANT_POINT_COMPLETION_PLAN_RU.md).
