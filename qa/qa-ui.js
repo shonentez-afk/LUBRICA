@@ -189,7 +189,7 @@ function installConveyorCoverage(host,coverage,redraw){
   '<summary><b>Покрытие конструкторов конвейеров</b> · '+coverage.machineCount+
    ' агрегатов · '+coverage.unknownSubtype+' с неопределённым типом</summary>'+
   '<p>Это очередь инженерного разбора, <b>не процент готовности</b>. Тип по названию, наличие ТМЦ и созданная точка ещё не подтверждают полноту конструкции. '+
-    'Группы: '+coverage.byRole.group+' · вспомогательные: '+coverage.byRole.ancillary+
+    'Конвейеры с импортированным типом «other»: '+coverage.extraNamedRecords+' · группы: '+coverage.byRole.group+' · вспомогательные: '+coverage.byRole.ancillary+
     ' · вне текущего объёма (центрифуги/охлаждение): '+coverage.excludedScope+'.</p>'+
   '<div class="qa-toolbar"><label><span>Линия</span><select data-qa-conveyor-line>'+
      '<option value="all">Обе линии</option>'+
