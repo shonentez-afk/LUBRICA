@@ -549,6 +549,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         activities
       });
     }
+    console.log('DEBUG SAVE 5B.9',source,template?.id,specs.length,chosen.length,selectedSupportKeys.length);
     if(source==='equipment'&&template?.id==='conveyor_arrangement'&&!chosen.length){
       // Engineer can persist the physical family classification without inventing points.
       // No task/route/fact is touched, and the machine remains in review.
@@ -556,6 +557,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         global.LubricaApp?.showToast('Сначала проверьте существующие физические точки этой машины.','warn');
         return;
       }
+      console.log('DEBUG subtype branch entered',equipment.id,template.conveyorSubtype);
       const targetDatabase=Core.DatabaseSchema.clone(database);
       const target=sourceRecord(targetDatabase,source,id);
       target.confirmedConveyorSubtype=template.conveyorSubtype||'unknown';
@@ -573,6 +575,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
           layout:['belt','chain_scraper'].includes(target.confirmedConveyorSubtype)?target.manualConveyorSetup.layout:'ACTUAL_COMPONENTS_ONLY'};
       }
       Core.State.setDatabase(Core.Database.normalize(targetDatabase));
+      console.log('DEBUG subtype stored',Core.State.getDatabase()?.equipment?.[0]?.maintenanceLabel);
       global.LubricaApp?.refreshFromCore?.();global.LubricaApp?.renderAll?.();global.LubricaStructure?.render?.();
       global.LubricaApp?.showToast?.('Тип конвейера сохранён без создания точек. Добавьте фактические ТМЦ и снова откройте конструктор.');
       dlg.classList.remove('candidate-finalize-dialog');dlg.close();
