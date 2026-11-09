@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'conveyors/**'
+      - 'qa/qa-ui.js'
+      - 'index.html'
+      - 'test/test_release_1_0_33_76_conveyor_coverage.js'
       - 'import/component-classifier.js'
       - 'import/candidate-finalizer.js'
       - 'structure/entity-dialogs.js'
@@ -33,12 +36,15 @@ jobs:
           set -euo pipefail
           node --check import/component-classifier.js
           node --check conveyors/conveyor-arrangement.js
+          node --check conveyors/conveyor-coverage.js
+          node --check qa/qa-ui.js
           node --check import/candidate-finalizer.js
           node --check structure/entity-dialogs.js
           node --check structure/detail-ui.js
           node test/test_release_1_0_33_73_conveyor_families.js
           node test/test_release_1_0_33_74_conveyor_header.js
           node test/test_release_1_0_33_75_composite_conveyor_ui.js
+          node test/test_release_1_0_33_76_conveyor_coverage.js
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
           node tests/test_release_1_0_33_14_manual_conveyor_parity.js
           node tests/test_release_1_0_33_15_conveyor_bearing_assignment.js
@@ -82,13 +88,16 @@ jobs:
           5. Проверьте цепной KTR 10112094, скребковый 10107181,
              шнековый 10110511 и 10210511, поворотный 10111293.
           6. Проверьте смешанный ленточно-роликовый 10212029.
-          7. Без двух физических подтверждённых валов не должно быть
+          7. В «Контроль» проверьте «Покрытие конструкторов конвейеров»,
+             фильтры по линиям и экспорт ведомости CSV.
+             Центрифуги и системы охлаждения вне этого разбора.
+          8. Без двух физических подтверждённых валов не должно быть
              четырёх вымышленных опор.
-          8. Если ТМЦ ещё не подтверждены, выберите тип и сохраните
+          9. Если ТМЦ ещё не подтверждены, выберите тип и сохраните
              БЕЗ создания точки смазки.
-          9. Для настоящей обслуживаемой пары укажите физическое
+          10. Для настоящей обслуживаемой пары укажите физическое
              место, выберите операцию и сохраните только в копии БД.
-          10. Проверьте повторную загрузку JSON; количество уже
+          11. Проверьте повторную загрузку JSON; количество уже
               утверждённых мероприятий, маршрутов и фактов не меняется.
 
           Не заменяйте рабочий оригинал базы файлом из теста.
@@ -101,6 +110,7 @@ jobs:
           import pathlib,re,sys,json
           root=pathlib.Path(sys.argv[1])
           needed=['index.html','manifest.json','conveyors/conveyor-arrangement.js',
+                  'conveyors/conveyor-coverage.js','qa/qa-ui.js',
                   'import/component-classifier.js','import/candidate-finalizer.js',
                   'structure/entity-dialogs.js','structure/detail-ui.js',
                   'assets/app.css']
