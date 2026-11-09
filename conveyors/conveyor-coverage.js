@@ -56,6 +56,7 @@ function audit(database){
   byRole[identity.role]=(byRole[identity.role]||0)+1;
   if(identity.role!=='machine')continue;
   const ev=C.conveyorEvidence(d,eq);
+  const subtypeSuggestion=identity.subtype==='unknown'?global.LubricaConveyorArrangement?.suggestSubtypeFromTmc?.(d,eq)||null:null;
   const descendants=C.conveyorDescendants?.(d,eq)||[];
   const ownedIds=new Set([eq.id,...descendants.map(x=>x.id)]);
   const relatedPoints=points.filter(p=>ownedIds.has(p.equipmentId));
@@ -95,7 +96,7 @@ function audit(database){
    id:eq.id,externalCode:eq.externalCode||'',name:eq.name||'',importType:eq.equipmentType||'',lineId:eq.lineId||area?.lineId||'',
    lineName:line?.name||eq.lineId||'Линия не указана',areaId:eq.areaId||'',
    areaName:area?.name||'Участок не указан',subtype:identity.subtype,label:identity.label,
-   role:identity.role,status,next,configured,
+   role:identity.role,status,next,configured,subtypeSuggestion,
    ownComponentCount:ownComponents.filter(x=>x.status!=='retired').length,
    actualCount:ev.actual.length,shaftContextCount:ev.context.length,driveCount:ev.assets.length,
    ancillaryCount:ev.ancillary.length,excludedCount:ev.excluded.length,
@@ -118,19 +119,20 @@ function audit(database){
   machineCount:rows.length,withActualEvidence:rows.filter(x=>x.actualCount||x.driveCount||x.shaftContextCount).length,
   withPoints:rows.filter(x=>x.relatedPointCount>0).length,
   unknownSubtype:byStatus.SUBTYPE_UNKNOWN||0,
+  withSubtypeSuggestion:rows.filter(x=>x.subtypeSuggestion).length,
   totalUnlinkedCandidateRows:rows.reduce((n,x)=>n+number(x.unlinkedCandidateCount),0),
   rows,lines:lineOptions
  };
 }
 function csv(report){
  const quote=v=>'"'+text(v).replace(/"/g,'""')+'"';
- const head=['Оборудование ID','Код','Исходный тип','Линия','Участок','Конвейер','Подтип','Статус','Тип подтверждён',
+ const head=['Оборудование ID','Код','Исходный тип','Линия','Участок','Конвейер','Подтип','Статус','Тип подтверждён','Подсказка по ТМЦ','IDs источников подсказки',
   'Свои ТМЦ','Кандидатные ТМЦ','Не привязаны по source ID','Конструктивный контекст',
   'Приводы','Исключено из смазки','Собственные точки','Точки с подсистемами',
   'Мероприятия с подсистемами','Дочерние машины','Следующее инженерное действие'];
  const r=report?.rows||[];
  return [head,...r.map(x=>[x.id,x.externalCode,x.importType,x.lineName,x.areaName,x.name,x.label,x.status,
-  x.configured?'да':'нет',x.ownComponentCount,x.actualCount,x.unlinkedCandidateCount,
+  x.configured?'да':'нет',x.subtypeSuggestion?.label||'',(x.subtypeSuggestion?.sourceComponentIds||[]).join(', '),x.ownComponentCount,x.actualCount,x.unlinkedCandidateCount,
   x.shaftContextCount,x.driveCount,x.excludedCount,x.ownPointCount,x.relatedPointCount,
   x.relatedTaskCount,x.childConveyorCount,x.next])].map(row=>row.map(quote).join(';')).join('\n');
 }
