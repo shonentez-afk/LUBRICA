@@ -507,4 +507,57 @@ assert.equal(JSON.stringify(turnDb),beforeTurn,'parent and child previews must l
 assert.equal(turnDb.lubricationPoints.length,0);
 assert.equal(turnDb.tasks.length,0);
 
+
+// Real Line 2 hybrid 10212029, EQ-001115: both 2RS standalone bearings
+// are structurally present, but not periodic grease-nipple points.
+const hybridReal=equipment('EQ-001115','Конвейер ленточно-роликовый');
+hybridReal.externalCode='10212029';hybridReal.lineId='L2';
+const hybridDb={equipment:[hybridReal],components:[],lubricationPoints:[],tasks:[],
+ routes:[],routePlanItems:[],checklistRuns:[],nodes:[]};
+hybridDb.components.push(
+ component('COMP-0005225',hybridReal.id,'Муфта зубчатая GFAS-25-NN','coupling'),
+ component('COMP-0005226',hybridReal.id,'Шарнир прецизионный 107AL','joint'),
+ component('COMP-0005227',hybridReal.id,'Шарнир прецизионный 108AL','joint'),
+ component('COMP-0005228',hybridReal.id,'Узел подшипниковый UKFL 208','bearing'),
+ component('COMP-0005229',hybridReal.id,'Узел подшипниковый UKF 211','bearing'),
+ component('COMP-0005230',hybridReal.id,'Узел подшипниковый UKF 213','bearing'),
+ component('COMP-0005238',hybridReal.id,'Подшипник 62205-2RS','bearing'),
+ component('COMP-0005239',hybridReal.id,'Подшипник 61904 2RS1','bearing'),
+ component('COMP-0005255',hybridReal.id,'Цепь роликовая 10B-2','chain'),
+ component('COMP-0005256',hybridReal.id,'Цепь роликовая 08B-2','chain'),
+ component('COMP-0005258',hybridReal.id,'Цепь роликовая 12В-1 1К1','chain'),
+ component('COMP-0005249',hybridReal.id,'Редуктор C412/P 1:31,4 B6 PAM 100',null,'gearbox'),
+ component('COMP-0005250',hybridReal.id,'Электродвигатель QCA 100LB4 B5',null,'motor'),
+ component('COMP-0005252',hybridReal.id,'Редуктор XRC 54 S1 1:1',null,'gearbox'),
+ component('COMP-0005253',hybridReal.id,'Электродвигатель M2AA 80B4 B3',null,'motor'),
+ component('COMP-0005218',hybridReal.id,'Ролик приводной D=110x2200 d=40x2770'),
+ component('COMP-0005219',hybridReal.id,'Ролик приводной D=165x2190 d=60x2565'),
+ component('COMP-0005221',hybridReal.id,'Вал D=60 L=2710')
+);
+const hybridRaw=JSON.stringify(hybridDb);
+const hybridClass=C.classifyEquipment(hybridDb,hybridReal);
+const hEv=hybridClass.maintenanceTemplate.evidence;
+assert.equal(hybridClass.maintenanceEquipmentSubtype,'hybrid');
+assert.equal(hEv.byCategory.bearing,3,'three real housing bearing records retained');
+assert.equal(hEv.byCategory.chain,3,'three chain part records retained');
+assert.equal(hEv.assets.length,4,'two gearboxes and two independent motors');
+assert.equal(hEv.supportLayout,null,'hybrid cannot inherit belt two-shaft/four-support proposal');
+assert.equal(hEv.excluded.filter(x=>x.servicePolicy==='FACTORY_SEALED_NO_REGREASE').length,2,
+ '62205-2RS and 61904 2RS1 must remain structural but excluded from grease proposals');
+const hybridProposals=F.specsFor(hybridClass,'equipment');
+assert.equal(hybridProposals.filter(x=>x.category==='bearing').length,3,
+ 'UKFL 208, UKF 211, UKF 213 are separate candidates pending physical verification');
+assert(!hybridProposals.some(x=>x.sourceRef?.id==='COMP-0005238'||x.sourceRef?.id==='COMP-0005239'));
+assert(C.isFactorySealedRollingBearing('Подшипник 62205-2RS'));
+assert(C.isFactorySealedRollingBearing('Подшипник 61904 2RS1'));
+assert(C.isFactorySealedRollingBearing('Подшипник 6005-2RS1'));
+assert(!C.isFactorySealedRollingBearing('Узел подшипниковый UKFL 208'));
+assert(!C.isFactorySealedRollingBearing('Подшипник BS2-2208-2CS/VT143'),
+ 'sealed spherical 2CS has a different conditional SKF OEM relubrication policy');
+assert.equal(C.classifyComponentText('Подшипник 62205-2RS').state,'excluded');
+assert.equal(C.classifyComponentText('Подшипник 61904 2RS1').state,'excluded');
+assert.equal(C.classifyComponentText('Подшипник BS2-2208-2CS/VT143').category,'bearing');
+assert.equal(JSON.stringify(hybridDb),hybridRaw,'read-only hybrid engineering review');
+assert.equal(hybridDb.lubricationPoints.length,0,'no invented lubrication point from preview');
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
