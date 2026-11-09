@@ -124,5 +124,63 @@ function composeEvidence(template){
   unsupportedGeometry:!['belt','chain_scraper'].includes(subtype),
   requiresEngineerConfirmation:true,createsPoints:false};
 }
-API.identifyManualComponents=identifyManualComponents;API.ensureManualComponents=ensureManualComponents;API.composeEvidence=composeEvidence;API.SERVICE_FAMILIES=SERVICE_FAMILIES;
+
+// Stage 5B.7: conservative mechanical-family hint from imported source TMCs.
+// This does NOT classify, approve or create any lubrication point. In particular
+// "rejected" can mean "not a grease point", while the conveyor belt or drum
+// still exists physically as a structural component.
+function suggestSubtypeFromTmc(database,equipment){
+ const cls=global.LubricaClassifier;
+ const identity=cls?.conveyorIdentity?.(equipment?.name,equipment?.equipmentType,equipment);
+ if(identity?.role!=='machine'||identity?.subtype!=='unknown')return null;
+ const all=database?.equipment||[],children=cls?.conveyorDescendants?.(database,equipment)||[];
+ const rootById=new Map(all.map(e=>[e.id,e]));
+ const exclude=/центрифуг|охлаждени|охлажден/i;
+ function ignored(e){
+  let cur=e,depth=0;const visited=new Set();
+  while(cur&&depth++<30&&!visited.has(cur.id)){
+   if(exclude.test(String(cur.name||'').toLowerCase()))return true;
+   visited.add(cur.id);cur=rootById.get(cur.parentEquipmentId);
+  }
+  return false;
+ }
+ if(ignored(equipment))return null;
+ const ids=new Set([equipment.id,...children.filter(ch=>!ignored(ch)).map(ch=>ch.id)]);
+ const components=(database?.components||[]).filter(c=>ids.has(c.equipmentId)&&c.status!=='retired');
+ const norm=v=>String(v||'').toLowerCase().replace(/ё/g,'е').replace(/[–—]/g,'-');
+ const matches=re=>components.filter(c=>re.test(norm(c.name)));
+ const conveyBelt=matches(/\bлента\s+(?:конвейерн|транспортерн)/);
+ const driveDrum=matches(/барабан\s+приводн/);
+ const returnDrum=matches(/барабан\s+(?:натяжн|ведом)/);
+ const screw=matches(/(?:^|\s)шнек(?:\s|$)/);
+ const chains=matches(/(?:^|\s)цепь\s+(?:роликов|тягов|конвейерн|приводн|пластинчат)/);
+ const sprockets=matches(/звездочк|звёздочк/);
+ const rolls=matches(/(?:^|\s)ролик(?:\s|$)|роликоопор/);
+ let subtype=null,reason='',signals=[];
+ if(conveyBelt.length&&(driveDrum.length||returnDrum.length)){
+  subtype='belt';
+  reason='Конвейерная лента и приводной/натяжной барабан указаны в исходных ТМЦ';
+  signals=[conveyBelt[0],driveDrum[0]||returnDrum[0]];
+ }else if(screw.length&&chains.length===0&&conveyBelt.length===0){
+  subtype='screw';
+  reason='В составе машины указан реальный шнек';
+  signals=[screw[0]];
+ }else if(chains.length&&sprockets.length&&conveyBelt.length===0){
+  subtype='chain';
+  reason='Рабочая цепь и звёздочка указаны в исходных ТМЦ';
+  signals=[chains[0],sprockets[0]];
+ }else if(rolls.length>=3&&!conveyBelt.length&&!chains.length){
+  subtype='roller';
+  reason='Несколько отдельных роликов/роликоопор указаны в исходных ТМЦ';
+  signals=rolls.slice(0,3);
+ }
+ if(!subtype)return null;
+ return {subtype,label:cls.conveyorSubtypeLabels?.[subtype]||subtype,
+  reason,sourceComponentIds:signals.map(c=>c.id),sourceExternalCodes:signals.map(c=>c.externalCode||''),
+  evidenceCount:components.length,status:'ENGINEERING_HINT_NOT_CONFIRMED',
+  requiresEngineerConfirmation:true,changesDatabase:false};
+}
+
+API.identifyManualComponents=identifyManualComponents;
+API.suggestSubtypeFromTmc=suggestSubtypeFromTmc;API.ensureManualComponents=ensureManualComponents;API.composeEvidence=composeEvidence;API.SERVICE_FAMILIES=SERVICE_FAMILIES;
 })(window);
