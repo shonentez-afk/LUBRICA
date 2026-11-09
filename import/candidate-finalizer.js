@@ -286,7 +286,7 @@ function applyConfirmedSpecs(database,source,record,equipment,template,chosen){
 
 function conveyorSupportAssignmentPanel(template){
   if(template?.id!=='conveyor_arrangement')return'';
-  const ev=template.evidence||{},layout=ev.supportLayout||null,bearings=(ev.actual||[]).filter(x=>x.category==='bearing'||x.category==='linear_bearing');
+  const ev=template.evidence||{},layout=ev.supportLayout||null,bearings=(ev.actual||[]).filter(x=>x.category==='bearing'&&!/(?:уточнить|не\s+указан)/i.test(x.name||''));
   if(!layout?.supports?.length||layout.supports.length!==4)return'';
   const options=(selected)=>`<option value="">Не назначено — физически не подтверждено</option>${bearings.map(b=>`<option value="${esc(b.id)}" ${selected===b.id?'selected':''}>${esc(cleanTmcName(b.name))}</option>`).join('')}`;
   const rows=layout.supports.map(s=>{const selected=s.bearingRef?.id||'';return `<label class="conveyor-support-assign"><span>${esc(s.position)} — если опора действительно существует</span><select name="bearing_assign_${esc(s.key)}">${options(selected)}</select></label>`}).join('');
@@ -509,7 +509,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
           return;
         }
       }
-      const bearingPool=(template.evidence.actual||[]).filter(x=>x.category==='bearing'||x.category==='linear_bearing');
+      const bearingPool=(template.evidence.actual||[]).filter(x=>x.category==='bearing'&&!/(?:уточнить|не\s+указан)/i.test(x.name||''));
       for(const support of template.evidence.supportLayout.supports){
         const el=form.elements[`bearing_assign_${support.key}`];
         supportAssignments[support.key]=el?.value?bearingPool.find(x=>String(x.id)===String(el.value))||null:null;

@@ -594,4 +594,28 @@ assert.equal(JSON.stringify(gearDb),gearRaw,'belt gearbox preview must be read-o
 // A name containing "conveyor" does not authorize a new oil service task.
 assert.equal(gProposals[0].serviceLocationName,'Редуктор');
 
+// 5B.10: blank manual fields may describe slots, not real equipment.
+const man=equipment('MAN-EMPTY','Конвейер ленточный ручной');man.origin='manual';
+const md={equipment:[man],components:[],lubricationPoints:[],tasks:[]};
+Arr.ensureManualComponents(md,man,{conveyorSubtype:'belt',bearingDesignation:'Подшипник 22210 E',chainEnabled:true,driveMode:'motor_gearbox'});
+assert.equal(md.components.filter(x=>x.status==='active'&&x.candidateCategory==='bearing').length,0);
+assert.equal(md.components.filter(x=>x.status==='active'&&x.candidateCategory==='chain').length,0);
+assert.equal(md.components.filter(x=>x.status==='active'&&['motor','gearbox','motor_gearbox'].includes(x.candidateEquipmentType)).length,0);
+assert.equal(C.conveyorEvidence(md,man).supportLayout.supports.length,4);
+Arr.ensureManualComponents(md,man,{conveyorSubtype:'belt',driveLeftBearing:'Подшипниковый узел UCPA 210',chainEnabled:false,driveMode:'none'});
+assert.equal(C.conveyorEvidence(md,man).supportLayout.bearings.length,1);
+const fake={id:'MAN-LEGACY',equipmentId:man.id,origin:'manual',status:'active',
+ manualConveyorRole:'bearing_drive_right',name:'Подшипник справа (уточнить)',
+ candidateCategory:'bearing',candidateState:'candidate'};
+md.components.push(fake);
+assert(!C.conveyorEvidence(md,man).actual.some(x=>x.id===fake.id));
+const ml=C.conveyorEvidence(md,man).supportLayout;
+assert(!Arr.validateSelectedSupports({...ml,bearings:[...ml.bearings,{id:fake.id,name:fake.name,category:'bearing'}]},
+ ['drive_right'],{drive_right:{id:fake.id}},{
+ physicalConfirmed:true,sourceReference:'Осмотр 09.11.2026'}).allowed);
+const mc=md.components.find(x=>x.manualConveyorRole==='bearing_drive_left');
+md.lubricationPoints.push({id:'P-MAN',equipmentId:man.id,componentBinding:{sourceComponentId:mc.id}});
+Arr.ensureManualComponents(md,man,{conveyorSubtype:'belt',chainEnabled:false,driveMode:'none'});
+assert.equal(mc.status,'active','manual source already used in a point cannot be retired');
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');

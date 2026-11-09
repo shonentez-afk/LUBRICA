@@ -11,4 +11,7 @@ const classified=sandbox.window.LubricaClassifier.classifyEquipment(db,eq);db.eq
 assert.equal(classified.maintenanceEquipmentType,'conveyor');assert.equal(classified.maintenanceTemplate.id,'conveyor_arrangement');
 const ev=classified.maintenanceTemplate.evidence;assert(ev.supportLayout);assert.equal(ev.supportLayout.supports.length,4);assert.equal(ev.byCategory.chain,1);assert.equal(ev.assets.length,1);assert.equal(ev.assets[0].equipmentType,'motor_gearbox');
 assert.equal(eq.manualConveyorSetup.layout,'TWO_SHAFT_FOUR_SUPPORTS');
-console.log('PASS 1.0.33.14 manual conveyor parity: 4 supports + chain + motor-gearbox');
+assert.equal(ev.supportLayout.bearings.length,0,'shared bearing type is not four physical places');
+assert.equal(ev.supportLayout.supports.filter(x=>x.bearingRef).length,0,'slots remain unconfirmed');
+assert.equal(db.components.filter(x=>x.status==='active'&&x.candidateCategory==='bearing').length,0);
+console.log('PASS 1.0.33.14 manual conveyor parity: 4 hypothetical positions, explicit chain and drive');
