@@ -428,7 +428,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       <div class="candidate-actions-field" data-activity-box="${i}"><span class="candidate-field-title">Мероприятия</span>${activityChecks(s.category,s.activities,i)}${s.requiresOemVerification?'<small>Операции редуктора не выбраны: подтвердите масло/смазку и обслуживание по OEM перед созданием точки.</small>':''}</div>
     </div>`).join(''):`<div class="wizard-note"><b>${equipmentType==='motor'?'Плановые точки досмазывания не создаются автоматически.':'Фактические подшипниковые опоры не найдены.'}</b><span>${equipmentType==='motor'?(global.LubricaMotorOEM?.resolve?.(record.name||'')?.policy==='NO_ROUTINE_RELUBE'?'OEM-профиль двигателя указывает закрытую / greased-for-life конструкцию. Двигатель остаётся в структуре, но ложное мероприятие «Досмазывание» в карту не добавляется.':'Сначала подтвердите фактическую обслуживаемость DE/NDE и наличие точек подачи. LUBRICA не придумывает внутренние подшипники по одному названию двигателя.'):'LUBRICA не создаёт условные «левую/правую» опоры автоматически. Сначала добавьте или подтвердите реальные подшипники/опоры в структуре, либо создайте точку вручную из «Карты смазки». '}</span></div>`}</div>
     ${specs.length?`<div class="wizard-note"><b>Мероприятия выбираются из справочника категории.</b><span>Для нестандартной операции отметьте «Другое» и задайте название. Все созданные мероприятия получают статус «Требует проверки».</span></div>`:''}
-    <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Сохранить выбранные точки / тип</button>':(source='equipment'&&template?.id==='conveyor_arrangement'?'<button type="button" class="btn primary" data-save>Сохранить тип без точек</button>':'')}</menu>
+    <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Сохранить выбранные точки / тип</button>':(source==='equipment'&&template?.id==='conveyor_arrangement'?'<button type="button" class="btn primary" data-save>Сохранить тип без точек</button>':'')}</menu>
   </form>`;
   const form=dlg.querySelector('form');
   if(template?.evidence?.assembly){
@@ -549,7 +549,6 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         activities
       });
     }
-    console.log('DEBUG SAVE 5B.9',source,template?.id,specs.length,chosen.length,selectedSupportKeys.length);
     if(source==='equipment'&&template?.id==='conveyor_arrangement'&&!chosen.length){
       // Engineer can persist the physical family classification without inventing points.
       // No task/route/fact is touched, and the machine remains in review.
@@ -557,7 +556,6 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         global.LubricaApp?.showToast('Сначала проверьте существующие физические точки этой машины.','warn');
         return;
       }
-      console.log('DEBUG subtype branch entered',equipment.id,template.conveyorSubtype);
       const targetDatabase=Core.DatabaseSchema.clone(database);
       const target=sourceRecord(targetDatabase,source,id);
       target.confirmedConveyorSubtype=template.conveyorSubtype||'unknown';
@@ -575,7 +573,6 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
           layout:['belt','chain_scraper'].includes(target.confirmedConveyorSubtype)?target.manualConveyorSetup.layout:'ACTUAL_COMPONENTS_ONLY'};
       }
       Core.State.setDatabase(Core.Database.normalize(targetDatabase));
-      console.log('DEBUG subtype stored',Core.State.getDatabase()?.equipment?.[0]?.maintenanceLabel);
       global.LubricaApp?.refreshFromCore?.();global.LubricaApp?.renderAll?.();global.LubricaStructure?.render?.();
       global.LubricaApp?.showToast?.('Тип конвейера сохранён без создания точек. Добавьте фактические ТМЦ и снова откройте конструктор.');
       dlg.classList.remove('candidate-finalize-dialog');dlg.close();

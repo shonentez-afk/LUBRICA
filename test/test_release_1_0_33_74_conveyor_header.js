@@ -43,14 +43,8 @@ assert.equal(typeof saveButton.onclick,'function','Save subtype with zero points
 Finalizer.open('equipment','EQ-1',null,'chain');
 assert(dlg.innerHTML.includes('<h2>Цепной конвейер</h2>'),'Header must follow selected subtype');
 assert.equal(JSON.stringify(database),before,'Changing subtype preview does not mutate DB');
-const prevSave=saveButton.onclick;
-const priorOpen=opened;
 Finalizer.open('equipment','EQ-1');
-console.log('DEBUG header third open',opened,priorOpen,saveButton.onclick===prevSave,dlg.innerHTML.includes('<h2>Роликовый конвейер</h2>'));
-const previewTyped=win.LubricaClassifier.classifyEquipment(database,database.equipment[0]);
-console.log('DEBUG Stage 5B.9 old header: typed',previewTyped.maintenanceEquipmentType,previewTyped.maintenanceTemplate?.id,'specs',Finalizer.specsFor(previewTyped,'equipment').map(x=>x.key),'save',typeof saveButton.onclick);
 saveButton.onclick();
-console.log('DEBUG Stage 5B.9 after save:',database.equipment[0].maintenanceEquipmentType,database.equipment[0].maintenanceLabel,database.equipment[0].confirmedConveyorSubtype);
 
 assert.equal(database.equipment[0].maintenanceLabel,'Роликовый конвейер','saved maintenance label');
 assert.equal(database.equipment[0].confirmedConveyorSubtype,'roller','saved subtype');
