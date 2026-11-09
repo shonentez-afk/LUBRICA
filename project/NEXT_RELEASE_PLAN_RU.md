@@ -16,6 +16,12 @@ PP-53736 программно завершён в 1.0.33.68. Монтажные 
 
 Подробная действующая последовательность: [FINAL_LUBRICATION_MAP_AND_ROUTES_MASTER_PLAN_RU.md](FINAL_LUBRICATION_MAP_AND_ROUTES_MASTER_PLAN_RU.md). Старые приоритеты этапов P0–P3 ниже использовать как инженерные подпроцессы *внутри* новой последовательности, не как основание запускать маршруты раньше.
 
+## Актуальный рабочий пакет Stage 5B.8 — код CI PASS, полевая приёмка не выполнена
+
+Рабочая ветка [`feature/stage5b-conveyor-families-20261105`](https://github.com/shonentez-afk/LUBRICA/tree/feature/stage5b-conveyor-families-20261105), draft [PR #22](https://github.com/shonentez-afk/LUBRICA/pull/22). В едином семействе конструкторов конвейеров реализованы 5B.1–5B.8: подтипы, реальные вал/опоры/приводы, составные родитель+дети, ручной паритет, ведомость охвата «Контроль», физические подсказки неизвестным подтипам без автоклассификации, source-ID привязки старых точек, безопасные OEM-редукторные кандидаты без предвыбранных операций, исключение охлаждающих и центрифужных поддеревьев из смазочного evidence. Проверка на коммите `aad0647b`: [целевые + полные тесты PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42550487670), [Plant Point PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42550487631), [ZIP PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42550487735). Полевое подтверждение всех применимых машин и ручная Edge-приёмка на копии JSON открыты, **маршруты не создавать**.
+
+Актуальные документы: [мастер-план](FINAL_LUBRICATION_MAP_AND_ROUTES_MASTER_PLAN_RU.md), [Stage 5B implementation](CONVEYOR_STAGE5B_IMPLEMENTATION_RU.md), [START_NEW_CHAT_RU.md](../START_NEW_CHAT_RU.md).
+
 ## Текущий функциональный этап
 
 **Plant Lubrication Point Completion** — подробный рабочий план: [PLANT_POINT_COMPLETION_PLAN_RU.md](PLANT_POINT_COMPLETION_PLAN_RU.md).
