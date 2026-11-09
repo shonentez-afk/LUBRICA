@@ -8,6 +8,7 @@ on:
       - 'qa/qa-ui.js'
       - 'index.html'
       - 'test/test_release_1_0_33_76_conveyor_coverage.js'
+      - 'test/test_release_1_0_33_77_two_shaft_support_guard.js'
       - 'import/component-classifier.js'
       - 'import/candidate-finalizer.js'
       - 'structure/entity-dialogs.js'
@@ -55,6 +56,7 @@ jobs:
           node test/test_release_1_0_33_74_conveyor_header.js
           node test/test_release_1_0_33_75_composite_conveyor_ui.js
           node test/test_release_1_0_33_76_conveyor_coverage.js
+          node test/test_release_1_0_33_77_two_shaft_support_guard.js
       - name: Historical conveyor targeted acceptance
         run: |
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
