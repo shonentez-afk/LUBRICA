@@ -16,6 +16,13 @@ function outOfScope(e,byId){
  }
  return false;
 }
+// The initial plant audit was limited to equipmentType=conveyor (293 entries).
+// Also show clearly named conveyor machines accidentally imported as "other".
+// Do NOT treat "motor-gearbox of conveyor" or a plural group as a standalone machine.
+function hasConveyorMachineName(e){
+ const n=text(e?.name).toLowerCase().replace(/ё/g,'е');
+ return /^(?:конвейер(?:\s|$)|транспортер(?:\s|$)|(?:роликовый|ленточный|ременный|цепной|скребковый|ламельный|шнековый)\s+(?:конвейер|транспортер)(?:\s|$))/.test(n);
+}
 function audit(database){
  const d=database||{},equipment=Array.isArray(d.equipment)?d.equipment:[],
   components=Array.isArray(d.components)?d.components:[],
@@ -36,10 +43,11 @@ function audit(database){
   tasksByPoint.get(pointKey).push(t);
  }
  const rows=[],bySubtype={},byRole={group:0,ancillary:0,machine:0},byStatus={};
- let excludedScope=0,totalConveyorRecords=0;
+ let excludedScope=0,totalConveyorRecords=0,extraNamedRecords=0;
  for(const eq of equipment){
-  if(eq?.equipmentType!=='conveyor')continue;
+  if(eq?.equipmentType!=='conveyor'&&!hasConveyorMachineName(eq))continue;
   totalConveyorRecords++;
+  if(eq.equipmentType!=='conveyor')extraNamedRecords++;
   // Ignore centrifuges and their child machinery, and all cooling equipment.
   // Do not inspect their components, propose anything, or change their status.
   if(outOfScope(eq,byId)){excludedScope++;continue}
@@ -69,7 +77,7 @@ function audit(database){
   byStatus[status]=(byStatus[status]||0)+1;
   const area=areas.get(String(eq.areaId)),line=lines.get(String(eq.lineId||area?.lineId));
   rows.push({
-   id:eq.id,externalCode:eq.externalCode||'',name:eq.name||'',lineId:eq.lineId||area?.lineId||'',
+   id:eq.id,externalCode:eq.externalCode||'',name:eq.name||'',importType:eq.equipmentType||'',lineId:eq.lineId||area?.lineId||'',
    lineName:line?.name||eq.lineId||'Линия не указана',areaId:eq.areaId||'',
    areaName:area?.name||'Участок не указан',subtype:identity.subtype,label:identity.label,
    role:identity.role,status,next,configured,
@@ -91,7 +99,7 @@ function audit(database){
   id:String(x.lineId),name:x.lineName
  }])).values()).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
  return{
-  source:'live_database_read_only',totalConveyorRecords,excludedScope,byRole,bySubtype,byStatus,
+  source:'live_database_read_only',totalConveyorRecords,extraNamedRecords,excludedScope,byRole,bySubtype,byStatus,
   machineCount:rows.length,withActualEvidence:rows.filter(x=>x.actualCount||x.driveCount||x.shaftContextCount).length,
   withPoints:rows.filter(x=>x.relatedPointCount>0).length,
   unknownSubtype:byStatus.SUBTYPE_UNKNOWN||0,
@@ -101,12 +109,12 @@ function audit(database){
 }
 function csv(report){
  const quote=v=>'"'+text(v).replace(/"/g,'""')+'"';
- const head=['Оборудование ID','Код','Линия','Участок','Конвейер','Подтип','Статус','Тип подтверждён',
+ const head=['Оборудование ID','Код','Исходный тип','Линия','Участок','Конвейер','Подтип','Статус','Тип подтверждён',
   'Свои ТМЦ','Кандидатные ТМЦ','Не привязаны по source ID','Конструктивный контекст',
   'Приводы','Исключено из смазки','Собственные точки','Точки с подсистемами',
   'Мероприятия с подсистемами','Дочерние машины','Следующее инженерное действие'];
  const r=report?.rows||[];
- return [head,...r.map(x=>[x.id,x.externalCode,x.lineName,x.areaName,x.name,x.label,x.status,
+ return [head,...r.map(x=>[x.id,x.externalCode,x.importType,x.lineName,x.areaName,x.name,x.label,x.status,
   x.configured?'да':'нет',x.ownComponentCount,x.actualCount,x.unlinkedCandidateCount,
   x.shaftContextCount,x.driveCount,x.excludedCount,x.ownPointCount,x.relatedPointCount,
   x.relatedTaskCount,x.childConveyorCount,x.next])].map(row=>row.map(quote).join(';')).join('\n');
