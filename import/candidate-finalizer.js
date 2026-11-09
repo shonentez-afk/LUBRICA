@@ -189,8 +189,8 @@ function specsFor(record,source){
           'bearing',
           support.position,
           ['Досмазывание'],
-          true,
-          {actual:true,conveyorEvidence:true,physicalSupport:true,serviceLocationName:support.position,shaftId:support.shaftId,side:support.side,sourceRef:br,supportKey:support.key,assignmentStatus:support.assignmentStatus||'unassigned'}
+          false,
+          {actual:true,conveyorEvidence:true,physicalSupport:true,requiresPhysicalConfirmation:true,serviceLocationName:support.position,shaftId:support.shaftId,side:support.side,sourceRef:br,supportKey:support.key,assignmentStatus:support.assignmentStatus||'unassigned'}
         ));
       }
     }else{
@@ -199,8 +199,8 @@ function specsFor(record,source){
       }
     }
     for(const a of actual.filter(x=>!['bearing','linear_bearing'].includes(x.category))){
-      const autoSelected=!!layout&&a.category==='chain'; // compound machines require explicit chain maintenance confirmation
-      specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'other',layout&&a.category==='chain'?'Цепной привод':'',null,autoSelected,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
+      // An imported chain designation alone cannot prove a lubricated chain circuit.
+      specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'other','',null,false,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
     }
     for(const a of assets.filter(x=>['gearbox','motor_gearbox'].includes(x.equipmentType))){
       // A separate child gearbox/motor-reducer owns its service record: it
@@ -288,9 +288,9 @@ function conveyorSupportAssignmentPanel(template){
   if(template?.id!=='conveyor_arrangement')return'';
   const ev=template.evidence||{},layout=ev.supportLayout||null,bearings=(ev.actual||[]).filter(x=>x.category==='bearing'||x.category==='linear_bearing');
   if(!layout?.supports?.length||layout.supports.length!==4)return'';
-  const options=(selected)=>`<option value="">Не определено</option>${bearings.map(b=>`<option value="${esc(b.id)}" ${selected===b.id?'selected':''}>${esc(cleanTmcName(b.name))}</option>`).join('')}`;
-  const rows=layout.supports.map(s=>{const selected=s.bearingRef?.id||s.suggestedBearingRef?.id||'';return `<label class="conveyor-support-assign"><span>${esc(s.position)}</span><select name="bearing_assign_${esc(s.key)}">${options(selected)}</select></label>`}).join('');
-  const bearingWarning=bearings.length>1?'Импорт содержит несколько подшипниковых узлов. Укажите, какой узел относится к каждой физической опоре. LUBRICA не назначает их автоматически.':bearings.length===1?'Найдено одно обозначение подшипника. Оно предложено для всех четырёх опор, но назначение необходимо проверить.':'Подшипниковые узлы в импорте не определены. Назначьте их вручную либо оставьте «Не определено» и уточните конструкцию.';
+  const options=(selected)=>`<option value="">Не назначено — физически не подтверждено</option>${bearings.map(b=>`<option value="${esc(b.id)}" ${selected===b.id?'selected':''}>${esc(cleanTmcName(b.name))}</option>`).join('')}`;
+  const rows=layout.supports.map(s=>{const selected=s.bearingRef?.id||'';return `<label class="conveyor-support-assign"><span>${esc(s.position)} — если опора действительно существует</span><select name="bearing_assign_${esc(s.key)}">${options(selected)}</select></label>`}).join('');
+  const bearingWarning=bearings.length>1?'Импорт содержит несколько подшипниковых узлов. Выберите ТОЛЬКО реальные опоры и назначьте подшипниковый ТМЦ для каждой.':bearings.length===1?'Одна запись подшипника НЕ доказывает четыре физических опоры. Подтвердите число и места установки.':'Подшипниковые ТМЦ не определены: не создавайте опоры без подтверждения.';
   let shaftBlock='';
   if(layout.shaftRolesNeedConfirmation&&layout.shaftCandidates?.length>=2){
     const shaftOptions=(selected)=>`<option value="">Не определено</option>${layout.shaftCandidates.map(x=>`<option value="${esc(x.id)}" ${selected===x.id?'selected':''}>${esc(cleanTmcName(x.name))}</option>`).join('')}`;
@@ -298,7 +298,7 @@ function conveyorSupportAssignmentPanel(template){
     const ret=layout.shafts?.find(x=>x.role!=='drive')?.id||'';
     shaftBlock=`<section class="conveyor-shaft-mapping"><div class="wizard-note"><b>Распределение валов</b><span>Из импорта неясно, какой вал приводной, а какой натяжной/ведомый. Укажите назначение каждого вала перед распределением подшипников.</span></div><div class="conveyor-support-map-grid"><label class="conveyor-support-assign"><span>Приводной вал</span><select name="shaft_assign_drive">${shaftOptions(drive)}</select></label><label class="conveyor-support-assign"><span>Натяжной / ведомый вал</span><select name="shaft_assign_return">${shaftOptions(ret)}</select></label></div></section>`;
   }
-  return `${shaftBlock}<section class="conveyor-support-mapping"><div class="wizard-note"><b>Распределение подшипников по валам</b><span>${esc(bearingWarning)}</span></div><div class="conveyor-support-map-grid">${rows}</div></section>`;
+  return `${shaftBlock}<section class="conveyor-support-mapping"><div class="wizard-note"><b>Возможные места опор — это не четыре доказанные точки</b><span>${esc(bearingWarning)} Выберите флажками лишь фактически существующие опоры, остальные оставьте выключенными.</span></div><div class="conveyor-support-map-grid">${rows}</div><label class="conveyor-support-assign"><span>Источник подтверждения выбранных опор</span><input name="conveyor_support_source" placeholder="Осмотр / фото / паспорт узла"></label><label class="conveyor-support-assign"><input type="checkbox" name="conveyor_support_confirm"> Проверено фактическое наличие каждой выбранной опоры и места обслуживания</label></section>`;
 }
 function conveyorSubtypePanel(template){
  if(template?.id!=='conveyor_arrangement')return'';
@@ -341,11 +341,11 @@ function conveyorEvidencePanel(template){
   const ev=template.evidence||{},actual=ev.actual||[],assets=ev.assets||[],context=ev.context||[],excluded=ev.excluded||[],layout=ev.supportLayout||null;
   const card=(cls,title,items,empty)=>`<section class="conveyor-evidence-card ${cls}"><header><b>${esc(title)}</b><span>${items.length}</span></header>${items.length?`<div>${items.slice(0,12).map(x=>`<p><strong>${esc(cleanTmcName(x.name))}</strong>${x.label?`<small>${esc(x.label)}</small>`:''}</p>`).join('')}${items.length>12?`<p class="conveyor-evidence-more">Ещё ${items.length-12}</p>`:''}</div>`:`<p class="conveyor-evidence-empty">${esc(empty)}</p>`}</section>`;
   const physical=layout?.supports?.length===4?layout.supports.map(x=>({name:x.position,label:layout.bearingReference?.name||'Подшипник требует уточнения'})):[];
-  const headline=physical.length===4?'Два вала: назначьте реальные подшипники на четыре опорных места':'Составной конвейер: только реальные ТМЦ и физические места обслуживания';
-  const note=physical.length===4?'Назначьте установленный подшипниковый ТМЦ на каждую опору. Точки не создаются до подтверждения.':'Для роликового, ламельного, цепного, шнекового, поворотного и комбинированного конвейера используйте реальные ТМЦ. Схема 2 вала × 2 опоры не предполагается. Укажите точное место каждой операции.';
+  const headline=physical.length===4?'Два подтверждённых вала: количество опор требует проверки':'Составной конвейер: только реальные ТМЦ и физические места обслуживания';
+  const note=physical.length===4?'Два вала не доказывают наличие четырёх обслуживаемых опор. Выберите только реально установленные места.':'Для роликового, ламельного, цепного, шнекового, поворотного и комбинированного конвейера используйте реальные ТМЦ. Схема 2 вала × 2 опоры не предполагается. Укажите точное место каждой операции.';
   const compose=global.LubricaConveyorArrangement?.composeEvidence?.(template);
   const sections=physical.length===4
-    ?card('service','Физические подшипниковые опоры',physical,'')+card('assets','Отдельные агрегаты',assets,'Отдельные двигатель/редуктор не найдены.')+card('context','Контекст конструкции',context,'Контекстные валы/барабаны не найдены.')
+    ?card('service','Возможные места опор (пока не подтверждены)',physical,'')+card('assets','Отдельные агрегаты',assets,'Отдельные двигатель/редуктор не найдены.')+card('context','Контекст конструкции',context,'Контекстные валы/барабаны не найдены.')
     :compose?.sections?.length
      ?compose.sections.map(x=>card('service',x.label,x.items,'Не подтверждено: точка не создаётся.')).join('')
      :card('service','Точки-кандидаты',actual,'Обслуживаемые ТМЦ не найдены.');
@@ -428,7 +428,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       <div class="candidate-actions-field" data-activity-box="${i}"><span class="candidate-field-title">Мероприятия</span>${activityChecks(s.category,s.activities,i)}${s.requiresOemVerification?'<small>Операции редуктора не выбраны: подтвердите масло/смазку и обслуживание по OEM перед созданием точки.</small>':''}</div>
     </div>`).join(''):`<div class="wizard-note"><b>${equipmentType==='motor'?'Плановые точки досмазывания не создаются автоматически.':'Фактические подшипниковые опоры не найдены.'}</b><span>${equipmentType==='motor'?(global.LubricaMotorOEM?.resolve?.(record.name||'')?.policy==='NO_ROUTINE_RELUBE'?'OEM-профиль двигателя указывает закрытую / greased-for-life конструкцию. Двигатель остаётся в структуре, но ложное мероприятие «Досмазывание» в карту не добавляется.':'Сначала подтвердите фактическую обслуживаемость DE/NDE и наличие точек подачи. LUBRICA не придумывает внутренние подшипники по одному названию двигателя.'):'LUBRICA не создаёт условные «левую/правую» опоры автоматически. Сначала добавьте или подтвердите реальные подшипники/опоры в структуре, либо создайте точку вручную из «Карты смазки». '}</span></div>`}</div>
     ${specs.length?`<div class="wizard-note"><b>Мероприятия выбираются из справочника категории.</b><span>Для нестандартной операции отметьте «Другое» и задайте название. Все созданные мероприятия получают статус «Требует проверки».</span></div>`:''}
-    <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Подтвердить и создать</button>':(source==='equipment'&&template?.id==='conveyor_arrangement'?'<button type="button" class="btn primary" data-save>Сохранить тип без точек</button>':'')}</menu>
+    <menu><button type="button" class="btn ghost" data-cancel>${specs.length?'Отмена':'Закрыть'}</button>${specs.length?'<button type="button" class="btn primary" data-save>Сохранить выбранные точки / тип</button>':(source='equipment'&&template?.id==='conveyor_arrangement'?'<button type="button" class="btn primary" data-save>Сохранить тип без точек</button>':'')}</menu>
   </form>`;
   const form=dlg.querySelector('form');
   if(template?.evidence?.assembly){
