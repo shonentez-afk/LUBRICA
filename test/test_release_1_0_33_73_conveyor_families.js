@@ -554,8 +554,10 @@ assert(C.isFactorySealedRollingBearing('Подшипник 6005-2RS1'));
 assert(!C.isFactorySealedRollingBearing('Узел подшипниковый UKFL 208'));
 assert(!C.isFactorySealedRollingBearing('Подшипник BS2-2208-2CS/VT143'),
  'sealed spherical 2CS has a different conditional SKF OEM relubrication policy');
-assert.equal(C.classifyComponentText('Подшипник 62205-2RS').state,'excluded');
-assert.equal(C.classifyComponentText('Подшипник 61904 2RS1').state,'excluded');
+assert.equal(C.classifyComponentText('Подшипник 62205-2RS').category,'bearing',
+ 'physical type remains bearing for legacy import; lubrication eligibility is separate');
+assert.equal(C.classifyComponentText('Подшипник 61904 2RS1').category,'bearing',
+ 'preserve global bearing classification, only conveyor evidence excludes routine greasing');
 assert.equal(C.classifyComponentText('Подшипник BS2-2208-2CS/VT143').category,'bearing');
 assert.equal(JSON.stringify(hybridDb),hybridRaw,'read-only hybrid engineering review');
 assert.equal(hybridDb.lubricationPoints.length,0,'no invented lubrication point from preview');
