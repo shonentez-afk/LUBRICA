@@ -182,5 +182,28 @@ function suggestSubtypeFromTmc(database,equipment){
 }
 
 API.identifyManualComponents=identifyManualComponents;
-API.suggestSubtypeFromTmc=suggestSubtypeFromTmc;API.ensureManualComponents=ensureManualComponents;API.composeEvidence=composeEvidence;API.SERVICE_FAMILIES=SERVICE_FAMILIES;
+// Two real shafts do not prove four serviceable supports. Only explicitly
+// selected physical locations with matching source TMC and field/OEM evidence
+// can become new lubrication points.
+function validateSelectedSupports(layout,keys,assignments,options={}){
+ const requested=new Set((keys||[]).map(String));
+ const supports=Array.isArray(layout?.supports)?layout.supports:[];
+ const bearings=(layout?.bearings||[]).map(x=>String(x.id));
+ const knownKeys=new Set(supports.map(x=>String(x.key)));
+ const errors=[];
+ if(!requested.size)return {allowed:true,errors,confirmedKeys:[],sourceReference:''};
+ if(!options.physicalConfirmed)errors.push('Подтвердите фактическое наличие выбранных опор');
+ const sourceReference=String(options.sourceReference||'').trim();
+ if(!sourceReference)errors.push('Укажите источник подтверждения: осмотр, фото или паспорт узла');
+ for(const key of requested){
+  if(!knownKeys.has(key)){errors.push('Неизвестная позиция физической опоры: '+key);continue}
+  const found=assignments?.[key];
+  if(!found?.id||!bearings.includes(String(found.id)))
+   errors.push('Для выбранной опоры '+key+' назначьте существующий подшипниковый ТМЦ');
+ }
+ return {allowed:errors.length===0,errors,confirmedKeys:[...requested].filter(k=>knownKeys.has(k)),sourceReference};
+}
+
+API.suggestSubtypeFromTmc=suggestSubtypeFromTmc;
+API.validateSelectedSupports=validateSelectedSupports;API.ensureManualComponents=ensureManualComponents;API.composeEvidence=composeEvidence;API.SERVICE_FAMILIES=SERVICE_FAMILIES;
 })(window);
