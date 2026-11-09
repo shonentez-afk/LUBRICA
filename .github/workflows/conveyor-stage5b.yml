@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'conveyors/**'
+      - 'qa/qa-ui.js'
+      - 'index.html'
+      - 'test/test_release_1_0_33_76_conveyor_coverage.js'
       - 'import/component-classifier.js'
       - 'import/candidate-finalizer.js'
       - 'structure/entity-dialogs.js'
@@ -42,12 +45,16 @@ jobs:
         run: |
           node --check import/component-classifier.js
           node --check conveyors/conveyor-arrangement.js
+          node --check conveyors/conveyor-coverage.js
+          node --check qa/qa-ui.js
           node --check import/candidate-finalizer.js
           node --check structure/entity-dialogs.js
-      - name: Stage 5B subtype and physical-evidence acceptance
-        run: node test/test_release_1_0_33_73_conveyor_families.js
+      - name: Stage 5B subtype, physical-evidence and fleet coverage acceptance
+        run: |
+          node test/test_release_1_0_33_73_conveyor_families.js
           node test/test_release_1_0_33_74_conveyor_header.js
           node test/test_release_1_0_33_75_composite_conveyor_ui.js
+          node test/test_release_1_0_33_76_conveyor_coverage.js
       - name: Historical conveyor targeted acceptance
         run: |
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
