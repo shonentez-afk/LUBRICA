@@ -45,6 +45,14 @@
 - `RELEASE_HISTORY_RU.md`.
 
 
+## Состояние рабочей ветки после 09.11.2026 — главное для нового чата
+
+Приоритет **не маршруты**, а подтверждение **всех конструкторов** применимого парка, затем полная карта и лишь потом маршруты. **Не работать над центрифугами/их системами и охлаждением**; это `OUT_OF_SCOPE`, а не `NO_LUBE`. Основная версия 1.0.33.71 RC в `main`; текущая черновая кодовая реализация 5B.8 в [PR #22](https://github.com/shonentez-afk/LUBRICA/pull/22). На commit `aad0647b` целевой/полный regression, Plant Point, Memory и Edge ZIP CI — **PASS**, полевая приёмка нет. Подробности и новые шаги только из [`../START_NEW_CHAT_RU.md`](../START_NEW_CHAT_RU.md), [`FINAL_LUBRICATION_MAP_AND_ROUTES_MASTER_PLAN_RU.md`](FINAL_LUBRICATION_MAP_AND_ROUTES_MASTER_PLAN_RU.md), [`CONVEYOR_STAGE5B_IMPLEMENTATION_RU.md`](CONVEYOR_STAGE5B_IMPLEMENTATION_RU.md).
+
+## Последний кодовый пакет — Stage 5B.9
+
+`feature/stage5b-conveyor-families-20261105` / draft [PR #22](https://github.com/shonentez-afk/LUBRICA/pull/22): **Stage 5B.9, код `f865a1d`**, инженерный gate «два вала не доказывают четыре опоры». Из четырёх предлагаемых позиций **только выбранные и подтверждённые осмотром/OEM с source TMC** превращаются в точки; zero-point subtype-only save допустим. [Targeted + full regression PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42552062979), [Plant Point PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42552062925), [ZIP PASS](https://github.com/shonentez-afk/LUBRICA/actions/runs/42552062938). Ручная Edge/production-JSON приёмка ещё не проведена. Актуальный handoff: [`../START_NEW_CHAT_RU.md`](../START_NEW_CHAT_RU.md). Центрифуги/охлаждение исключены из активного объёма. Конструкторы → полная карта → маршруты.
+
 ## Текущий функциональный план
 
 - [PLANT_POINT_COMPLETION_PLAN_RU.md](PLANT_POINT_COMPLETION_PLAN_RU.md) — реализация 1.0.33.69, Issues #11–#14, инженерные acceptance gates и отказ от виртуальных точек.

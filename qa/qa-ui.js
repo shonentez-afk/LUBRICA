@@ -151,9 +151,110 @@ function installCandidateDecisionUI(view,host,report){
  }
 }
 
+
+function installConveyorCoverage(host,coverage,redraw){
+ if(!coverage||!host?.querySelector)return;
+ const line=host.dataset.qaConveyorLine||'all';
+ const filter=host.dataset.qaConveyorFilter||'all';
+ const query=String(host.dataset.qaConveyorQuery||'').trim().toLowerCase();
+ const prefiltered=coverage.rows.filter(x=>(line==='all'||x.lineId===line)&&(
+  filter==='all'||
+  (filter==='unknown'&&x.status==='SUBTYPE_UNKNOWN')||
+  (filter==='suggested'&&!!x.subtypeSuggestion)||
+  (filter==='empty'&&x.status==='EVIDENCE_MISSING')||
+  (filter==='no_points'&&x.relatedPointCount===0&&x.actualCount>0)||
+  (filter==='with_points'&&x.relatedPointCount>0)||
+  (filter==='unlinked'&&x.candidateUnlinkedCount>0)||
+  (filter==='composite'&&x.childConveyorCount>0)
+ ));
+ const rows=prefiltered.filter(x=>!query||[x.name,x.id,x.externalCode,x.areaName,x.lineName,
+  ...(x.evidenceRows||[]).flatMap(e=>[e.name,e.sourceId,e.sourceExternalCode,e.ownerEquipmentId])]
+  .join(' ').toLowerCase().includes(query));
+ const pageCount=Math.max(1,Math.ceil(rows.length/12));
+ const page=Math.min(pageCount-1,Math.max(0,Number(host.dataset.qaConveyorPage)||0));
+ const visible=rows.slice(page*12,(page+1)*12);
+ const labels={
+  SUBTYPE_UNKNOWN:'Тип требует уточнения',EVIDENCE_MISSING:'Нет фактических ТМЦ',
+  COMPOSITE_REVIEW:'Составной конвейер — проверить дочерние машины',
+  COMPONENTS_REVIEW:'ТМЦ есть — подтвердить реальные места',
+  POINTS_REVIEW:'Точки есть — проверить физическую полноту'
+ };
+ const items=visible.map(x=>
+  '<article class="qa-issue warn"><span class="qa-severity">'+esc(x.label)+'</span>'+
+  '<div class="qa-issue-body"><div><b>'+esc(x.name)+'</b><code>'+esc(x.externalCode||x.id)+'</code></div>'+
+  '<p>'+esc(x.lineName)+' · '+esc(x.areaName)+'</p>'+
+  '<small>'+esc(labels[x.status]||x.status)+
+    ' · смазочных ТМЦ: '+x.actualCount+' · контекст/валы: '+x.shaftContextCount+
+    ' · приводы: '+x.driveCount+' · связанные физические точки: '+x.relatedPointCount+
+    (x.childConveyorCount?' · дочерних машин: '+x.childConveyorCount:'')+'</small>'+
+  (x.subtypeSuggestion?'<small>Подсказка по ТМЦ (тип не подтверждён): '+esc(x.subtypeSuggestion.label)+' · '+esc(x.subtypeSuggestion.reason)+'</small>':'')+
+  '<small>'+esc(x.next)+'</small>'+
+  (x.evidenceRows?.length?'<details class="qa-method"><summary>Исходные ТМЦ и привязки · '+x.evidenceRows.length+'</summary>'+
+   '<div class="qa-issues-list">'+x.evidenceRows.slice(0,25).map(e=>
+    '<div class="qa-issue"><div class="qa-issue-body"><b>'+esc(e.name)+'</b> <code>'+esc(e.sourceId)+'</code>'+
+    '<small>'+esc(({CANDIDATE:'Кандидат — проверить обслуживание',DRIVE:'Привод — OEM-проверка',CONTEXT:'Конструктивный контекст',EXCLUDED:'Не предлагается к смазке'})[e.kind]||e.kind)+
+    ' · '+esc(e.state)+' · pointId: '+esc(e.pointIds.join(', ')||'нет')+
+    (e.reason?' · '+esc(e.reason):'')+'</small></div></div>'
+   ).join('')+(x.evidenceRows.length>25?'<small>Показаны первые 25; полный реестр — CSV по ТМЦ.</small>':'')+
+   '</div></details>':'')+'</div>'+
+  '<button type="button" class="mini-btn" data-qa-open-equipment="'+esc(x.id)+'">Открыть</button></article>'
+ ).join('');
+ const markup='<details class="qa-conveyor-coverage qa-method" data-qa-conveyor-details'+
+  (host.dataset.qaConveyorExpanded==='1'?' open':'')+'>'+
+  '<summary><b>Покрытие конструкторов конвейеров</b> · '+coverage.machineCount+
+   ' агрегатов · '+coverage.unknownSubtype+' с неопределённым типом · '+coverage.withSubtypeSuggestion+' подсказок по ТМЦ · '+coverage.machinesWithUnlinkedCandidates+' машин с неподтверждёнными кандидатами</summary>'+
+  '<p>Это очередь инженерного разбора, <b>не процент готовности</b>. Тип по названию, наличие ТМЦ и созданная точка ещё не подтверждают полноту конструкции. '+
+    'Конвейеры с импортированным типом «other»: '+coverage.extraNamedRecords+' · группы: '+coverage.byRole.group+' · вспомогательные: '+coverage.byRole.ancillary+
+    ' · вне текущего объёма (центрифуги/охлаждение): '+coverage.excludedScope+'.</p>'+
+  '<div class="qa-toolbar"><label><span>Линия</span><select data-qa-conveyor-line>'+
+     '<option value="all">Обе линии</option>'+
+     coverage.lines.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('')+
+    '</select></label><label><span>Состояние</span><select data-qa-conveyor-filter>'+
+     '<option value="all">Все агрегаты</option>'+
+     '<option value="unknown">Тип неизвестен</option>'+ 
+     '<option value="suggested">Есть подсказка по ТМЦ</option>'+
+     '<option value="empty">Нет фактических ТМЦ</option>'+
+     '<option value="no_points">ТМЦ есть, точки отсутствуют</option>'+
+     '<option value="with_points">Есть точки — проверить полноту</option>'+
+     '<option value="unlinked">Кандидаты без привязки к точкам</option>'+
+     '<option value="composite">Составные машины</option></select></label>'+
+     '<label class="qa-search"><span>Поиск по имени, коду или ТМЦ</span><input data-qa-conveyor-query value="'+esc(query)+'" placeholder="Код / название / ID ТМЦ"></label>'+
+     '<button type="button" class="btn ghost" data-qa-conveyor-search>Найти</button>'+
+     '<button type="button" class="btn ghost" data-qa-conveyor-export>Скачать список машин CSV</button>'+
+     '<button type="button" class="btn ghost" data-qa-conveyor-evidence-export>Ведомость ТМЦ CSV</button>'+
+     '<small>В выборке: '+rows.length+' из '+coverage.machineCount+'</small></div>'+
+  '<div class="qa-issues-list">'+(items||'<div class="route-empty">По выбранному фильтру агрегатов нет.</div>')+'</div>'+
+  '<div class="qa-toolbar"><button type="button" class="btn ghost" data-qa-conveyor-prev '+
+    (page===0?'disabled':'')+'>Назад</button><small>Страница '+(page+1)+' из '+pageCount+'</small>'+
+    '<button type="button" class="btn ghost" data-qa-conveyor-next '+
+    (page+1>=pageCount?'disabled':'')+'>Дальше</button></div></details>';
+ // Do not use qa-issues-card here: the engineering decisions panel uses its
+ // first occurrence as its own host.
+ host.querySelector('.qa-issues-card')?.insertAdjacentHTML?.('beforebegin',markup);
+ const q=sel=>host.querySelector(sel);
+ const details=q('[data-qa-conveyor-details]');
+ if(details)details.ontoggle=()=>{host.dataset.qaConveyorExpanded=details.open?'1':'0'};
+ const lineSelect=q('[data-qa-conveyor-line]');
+ if(lineSelect){lineSelect.value=line;lineSelect.onchange=()=>{host.dataset.qaConveyorLine=lineSelect.value;host.dataset.qaConveyorPage='0';host.dataset.qaConveyorExpanded='1';redraw()}}
+ const filterSelect=q('[data-qa-conveyor-filter]');
+ if(filterSelect){filterSelect.value=filter;filterSelect.onchange=()=>{host.dataset.qaConveyorFilter=filterSelect.value;host.dataset.qaConveyorPage='0';host.dataset.qaConveyorExpanded='1';redraw()}}
+ const prev=q('[data-qa-conveyor-prev]'),next=q('[data-qa-conveyor-next]');
+ if(prev)prev.onclick=()=>{host.dataset.qaConveyorPage=String(Math.max(0,page-1));host.dataset.qaConveyorExpanded='1';redraw()};
+ if(next)next.onclick=()=>{host.dataset.qaConveyorPage=String(Math.min(pageCount-1,page+1));host.dataset.qaConveyorExpanded='1';redraw()};
+ const applySearch=()=>{host.dataset.qaConveyorQuery=q('[data-qa-conveyor-query]')?.value||'';host.dataset.qaConveyorPage='0';host.dataset.qaConveyorExpanded='1';redraw()};
+ const searchButton=q('[data-qa-conveyor-search]'),searchInput=q('[data-qa-conveyor-query]');
+ if(searchButton)searchButton.onclick=applySearch;
+ if(searchInput)searchInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();applySearch()}};
+ const exportButton=q('[data-qa-conveyor-export]');
+ if(exportButton)exportButton.onclick=()=>download('LUBRICA_Конструкторы_конвейеров.csv',global.LubricaConveyorCoverage.csv(coverage));
+ const sourceButton=q('[data-qa-conveyor-evidence-export]');
+ if(sourceButton)sourceButton.onclick=()=>download('LUBRICA_Конвейеры_исходные_ТМЦ.csv',global.LubricaConveyorCoverage.csvEvidence(coverage));
+}
+
 function render(view){
  const host=view?.querySelector?.('#programQaView')||view;if(!host)return;
  const API=global.LubricaProgramQA,report=API?.audit?.();if(!report){host.innerHTML='<div class="route-empty">Модуль контроля недоступен.</div>';return}
+ const conveyorCoverage=global.LubricaConveyorCoverage?.audit?.(global.LubricaCore?.State?.getDatabase?.())||null;
  let severity=host.dataset.qaSeverity||'all',category=host.dataset.qaCategory||'all',query=host.dataset.qaQuery||'',searchTimer=null;
  const draw=()=>{
   const filtered=report.issues.filter(x=>(severity==='all'||x.severity===severity)&&(category==='all'||x.category===category)&&(!query||`${x.entityId} ${x.title} ${x.message} ${x.code}`.toLowerCase().includes(query.toLowerCase())));
@@ -199,6 +300,7 @@ function render(view){
   host.querySelector('[data-qa-category]').onchange=e=>{category=e.target.value;host.dataset.qaCategory=category;draw()};
   host.querySelector('[data-qa-query]').oninput=e=>{query=e.target.value;host.dataset.qaQuery=query;clearTimeout(searchTimer);const caret=e.target.selectionStart??query.length;searchTimer=setTimeout(()=>{draw();const q=host.querySelector('[data-qa-query]');if(q){q.focus();try{q.setSelectionRange(caret,caret)}catch(_){}}},160)};
   const qSelect=host.querySelector('[data-qa-candidate-line]');if(qSelect){qSelect.value=qLine;qSelect.onchange=e=>{host.dataset.qaCandidateLine=e.target.value;host.dataset.qaCandidatePage='0';draw()}}
+  installConveyorCoverage(host,conveyorCoverage,draw);
   host.querySelectorAll('[data-qa-open-equipment]').forEach(b=>b.onclick=()=>openIssue({entityType:'equipment',entityId:b.dataset.qaOpenEquipment}));
   const qPrev=host.querySelector('[data-qa-prev]'),qNext=host.querySelector('[data-qa-next]');
   if(qPrev)qPrev.onclick=()=>{host.dataset.qaCandidatePage=String(Math.max(0,qPage-1));draw()};

@@ -1,0 +1,67 @@
+name: LUBRICA Stage 5B Conveyor Families
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'conveyors/**'
+      - 'qa/qa-ui.js'
+      - 'index.html'
+      - 'test/test_release_1_0_33_76_conveyor_coverage.js'
+      - 'test/test_release_1_0_33_77_two_shaft_support_guard.js'
+      - 'import/component-classifier.js'
+      - 'import/candidate-finalizer.js'
+      - 'structure/entity-dialogs.js'
+      - 'structure/detail-ui.js'
+      - 'test/test_release_1_0_33_73_conveyor_families.js'
+      - 'test/test_release_1_0_33_75_composite_conveyor_ui.js'
+      - 'test/run_all.sh'
+      - '.github/workflows/conveyor-stage5b.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lubrica-stage5b-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Existing regression dependencies
+        run: python -m pip install --disable-pip-version-check beautifulsoup4 openpyxl pillow
+      - name: Syntax of modified JavaScript
+        run: |
+          node --check import/component-classifier.js
+          node --check conveyors/conveyor-arrangement.js
+          node --check conveyors/conveyor-coverage.js
+          node --check qa/qa-ui.js
+          node --check import/candidate-finalizer.js
+          node --check structure/entity-dialogs.js
+      - name: Stage 5B subtype, physical-evidence and fleet coverage acceptance
+        run: |
+          node test/test_release_1_0_33_73_conveyor_families.js
+          node test/test_release_1_0_33_74_conveyor_header.js
+          node test/test_release_1_0_33_75_composite_conveyor_ui.js
+          node test/test_release_1_0_33_76_conveyor_coverage.js
+          node test/test_release_1_0_33_77_two_shaft_support_guard.js
+      - name: Historical conveyor targeted acceptance
+        run: |
+          node tests/test_release_1_0_33_47_chain_scraper_conveyor.js
+          node tests/test_release_1_0_33_14_manual_conveyor_parity.js
+          node tests/test_release_1_0_33_15_conveyor_bearing_assignment.js
+          node tests/test_release_1_0_33_17_conveyor_live_template_refresh.js
+      - name: Full regression
+        run: bash test/run_all.sh

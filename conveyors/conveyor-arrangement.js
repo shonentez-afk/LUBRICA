@@ -11,26 +11,65 @@ function ensureManualComponents(db,equipment,setup={}){
  if(equipment?.origin!=='manual')return identifyManualComponents(db,equipment);
  db.components=db.components||[];
  const now=()=>new Date().toISOString();
+ // Do not retire a manual TMC that has become the source of a real point.
+ const linkedToPoint=id=>(db.lubricationPoints||[]).some(p=>
+   p?.componentBinding?.sourceComponentId===id||p?.installedComponent?.id===id||
+   String(p?.candidateOriginKey||'').startsWith('component:'+id+':'))||
+   (db.components||[]).some(c=>c.id===id&&(c.candidateCreatedPointIds||[]).some(pid=>
+    (db.lubricationPoints||[]).some(p=>String(p.id)===String(pid))));
+ const retire=c=>{if(c&&!linkedToPoint(c.id))c.status='retired'};
+ // An empty field or an "уточнить" label is not installed equipment.
+ const identified=v=>{const n=clean(v);return /\(\s*уточнить\s*\)|обозначение\s+уточнить/i.test(n)?'':n};
  const nextId=()=>global.LubricaCore?.IDs?.nextFrom?.(db.components,'COMP',7)||`COMP-MANUAL-${Date.now()}`;
  const upsert=(role,name,kind,extra={})=>{
    const cleaned=clean(name);let c=db.components.find(x=>x.equipmentId===equipment.id&&x.manualConveyorRole===role)||null;
-   if(!cleaned){if(c)c.status='retired';return null}
+   if(!cleaned){retire(c);return null}
    if(!c){c={id:nextId(),externalCode:'',equipmentId:equipment.id,parentEquipmentExternalCode:equipment.externalCode||'',name:cleaned,manufacturer:'',componentType:`manual_conveyor_${role}`,status:'active',sourceFile:'',origin:'manual',manualConveyorRole:role};db.components.push(c)}
    Object.assign(c,{name:cleaned,equipmentId:equipment.id,status:'active',origin:c.origin||'manual',componentType:c.componentType||`manual_conveyor_${role}`,manualConveyorRole:role,...extra,manualConveyorUpdatedAt:now()});
-   if(kind==='bearing')Object.assign(c,{candidateState:'candidate',candidateCategory:'bearing',candidateEquipmentType:null,candidateConfidence:1,candidateLabel:'Подшипник',candidateReason:'Фактическая подшипниковая опора подтверждена при ручном создании конвейера',candidateClassifiedAt:now()});
-   if(kind==='chain')Object.assign(c,{candidateState:'candidate',candidateCategory:'chain',candidateEquipmentType:null,candidateConfidence:1,candidateLabel:'Цепь',candidateReason:'Рабочая цепь подтверждена при ручном создании конвейера',candidateClassifiedAt:now()});
+   if(kind==='bearing')Object.assign(c,{candidateState:'candidate',candidateCategory:'bearing',candidateEquipmentType:null,candidateConfidence:1,candidateLabel:'Подшипник',candidateReason:'Ручной ввод обозначения; физическую позицию и обслуживание подтвердить в конструкторе',candidateClassifiedAt:now()});
+   if(kind==='chain')Object.assign(c,{candidateState:'candidate',candidateCategory:'chain',candidateEquipmentType:null,candidateConfidence:1,candidateLabel:'Цепь',candidateReason:'Ручной ввод обозначения; контур и обслуживание цепи требуют инженерной проверки',candidateClassifiedAt:now()});
    if(kind==='shaft')Object.assign(c,{candidateState:'review',candidateCategory:null,candidateEquipmentType:'rotating_shaft',candidateEquipmentSubtype:extra.candidateEquipmentSubtype||null,candidateConfidence:1,candidateLabel:'Вал / вращающийся узел',candidateReason:'Конструктивный контекст ручного конвейера',candidateClassifiedAt:now()});
    if(kind==='motor_gearbox')Object.assign(c,{candidateState:'equipment',candidateCategory:null,candidateEquipmentType:'motor_gearbox',candidateConfidence:1,candidateLabel:'Мотор-редуктор',candidateReason:'Приводной агрегат ручного конвейера',candidateClassifiedAt:now()});
    if(kind==='gearbox')Object.assign(c,{candidateState:'equipment',candidateCategory:null,candidateEquipmentType:'gearbox',candidateConfidence:1,candidateLabel:'Редуктор',candidateReason:'Отдельный редуктор привода ручного конвейера',candidateClassifiedAt:now()});
    if(kind==='motor')Object.assign(c,{candidateState:'equipment',candidateCategory:null,candidateEquipmentType:'motor',candidateConfidence:1,candidateLabel:'Электродвигатель',candidateReason:'Отдельный электродвигатель привода ручного конвейера',candidateClassifiedAt:now()});
    return c;
  };
+  const subtype=clean(setup.conveyorSubtype)||equipment.manualConveyorSetup?.conveyorSubtype||'belt';
+  // Compound and multi-roller machines do not inherit the two-shaft, four-support layout.
+  // Only explicitly identified drive / chain assets are allowed; bearings need real TMCs.
+  if(!['belt','chain_scraper'].includes(subtype)){
+    const driveMode=clean(setup.driveMode)||'none';
+    const upsertDrive=(role,value,kind)=>upsert(role,value,kind);
+    if(driveMode==='motor_gearbox'){
+      upsertDrive('drive',clean(setup.driveName),'motor_gearbox');
+      upsertDrive('drive_motor','','motor');upsertDrive('drive_gearbox','','gearbox');
+    }else if(driveMode==='gearbox'){
+      upsertDrive('drive_gearbox',clean(setup.gearboxName),'gearbox');
+      upsertDrive('drive','','motor_gearbox');upsertDrive('drive_motor','','motor');
+    }else if(driveMode==='separate'){
+      upsertDrive('drive_motor',clean(setup.motorName),'motor');
+      upsertDrive('drive_gearbox',clean(setup.gearboxName),'gearbox');
+      upsertDrive('drive','','motor_gearbox');
+    }else{
+      upsertDrive('drive','','motor_gearbox');upsertDrive('drive_motor','','motor');upsertDrive('drive_gearbox','','gearbox');
+    }
+    // A family name does not prove the presence of any lubricated chain or oil cavity.
+    upsert('chain',setup.chainEnabled!==false?clean(setup.chainName):'','chain');
+    const prev=equipment.manualConveyorSetup||{};
+    equipment.manualConveyorSetup={...prev,version:'1.0.33.72',conveyorSubtype:subtype,
+      layout:'ACTUAL_COMPONENTS_ONLY',chainEnabled:setup.chainEnabled!==false,
+      chainName:clean(setup.chainName),driveMode,driveName:clean(setup.driveName),
+      gearboxName:clean(setup.gearboxName),motorName:clean(setup.motorName),
+      updatedAt:now()};
+    return identifyManualComponents(db,equipment);
+  }
  const returnRole=setup.returnShaftRole==='driven'?'driven':'tension';
- const fallback=clean(setup.bearingDesignation);
- const driveLeft=clean(setup.driveLeftBearing)||fallback||'Подшипник приводного вала слева (уточнить)';
- const driveRight=clean(setup.driveRightBearing)||fallback||'Подшипник приводного вала справа (уточнить)';
- const returnLeft=clean(setup.returnLeftBearing)||fallback||`Подшипник ${returnRole==='driven'?'ведомого':'натяжного'} вала слева (уточнить)`;
- const returnRight=clean(setup.returnRightBearing)||fallback||`Подшипник ${returnRole==='driven'?'ведомого':'натяжного'} вала справа (уточнить)`;
+ // A legacy shared bearingDesignation is one type, NOT four installed units.
+ // Per-position source records exist only after individual manual entry.
+ const driveLeft=identified(setup.driveLeftBearing);
+ const driveRight=identified(setup.driveRightBearing);
+ const returnLeft=identified(setup.returnLeftBearing);
+ const returnRight=identified(setup.returnRightBearing);
  upsert('drive_shaft',clean(setup.driveShaftName)||'Вал приводной','shaft',{candidateEquipmentSubtype:'drive'});
  upsert('return_shaft',clean(setup.returnShaftName)||(returnRole==='driven'?'Вал ведомый':'Вал натяжной'),'shaft',{candidateEquipmentSubtype:returnRole});
  upsert('bearing_drive_left',driveLeft,'bearing',{manualConveyorSupport:'drive_left'});
@@ -38,24 +77,143 @@ function ensureManualComponents(db,equipment,setup={}){
  upsert('bearing_return_left',returnLeft,'bearing',{manualConveyorSupport:'return_left'});
  upsert('bearing_return_right',returnRight,'bearing',{manualConveyorSupport:'return_right'});
  const legacy=db.components.find(x=>x.equipmentId===equipment.id&&x.manualConveyorRole==='bearing_ref');if(legacy)legacy.status='retired';
- upsert('chain',setup.chainEnabled===false?'':(clean(setup.chainName)||'Цепь роликовая (обозначение уточнить)'),'chain');
+ upsert('chain',setup.chainEnabled===false?'':identified(setup.chainName),'chain');
  const driveMode=clean(setup.driveMode)||(setup.driveEnabled===false?'none':'motor_gearbox');
- const retireRole=role=>{const c=db.components.find(x=>x.equipmentId===equipment.id&&x.manualConveyorRole===role);if(c)c.status='retired'};
+ const retireRole=role=>retire(db.components.find(x=>x.equipmentId===equipment.id&&x.manualConveyorRole===role));
  if(driveMode==='separate'){
    retireRole('drive');
-   upsert('drive_gearbox',clean(setup.gearboxName)||'Редуктор (обозначение уточнить)','gearbox');
-   upsert('drive_motor',clean(setup.motorName)||'Электродвигатель (обозначение уточнить)','motor');
+   upsert('drive_gearbox',identified(setup.gearboxName),'gearbox');
+   upsert('drive_motor',identified(setup.motorName),'motor');
  }else if(driveMode==='gearbox'){
    retireRole('drive');retireRole('drive_motor');
-   upsert('drive_gearbox',clean(setup.gearboxName)||'Редуктор (обозначение уточнить)','gearbox');
+   upsert('drive_gearbox',identified(setup.gearboxName),'gearbox');
  }else if(driveMode==='none'){
    retireRole('drive');retireRole('drive_gearbox');retireRole('drive_motor');
  }else{
    retireRole('drive_gearbox');retireRole('drive_motor');
-   upsert('drive',clean(setup.driveName)||'Мотор-редуктор (обозначение уточнить)','motor_gearbox');
+   upsert('drive',identified(setup.driveName),'motor_gearbox');
  }
- equipment.manualConveyorSetup={version:'1.0.33.47',conveyorSubtype:clean(setup.conveyorSubtype)||equipment.manualConveyorSetup?.conveyorSubtype||'belt',layout:'TWO_SHAFT_FOUR_SUPPORTS',returnShaftRole:returnRole,driveShaftName:clean(setup.driveShaftName)||'Вал приводной',returnShaftName:clean(setup.returnShaftName)||(returnRole==='driven'?'Вал ведомый':'Вал натяжной'),driveLeftBearing:clean(setup.driveLeftBearing)||fallback,driveRightBearing:clean(setup.driveRightBearing)||fallback,returnLeftBearing:clean(setup.returnLeftBearing)||fallback,returnRightBearing:clean(setup.returnRightBearing)||fallback,chainEnabled:setup.chainEnabled!==false,chainName:clean(setup.chainName),driveMode,driveEnabled:driveMode!=='none',driveName:clean(setup.driveName),gearboxName:clean(setup.gearboxName),motorName:clean(setup.motorName),updatedAt:now()};
+ equipment.manualConveyorSetup={version:'1.0.33.47',conveyorSubtype:clean(setup.conveyorSubtype)||equipment.manualConveyorSetup?.conveyorSubtype||'belt',layout:'TWO_SHAFT_FOUR_SUPPORTS',returnShaftRole:returnRole,driveShaftName:clean(setup.driveShaftName)||'Вал приводной',returnShaftName:clean(setup.returnShaftName)||(returnRole==='driven'?'Вал ведомый':'Вал натяжной'),driveLeftBearing:clean(setup.driveLeftBearing),driveRightBearing:clean(setup.driveRightBearing),returnLeftBearing:clean(setup.returnLeftBearing),returnRightBearing:clean(setup.returnRightBearing),chainEnabled:setup.chainEnabled!==false,chainName:clean(setup.chainName),driveMode,driveEnabled:driveMode!=='none',driveName:clean(setup.driveName),gearboxName:clean(setup.gearboxName),motorName:clean(setup.motorName),updatedAt:now()};
  return identifyManualComponents(db,equipment);
 }
-API.identifyManualComponents=identifyManualComponents;API.ensureManualComponents=ensureManualComponents;
+
+// Stage 5B equipment composition: these are evidence buckets, not lubrication points.
+// Each row is backed by an imported or explicitly entered TMC/equipment identity.
+const SERVICE_FAMILIES=Object.freeze({
+ belt:[['shafts','Приводной и натяжной валы'],['bearings','Физические опоры валов'],['drives','Привод / редуктор'],['chains','Цепи — если реально установлены']],
+ chain_scraper:[['shafts','Фактические валы'],['bearings','Подшипниковые опоры'],['chains','Рабочие цепи скребков'],['drives','Приводы']],
+ roller:[['shafts','Ролики, секции и валы'],['bearings','Обслуживаемые опоры роликов'],['drives','Привод секций'],['chains','Передачи между роликами']],
+ lamella:[['chains','Несущие цепные контуры'],['shafts','Приводные/натяжные валы'],['bearings','Опоры конвейера'],['ancillary','Системы подачи смазки/охлаждения'],['drives','Приводы']],
+ chain:[['chains','Фактические цепные контуры'],['shafts','Валы и механизмы натяжения'],['bearings','Обслуживаемые опоры'],['drives','Приводы']],
+ screw:[['shafts','Шнек и вращающийся вал'],['bearings','Внешние обслуживаемые опоры'],['drives','Редуктор/привод'],['ancillary','Дополнительные системы']],
+ turning:[['shafts','Поворотный механизм / оси'],['bearings','Опоры поворотного узла'],['drives','Привод секций'],['ancillary','Связанные системы']],
+ hybrid:[['shafts','Валы и ролики отдельных секций'],['bearings','Фактические обслуживаемые опоры'],['drives','Независимые приводы секций'],['chains','Цепи передачи']],
+ weighing:[['shafts','Валы и ролики транспортёра'],['bearings','Реальные подшипники'],['drives','Привод'],['ancillary','Весовое оборудование — контекст']],
+ unknown:[['shafts','Распознанные валы/ролики'],['bearings','Фактические подшипники'],['chains','Цепи'],['drives','Приводы'],['ancillary','Вспомогательные системы']]
+});
+function composeEvidence(template){
+ const subtype=template?.conveyorSubtype||template?.evidence?.conveyorSubtype||'unknown';
+ const ev=template?.evidence||{},actual=Array.isArray(ev.actual)?ev.actual:[];
+ const grouped={
+  bearings:actual.filter(x=>['bearing','linear_bearing'].includes(x.category)),
+  chains:actual.filter(x=>x.category==='chain'),
+  other:actual.filter(x=>!['bearing','linear_bearing','chain'].includes(x.category)),
+  shafts:Array.isArray(ev.context)?ev.context:[],
+  drives:Array.isArray(ev.assets)?ev.assets:[],
+  ancillary:Array.isArray(ev.ancillary)?ev.ancillary:[]
+ };
+ const sections=(SERVICE_FAMILIES[subtype]||SERVICE_FAMILIES.unknown).map(([role,label])=>({
+  role,label,items:(grouped[role]||[]).map(x=>({id:x.id,name:x.name,source:x.source,equipmentId:x.equipmentId})),
+  count:(grouped[role]||[]).length,
+  note:(grouped[role]||[]).length?'Найденные элементы требуют подтверждения обслуживания':'Не подтверждено; элементы не создаются'
+ }));
+ if(grouped.other.length)sections.push({role:'other',label:'Другие смазываемые пары — требуют уточнения',
+  items:grouped.other.map(x=>({id:x.id,name:x.name,source:x.source,equipmentId:x.equipmentId})),
+  count:grouped.other.length,note:'Проверить фактическую конструкцию и способ подачи'});
+ return {subtype,sections,actualCount:actual.length,
+  unsupportedGeometry:!['belt','chain_scraper'].includes(subtype),
+  requiresEngineerConfirmation:true,createsPoints:false};
+}
+
+// Stage 5B.7: conservative mechanical-family hint from imported source TMCs.
+// This does NOT classify, approve or create any lubrication point. In particular
+// "rejected" can mean "not a grease point", while the conveyor belt or drum
+// still exists physically as a structural component.
+function suggestSubtypeFromTmc(database,equipment){
+ const cls=global.LubricaClassifier;
+ const identity=cls?.conveyorIdentity?.(equipment?.name,equipment?.equipmentType,equipment);
+ if(identity?.role!=='machine'||identity?.subtype!=='unknown')return null;
+ const all=database?.equipment||[],children=cls?.conveyorDescendants?.(database,equipment)||[];
+ const rootById=new Map(all.map(e=>[e.id,e]));
+ const exclude=/центрифуг|охлаждени|охлажден/i;
+ function ignored(e){
+  let cur=e,depth=0;const visited=new Set();
+  while(cur&&depth++<30&&!visited.has(cur.id)){
+   if(exclude.test(String(cur.name||'').toLowerCase()))return true;
+   visited.add(cur.id);cur=rootById.get(cur.parentEquipmentId);
+  }
+  return false;
+ }
+ if(ignored(equipment))return null;
+ const ids=new Set([equipment.id,...children.filter(ch=>!ignored(ch)).map(ch=>ch.id)]);
+ const components=(database?.components||[]).filter(c=>ids.has(c.equipmentId)&&c.status!=='retired');
+ const norm=v=>String(v||'').toLowerCase().replace(/ё/g,'е').replace(/[–—]/g,'-');
+ const matches=re=>components.filter(c=>re.test(norm(c.name)));
+ const conveyBelt=matches(/(?:^|\s)лента\s+(?:конвейерн|транспортерн)/);
+ const driveDrum=matches(/барабан\s+приводн/);
+ const returnDrum=matches(/барабан\s+(?:натяжн|ведом)/);
+ const screw=matches(/(?:^|\s)шнек(?:\s|$)/);
+ const chains=matches(/(?:^|\s)цепь\s+(?:роликов|тягов|конвейерн|приводн|пластинчат)/);
+ const sprockets=matches(/звездочк|звёздочк/);
+ const rolls=matches(/(?:^|\s)ролик(?:\s|$)|роликоопор/);
+ let subtype=null,reason='',signals=[];
+ if(conveyBelt.length&&(driveDrum.length||returnDrum.length)){
+  subtype='belt';
+  reason='Конвейерная лента и приводной/натяжной барабан указаны в исходных ТМЦ';
+  signals=[conveyBelt[0],driveDrum[0]||returnDrum[0]];
+ }else if(screw.length&&chains.length===0&&conveyBelt.length===0){
+  subtype='screw';
+  reason='В составе машины указан реальный шнек';
+  signals=[screw[0]];
+ }else if(chains.length&&sprockets.length&&conveyBelt.length===0){
+  subtype='chain';
+  reason='Рабочая цепь и звёздочка указаны в исходных ТМЦ';
+  signals=[chains[0],sprockets[0]];
+ }else if(rolls.length>=3&&!conveyBelt.length&&!chains.length){
+  subtype='roller';
+  reason='Несколько отдельных роликов/роликоопор указаны в исходных ТМЦ';
+  signals=rolls.slice(0,3);
+ }
+ if(!subtype)return null;
+ return {subtype,label:cls.conveyorSubtypeLabels?.[subtype]||subtype,
+  reason,sourceComponentIds:signals.map(c=>c.id),sourceExternalCodes:signals.map(c=>c.externalCode||''),
+  evidenceCount:components.length,status:'ENGINEERING_HINT_NOT_CONFIRMED',
+  requiresEngineerConfirmation:true,changesDatabase:false};
+}
+
+API.identifyManualComponents=identifyManualComponents;
+// Two real shafts do not prove four serviceable supports. Only explicitly
+// selected physical locations with matching source TMC and field/OEM evidence
+// can become new lubrication points.
+function validateSelectedSupports(layout,keys,assignments,options={}){
+ const requested=new Set((keys||[]).map(String));
+ const supports=Array.isArray(layout?.supports)?layout.supports:[];
+ const bearings=(layout?.bearings||[]).filter(x=>x.category==='bearing'&&!/(?:уточнить|не\s+указан)/i.test(x.name||'')).map(x=>String(x.id));
+ const knownKeys=new Set(supports.map(x=>String(x.key)));
+ const errors=[];
+ if(!requested.size)return {allowed:true,errors,confirmedKeys:[],sourceReference:''};
+ if(!options.physicalConfirmed)errors.push('Подтвердите фактическое наличие выбранных опор');
+ const sourceReference=String(options.sourceReference||'').trim();
+ if(!sourceReference)errors.push('Укажите источник подтверждения: осмотр, фото или паспорт узла');
+ for(const key of requested){
+  if(!knownKeys.has(key)){errors.push('Неизвестная позиция физической опоры: '+key);continue}
+  const found=assignments?.[key];
+  if(!found?.id||!bearings.includes(String(found.id)))
+   errors.push('Для выбранной опоры '+key+' назначьте существующий подшипниковый ТМЦ');
+ }
+ return {allowed:errors.length===0,errors,confirmedKeys:[...requested].filter(k=>knownKeys.has(k)),sourceReference};
+}
+
+API.suggestSubtypeFromTmc=suggestSubtypeFromTmc;
+API.validateSelectedSupports=validateSelectedSupports;API.ensureManualComponents=ensureManualComponents;API.composeEvidence=composeEvidence;API.SERVICE_FAMILIES=SERVICE_FAMILIES;
 })(window);
