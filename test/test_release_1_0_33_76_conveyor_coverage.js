@@ -21,10 +21,12 @@ const unknown=eq('UNKNOWN','Конвейер отсева каменного м�
 const screw=eq('SCREW','Конвейер шнековый','conveyor',null,'L2');
 const manual=eq('MANUAL','Конвейер ременный RET-11-200xL=925','conveyor',null,'L2');
 manual.origin='manual';
+const extra=eq('IMPORTED-OTHER','Конвейер ленточный запасной','other',null,'L2');
+const motorOfConveyor=eq('NOT-A-CONVEYOR','Мотор-редуктор конвейера','motor_gearbox',null,'L2');
 const centrifuge=eq('CENT','Центрифуга №1','other');
 const centrifugeConveyor=eq('SKIP-CENT','Конвейер у центрифуги','conveyor','CENT');
 const cooling=eq('SKIP-COOL','Система охлаждения конвейера','conveyor');
-const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,centrifuge,
+const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,extra,motorOfConveyor,centrifuge,
  centrifugeConveyor,cooling],
  lines:[{id:'L1',name:'Линия 1'},{id:'L2',name:'Линия 2'}],
  areas:[{id:'A1',name:'Упаковка',lineId:'L1'},{id:'A2',name:'Распиловка',lineId:'L2'}],
@@ -60,14 +62,15 @@ const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,centrifuge,
 const before=JSON.stringify(d);
 const r=A.audit(d);
 assert.equal(r.source,'live_database_read_only');
-assert.equal(r.totalConveyorRecords,10,'counts original conveyor type records');
+assert.equal(r.totalConveyorRecords,11,'10 original conveyor-type records plus one named conveyor imported as other');
+assert.equal(r.extraNamedRecords,1,'other-typed named conveyor must not be missed');
 assert.equal(r.excludedScope,2,'centrifuge descendant and cooling stay out of constructor work');
 assert.equal(r.byRole.group,1);
 assert.equal(r.byRole.ancillary,1);
-assert.equal(r.machineCount,6,'only independent physical machine rows; parent counts separately');
+assert.equal(r.machineCount,7,'physical machines include an explicit conveyor mis-typed other');
 assert.equal(r.bySubtype.turning,1);
 assert.equal(r.bySubtype.roller,1);
-assert.equal(r.bySubtype.belt,2,'belt child plus manual RET belt');
+assert.equal(r.bySubtype.belt,3,'belt child, manual RET and named conveyor typed other');
 assert.equal(r.bySubtype.screw,1);
 assert.equal(r.bySubtype.unknown,1);
 const get=id=>r.rows.find(x=>x.id===id);
@@ -88,6 +91,9 @@ assert.equal(get('BELT').relatedPointCount,1,'ancillary lubrication point counte
 assert.equal(get('BELT').relatedTaskCount,1);
 assert.equal(get('UNKNOWN').status,'SUBTYPE_UNKNOWN');
 assert.equal(get('MANUAL').status,'EVIDENCE_MISSING');
+assert.equal(get('IMPORTED-OTHER').status,'EVIDENCE_MISSING');
+assert.equal(get('IMPORTED-OTHER').importType,'other');
+assert(!get('NOT-A-CONVEYOR'),'a motor-reducer mentioning a conveyor is not a conveyor machine');
 assert.equal(get('SCREW').shaftContextCount,1,'real imported screw appears as context');
 assert.equal(get('SCREW').driveCount,2,'ABB + Bonfiglioli remain independent assets');
 assert(r.rows.every(x=>x.requiresPhysicalConfirmation===true),'names never mark a constructor as complete');
@@ -95,7 +101,7 @@ assert(!get('SKIP-CENT')&&!get('SKIP-COOL'),'no detail or maintenance analysis f
 const csv=A.csv(r);
 assert(csv.includes('EXT-ROLLER')&&csv.includes('EXT-TURN'));
 assert(!csv.includes('SKIP-CENT')&&!csv.includes('SKIP-COOL'));
-assert(csv.startsWith('"Оборудование ID";"Код";'));
+assert(csv.startsWith('"Оборудование ID";"Код";"Исходный тип";'));
 assert.equal(csv.split('\n').length,r.machineCount+1);
 assert.equal(JSON.stringify(d),before,'entire existing database, approval, routes, plan and facts untouched');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
