@@ -62,8 +62,23 @@ function audit(database){
   const relatedTasks=relatedPoints.flatMap(p=>tasksByPoint.get(String(p.id))||[]);
   const directPoints=pointsByOwner.get(eq.id)||[];
   const ownComponents=byOwner.get(eq.id)||[];
-  const linkedComponents=new Set(relatedPoints.map(p=>p?.componentBinding?.sourceComponentId).filter(Boolean));
-  const unlinked=ev.actual.filter(x=>x.source==='component'&&!linkedComponents.has(x.id));
+  // Sources from old candidate constructors are traceable through originKey,
+  // even before ComponentBinding populated sourceComponentId. Each source
+  // must match a concrete component ID: a designation/name is insufficient.
+  const linkedComponents=new Set();
+  const relatedPointIds=new Set(relatedPoints.map(p=>String(p.id)));
+  for(const p of relatedPoints){
+   if(p?.componentBinding?.sourceComponentId)linkedComponents.add(String(p.componentBinding.sourceComponentId));
+   if(p?.installedComponent?.id)linkedComponents.add(String(p.installedComponent.id));
+   const origin=String(p.candidateOriginKey||'').match(/^component:([^:]+):/);
+   if(origin)linkedComponents.add(origin[1]);
+  }
+  for(const c of components){
+   if(!ownedIds.has(c.equipmentId))continue;
+   if((c.candidateCreatedPointIds||[]).some(id=>relatedPointIds.has(String(id))))
+    linkedComponents.add(String(c.id));
+  }
+  const unlinked=ev.actual.filter(x=>x.source==='component'&&!linkedComponents.has(String(x.id)));
   const configured=!!(eq.confirmedConveyorSubtype||eq.conveyorArrangement?.confirmedAt);
   const assembly=ev.assembly?.children||[];
   let status='SOURCE_REVIEW',next='Подтвердить физические места и обслуживание ТМЦ';
@@ -84,7 +99,7 @@ function audit(database){
    ownComponentCount:ownComponents.filter(x=>x.status!=='retired').length,
    actualCount:ev.actual.length,shaftContextCount:ev.context.length,driveCount:ev.assets.length,
    ancillaryCount:ev.ancillary.length,excludedCount:ev.excluded.length,
-   unlinkedCandidateCount:unlinked.length,ownPointCount:directPoints.length,
+   unlinkedCandidateCount:unlinked.length,unlinkedSourceComponentIds:unlinked.map(x=>x.id),ownPointCount:directPoints.length,
    relatedPointCount:relatedPoints.length,relatedTaskCount:relatedTasks.length,
    childConveyorCount:assembly.length,childIds:assembly.map(ch=>ch.id),
    supportLayoutProposed:!!ev.supportLayout,
