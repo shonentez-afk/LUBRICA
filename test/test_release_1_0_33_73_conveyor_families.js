@@ -562,4 +562,36 @@ assert.equal(C.classifyComponentText('Подшипник BS2-2208-2CS/VT143').ca
 assert.equal(JSON.stringify(hybridDb),hybridRaw,'read-only hybrid engineering review');
 assert.equal(hybridDb.lubricationPoints.length,0,'no invented lubrication point from preview');
 
+
+// Stage 5B.7: no guessed oil operation on ANY conveyor gearbox, including
+// fully identified two-shaft belts. Child gearbox has independent point owner.
+const beltGear=equipment('BELT-GEAR','Конвейер ленточный приемный');
+const childGear={...equipment('CHILD-GEAR','Редуктор Bonfiglioli C513/P','BELT-GEAR'),equipmentType:'gearbox'};
+const gearDb={equipment:[beltGear,childGear],components:[
+ component('G-SHAFT1','BELT-GEAR','Вал приводной',null,'rotating_shaft'),
+ component('G-SHAFT2','BELT-GEAR','Вал натяжной',null,'rotating_shaft'),
+ component('G-BEAR1','BELT-GEAR','Подшипник UCP 210','bearing'),
+ component('G-GEAR','BELT-GEAR','Редуктор C513/P 1:93,0 B3 PAM 90',null,'gearbox'),
+ component('G-MOTOR','BELT-GEAR','Электродвигатель M2AA 90L4 B5',null,'motor')
+],lubricationPoints:[],tasks:[],routes:[],checklistRuns:[],routePlanItems:[],nodes:[]};
+const gearRaw=JSON.stringify(gearDb);
+const gearTemplate=C.classifyEquipment(gearDb,beltGear);
+assert(gearTemplate.maintenanceTemplate.evidence.supportLayout,
+ 'named 2 shaft belt exposes engineer support-assignment UI');
+assert(gearTemplate.maintenanceTemplate.evidence.assets.some(x=>x.source==='equipment'&&x.id==='CHILD-GEAR'),
+ 'child gearbox remains discoverable as independent equipment');
+const gProposals=F.specsFor(gearTemplate,'equipment').filter(x=>x.category==='gearbox_oil');
+assert.equal(gProposals.length,1,'only parent component gearbox oil proposal; child owns its separate service');
+assert.equal(gProposals[0].sourceRef.id,'G-GEAR');
+assert.equal(gProposals[0].selected,false,'unverified gearbox never auto-selected');
+assert.equal(gProposals[0].position,'','no guessed physical oil filling/level port');
+assert.equal(gProposals[0].activities.length,0,'no default oil check or oil change before OEM');
+assert.equal(gProposals[0].requiresOemVerification,true);
+const hybridOil=hybridProposals.filter(x=>x.category==='gearbox_oil');
+assert.equal(hybridOil.length,2,'each of two separate hybrid gearboxes is a proposal');
+assert(hybridOil.every(x=>!x.selected&&!x.position&&x.activities.length===0&&x.requiresOemVerification));
+assert.equal(JSON.stringify(gearDb),gearRaw,'belt gearbox preview must be read-only');
+// A name containing "conveyor" does not authorize a new oil service task.
+assert.equal(gProposals[0].serviceLocationName,'Редуктор');
+
 console.log('PASS Stage 5B conveyor families: 13 real naming examples, groups, nested lube, layouts, manual, physical specs, guards');
