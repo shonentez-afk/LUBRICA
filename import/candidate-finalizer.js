@@ -203,14 +203,17 @@ function specsFor(record,source){
       specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'other',layout&&a.category==='chain'?'Цепной привод':'',null,autoSelected,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
     }
     for(const a of assets.filter(x=>['gearbox','motor_gearbox'].includes(x.equipmentType))){
+      // A separate child gearbox/motor-reducer owns its service record: it
+      // must not be duplicated on the parent conveyor, even with 2 shafts.
+      if(a.source==='equipment')continue;
       const location=a.equipmentType==='gearbox'?'Редуктор':'Мотор-редуктор';
-      if(!layout&&a.source==='equipment')continue; // Child gearbox has its own maintenance record.
-      const pendingOEM=template.conveyorSubtype==='screw'; // OEM lubrication method not proven by a gearbox name.
-      const proposal=spec(`conveyor_asset_${a.source}_${a.id}`,location,'gearbox_oil',pendingOEM?'':'Привод',
-        pendingOEM?null:['Проверка уровня','Замена масла'],!!layout&&!pendingOEM,
+      // Equipment designation alone proves neither an oil bath nor oil volume,
+      // service operations, physical plugs, interval or mounting position.
+      // Every conveyor gearbox proposal requires an explicit OEM review.
+      const proposal=spec(`conveyor_asset_${a.source}_${a.id}`,location,'gearbox_oil','',null,false,
         {actual:true,conveyorEvidence:true,conveyorAsset:true,serviceLocationName:location,
-          sourceRef:a,requiresOemVerification:pendingOEM});
-      if(pendingOEM)proposal.activities=[]; // Nothing pre-approved before gearbox/OEM and mounting-position check.
+          sourceRef:a,requiresOemVerification:true});
+      proposal.activities=[];
       specs.push(proposal);
     }
     return specs;
