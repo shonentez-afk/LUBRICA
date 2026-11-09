@@ -110,4 +110,5 @@ echo '[99/99] Release 1.0.5 internal guide actual screenshots'; python3 test/tes
 echo '[CONVEYOR FAMILIES STAGE 5B]'; node test/test_release_1_0_33_73_conveyor_families.js
 node test/test_release_1_0_33_74_conveyor_header.js
 node test/test_release_1_0_33_75_composite_conveyor_ui.js
+echo '[CONVEYOR COVERAGE STAGE 5B.6]'; node test/test_release_1_0_33_76_conveyor_coverage.js
 echo 'ALL INTEGRATION TESTS PASS'
