@@ -149,7 +149,7 @@ function suggestSubtypeFromTmc(database,equipment){
  const components=(database?.components||[]).filter(c=>ids.has(c.equipmentId)&&c.status!=='retired');
  const norm=v=>String(v||'').toLowerCase().replace(/ё/g,'е').replace(/[–—]/g,'-');
  const matches=re=>components.filter(c=>re.test(norm(c.name)));
- const conveyBelt=matches(/\bлента\s+(?:конвейерн|транспортерн)/);
+ const conveyBelt=matches(/(?:^|\s)лента\s+(?:конвейерн|транспортерн)/);
  const driveDrum=matches(/барабан\s+приводн/);
  const returnDrum=matches(/барабан\s+(?:натяжн|ведом)/);
  const screw=matches(/(?:^|\s)шнек(?:\s|$)/);
