@@ -303,6 +303,8 @@ function conveyorSupportAssignmentPanel(template){
 function conveyorSubtypePanel(template){
  if(template?.id!=='conveyor_arrangement')return'';
  const labels=global.LubricaClassifier?.conveyorSubtypeLabels||{},current=template.conveyorSubtype||'unknown';
+ const hint=current==='unknown'?template.subtypeSuggestion:null;
+ const hintHtml=hint?.subtype?'<div class="wizard-note"><b>Подсказка по фактическим ТМЦ: '+esc(hint.label)+'</b><span>'+esc(hint.reason)+'. Источники: '+esc((hint.sourceExternalCodes||[]).filter(Boolean).join(', ')||'см. структуру')+'. Тип не подтверждён — инженер должен выбрать его вручную.</span></div>':'';
  const opts=Object.entries(labels).map(([k,v])=>'<option value="'+esc(k)+'" '+(current===k?'selected':'')+'>'+esc(v)+'</option>').join('');
  const guidance={
   belt:'Проверьте фактические валы, подшипники и привод. Ремень сам не является точкой смазки.',
@@ -318,7 +320,7 @@ function conveyorSubtypePanel(template){
  };
  return '<div class="wizard-note"><b>Конструкция конвейера — подтверждение</b><span>Смена варианта перестроит предпросмотр. Пока не нажато «Сохранить», структура не меняется.</span>'+
   '<label style="display:block;margin-top:8px">Фактический тип<select name="conveyorSubtypeChoice">'+opts+'</select></label>'+
-  '<small>'+esc(guidance[current]||guidance.unknown)+'</small></div>';
+  '<small>'+esc(guidance[current]||guidance.unknown)+'</small></div>'+hintHtml;
 }
 function conveyorAssemblyPanel(template){
  if(template?.id!=='conveyor_arrangement')return'';
@@ -390,6 +392,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     }
     const ev=global.LubricaClassifier?.conveyorEvidence?.(database,previewEquipment);
     if(ev){
+      const subtypeSuggestion=global.LubricaConveyorArrangement?.suggestSubtypeFromTmc?.(database,previewEquipment)||null;
       const bits=[];
       if(ev.supportLayout?.supports?.length===4)bits.push('два подтверждённых вала: 4 места для проверки подшипников');
       if(ev.byCategory?.bearing)bits.push('подшипники: '+ev.byCategory.bearing);
@@ -398,7 +401,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       const subtype=identity?.subtype||'unknown',title=identity?.label||'Конвейер: подтвердите конструкцию';
       previewRecord={...record,maintenanceEquipmentType:'conveyor',maintenanceEquipmentSubtype:subtype,maintenanceLabel:title,
         maintenanceTemplate:{...(record.maintenanceTemplate||{}),id:'conveyor_arrangement',title,
-          conveyorSubtype:subtype,requiresEngineerConfirmation:true,evidence:ev,
+          conveyorSubtype:subtype,requiresEngineerConfirmation:true,evidence:ev,subtypeSuggestion,
           mode:ev.assembly?'composite':ev.count||ev.assets?.length?'use_actual':'needs_components',
           summary:ev.assembly?'Составной конвейер: '+ev.assembly.childCount+' самостоятельных механизма. Операции подтверждаются в дочерних конструкторах.':bits.length?'Фактически найдено: '+bits.join(' · '):'Обслуживаемые ТМЦ не найдены — точки не создаются.',
           note:ev.supportLayout?'Укажите физические подшипники для каждого места двухвального механизма.':'Не определена двухвальная схема: доступны только реальные ТМЦ и подтверждённые места обслуживания.'}};
