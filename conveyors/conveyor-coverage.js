@@ -25,14 +25,15 @@ function audit(database){
   areas=new Map((d.areas||[]).map(x=>[String(x.id),x])),
   byId=new Map(equipment.map(x=>[x.id,x])),
   byPointId=new Map(points.map(x=>[String(x.id),x]));
- const byOwner=new Map(),pointsByOwner=new Map(),tasksByOwner=new Map();
+ const byOwner=new Map(),pointsByOwner=new Map(),tasksByPoint=new Map();
  for(const c of components){if(!byOwner.has(c.equipmentId))byOwner.set(c.equipmentId,[]);byOwner.get(c.equipmentId).push(c)}
  for(const p of points){if(!pointsByOwner.has(p.equipmentId))pointsByOwner.set(p.equipmentId,[]);pointsByOwner.get(p.equipmentId).push(p)}
  for(const t of tasks){
   const p=byPointId.get(String(t.lubricationPointId));
   if(!p)continue;
-  if(!tasksByOwner.has(p.equipmentId))tasksByOwner.set(p.equipmentId,[]);
-  tasksByOwner.get(p.equipmentId).push(t);
+  const pointKey=String(p.id);
+  if(!tasksByPoint.has(pointKey))tasksByPoint.set(pointKey,[]);
+  tasksByPoint.get(pointKey).push(t);
  }
  const rows=[],bySubtype={},byRole={group:0,ancillary:0,machine:0},byStatus={};
  let excludedScope=0,totalConveyorRecords=0;
@@ -50,7 +51,7 @@ function audit(database){
   const descendants=C.conveyorDescendants?.(d,eq)||[];
   const ownedIds=new Set([eq.id,...descendants.map(x=>x.id)]);
   const relatedPoints=points.filter(p=>ownedIds.has(p.equipmentId));
-  const relatedTasks=relatedPoints.flatMap(p=>tasksByOwner.get(p.equipmentId)||[]);
+  const relatedTasks=relatedPoints.flatMap(p=>tasksByPoint.get(String(p.id))||[]);
   const directPoints=pointsByOwner.get(eq.id)||[];
   const ownComponents=byOwner.get(eq.id)||[];
   const linkedComponents=new Set(relatedPoints.map(p=>p?.componentBinding?.sourceComponentId).filter(Boolean));
