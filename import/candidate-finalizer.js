@@ -635,13 +635,15 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         version:'1.0.33.72',
         subtype:previewRecord.maintenanceEquipmentSubtype||'unknown',
         confirmedAt:new Date().toISOString(),
-        layout:ev.supportLayout?{...ev.supportLayout,shaftRolesNeedConfirmation:false,shafts:ev.supportLayout.shaftRolesNeedConfirmation?[{...(shaftAssignments.drive||{}),role:'drive',label:'Приводной вал'},{...(shaftAssignments.return||{}),role:'return',label:'Натяжной / ведомый вал'}]:(ev.supportLayout.shafts||[]),supports:(ev.supportLayout.supports||[]).map(s=>({...s,shaftId:ev.supportLayout.shaftRolesNeedConfirmation?(s.shaftRole==='drive'?shaftAssignments.drive?.id:shaftAssignments.return?.id):s.shaftId,bearingRef:selectedSupportKeys.includes(s.key)?supportAssignments[s.key]||null:null,suggestedBearingRef:null,assignmentStatus:selectedSupportKeys.includes(s.key)?'confirmed_engineer':'not_confirmed'}))}:null,
+        layout:ev.supportLayout?{...ev.supportLayout,shaftRolesNeedConfirmation:selectedSupportKeys.length?false:ev.supportLayout.shaftRolesNeedConfirmation,shafts:selectedSupportKeys.length&&ev.supportLayout.shaftRolesNeedConfirmation?[{...(shaftAssignments.drive||{}),role:'drive',label:'Приводной вал'},{...(shaftAssignments.return||{}),role:'return',label:'Натяжной / ведомый вал'}]:(ev.supportLayout.shafts||[]),supports:(ev.supportLayout.supports||[]).map(s=>({...s,shaftId:ev.supportLayout.shaftRolesNeedConfirmation?(s.shaftRole==='drive'?shaftAssignments.drive?.id:shaftAssignments.return?.id):s.shaftId,bearingRef:selectedSupportKeys.includes(s.key)?supportAssignments[s.key]||null:null,suggestedBearingRef:null,assignmentStatus:selectedSupportKeys.includes(s.key)?'confirmed_engineer':'not_confirmed'}))}:null,
         createdPointIds:applied.createdPointIds,
         supportVerification:selectedSupportKeys.length?{physicalConfirmed:true,sourceReference:supportSource,
           confirmedSupportKeys:selectedSupportKeys.slice(),confirmedAt:new Date().toISOString()}:null,
         source:'engineer_confirmed_constructor'
       };
-      if(ev.supportLayout)for(const ctx of (ev.context||[])){
+      // Shaft TMCs do not become engineer-confirmed merely because a chain
+      // or a gearbox was selected. Require the supported physical mapping.
+      if(ev.supportLayout&&selectedSupportKeys.length)for(const ctx of (ev.context||[])){
         if(ctx.source!=='component')continue;
         const c=(targetDatabase.components||[]).find(x=>x.id===ctx.id);
         if(!c)continue;
