@@ -17,6 +17,7 @@ const turn=eq('TURN','Конвейер поворотный поз. 111');
 const roller=eq('ROLLER','Конвейер роликовый SPZ1600xL=5500','conveyor','TURN');
 const belt=eq('BELT','Конвейер ленточный вертикальный PTM800xL=4650','conveyor','TURN');
 const lube=eq('LUBE','Система смазки цепей конвейера ленточного','conveyor','BELT');
+const nestedCooling=eq('SKIP-NESTED-COOL','Система охлаждения привода конвейера','conveyor','BELT');
 const unknown=eq('UNKNOWN','Конвейер отсева каменного материала','conveyor',null,'L2');
 const screw=eq('SCREW','Конвейер шнековый','conveyor',null,'L2');
 const manual=eq('MANUAL','Конвейер ременный RET-11-200xL=925','conveyor',null,'L2');
@@ -27,7 +28,7 @@ const centrifuge=eq('CENT','Центрифуга №1','other');
 const centrifugeConveyor=eq('SKIP-CENT','Конвейер у центрифуги','conveyor','CENT');
 const cooling=eq('SKIP-COOL','Система охлаждения конвейера','conveyor');
 const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,extra,motorOfConveyor,centrifuge,
- centrifugeConveyor,cooling],
+ centrifugeConveyor,cooling,nestedCooling],
  lines:[{id:'L1',name:'Линия 1'},{id:'L2',name:'Линия 2'}],
  areas:[{id:'A1',name:'Упаковка',lineId:'L1'},{id:'A2',name:'Распиловка',lineId:'L2'}],
  components:[
@@ -48,18 +49,21 @@ const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,extra,motor
   comp('S-MOTOR','SCREW','Электродвигатель M2AA 90L4 B5',null,'motor'),
   comp('S-GEAR','SCREW','Редуктор C513/P 1:93,0 B3 PAM 90',null,'gearbox'),
   comp('CENT-C','SKIP-CENT','Подшипник 22212','bearing'),
-  comp('COOL-C','SKIP-COOL','Насос охлаждения','oil_system')
+  comp('COOL-C','SKIP-COOL','Насос охлаждения','oil_system'),
+  comp('N-COOL-BEAR','SKIP-NESTED-COOL','Подшипник 22218','bearing')
  ],
  lubricationPoints:[
   {id:'P-R1',equipmentId:'ROLLER',componentBinding:{sourceComponentId:'R-SY'}},
   {id:'P-R2',equipmentId:'ROLLER',candidateOriginKey:'component:R-LEGACY:bearing_left'},
-  {id:'P-A1',equipmentId:'LUBE',componentBinding:{sourceComponentId:'A-CHAIN'}}
+  {id:'P-A1',equipmentId:'LUBE',componentBinding:{sourceComponentId:'A-CHAIN'}},
+  {id:'P-NCOOL',equipmentId:'SKIP-NESTED-COOL',componentBinding:{sourceComponentId:'N-COOL-BEAR'}}
  ],
  tasks:[
   {id:'T1',lubricationPointId:'P-R1',approvalStatus:'review'},
   {id:'T2',lubricationPointId:'P-R1',approvalStatus:'approved'},
   {id:'T3',lubricationPointId:'P-R2',approvalStatus:'review'},
-  {id:'T4',lubricationPointId:'P-A1',approvalStatus:'review'}
+  {id:'T4',lubricationPointId:'P-A1',approvalStatus:'review'},
+  {id:'T-COOL',lubricationPointId:'P-NCOOL',approvalStatus:'approved'}
  ],
  routes:[{id:'ROUTE-HIST',taskIds:['T2']}],
  routePlanItems:[{id:'PLAN-HIST',routeId:'ROUTE-HIST'}],
@@ -68,9 +72,9 @@ const d={equipment:[group,turn,roller,belt,lube,unknown,screw,manual,extra,motor
 const before=JSON.stringify(d);
 const r=A.audit(d);
 assert.equal(r.source,'live_database_read_only');
-assert.equal(r.totalConveyorRecords,11,'10 original conveyor-type records plus one named conveyor imported as other');
+assert.equal(r.totalConveyorRecords,12,'11 conveyor-type records and one named conveyor imported as other');
 assert.equal(r.extraNamedRecords,1,'other-typed named conveyor must not be missed');
-assert.equal(r.excludedScope,2,'centrifuge descendant and cooling stay out of constructor work');
+assert.equal(r.excludedScope,3,'centrifuge descendant and independent/nested cooling stay out of scope');
 assert.equal(r.byRole.group,1);
 assert.equal(r.byRole.ancillary,1);
 assert.equal(r.machineCount,7,'physical machines include an explicit conveyor mis-typed other');
@@ -95,6 +99,17 @@ assert.equal(get('BELT').excludedCount,1,'6005-2RS1 not a grease proposal');
 assert.equal(get('BELT').ownPointCount,0,'no accidental transfer of ancillary source ownership');
 assert.equal(get('BELT').relatedPointCount,1,'ancillary lubrication point counted on belt scope only');
 assert.equal(get('BELT').relatedTaskCount,1);
+assert(!get('SKIP-NESTED-COOL'),'nested cooling cannot become a conveyor entry');
+const physicallyScoped=win.LubricaClassifier.conveyorEvidence(d,belt);
+assert(physicallyScoped.ancillary.some(c=>c.id==='SKIP-NESTED-COOL'),
+ 'cooling may remain an inert structural label');
+assert(!physicallyScoped.actual.some(c=>c.id==='N-COOL-BEAR'),
+ 'cooling lubrication TMC cannot leak into parent conveyor constructor');
+assert(physicallyScoped.byCategory.bearing===1,
+ 'only the conveyor YAR bearing may be proposed, not cooling bearing');
+assert(!physicallyScoped.assets.some(c=>c.id==='SKIP-NESTED-COOL'),
+ 'cooling cannot be a drive/oil proposal');
+assert.equal(win.LubricaClassifier.conveyorOutOfScopeAncestor(d,nestedCooling),true);
 assert.equal(get('UNKNOWN').status,'SUBTYPE_UNKNOWN');
 assert.equal(get('UNKNOWN').subtype,'unknown','TMC hint cannot silently change type');
 assert.equal(get('UNKNOWN').subtypeSuggestion?.subtype,'belt','physical belt + drums yield a review-only hint');
@@ -109,10 +124,11 @@ assert(!get('NOT-A-CONVEYOR'),'a motor-reducer mentioning a conveyor is not a co
 assert.equal(get('SCREW').shaftContextCount,1,'real imported screw appears as context');
 assert.equal(get('SCREW').driveCount,2,'ABB + Bonfiglioli remain independent assets');
 assert(r.rows.every(x=>x.requiresPhysicalConfirmation===true),'names never mark a constructor as complete');
-assert(!get('SKIP-CENT')&&!get('SKIP-COOL'),'no detail or maintenance analysis for excluded systems');
+assert(!get('SKIP-CENT')&&!get('SKIP-COOL')&&!get('SKIP-NESTED-COOL'),
+ 'no mechanical or lubrication analysis for excluded systems');
 const csv=A.csv(r);
 assert(csv.includes('EXT-ROLLER')&&csv.includes('EXT-TURN'));
-assert(!csv.includes('SKIP-CENT')&&!csv.includes('SKIP-COOL'));
+assert(!csv.includes('SKIP-CENT')&&!csv.includes('SKIP-COOL')&&!csv.includes('SKIP-NESTED-COOL'));
 assert(csv.startsWith('"Оборудование ID";"Код";"Исходный тип";'));
 assert(csv.includes('U-BELT')&&csv.includes('Ленточный / ременный конвейер'), 'CSV carries evidence hint but no automatic classification');
 assert.equal(csv.split('\n').length,r.machineCount+1);

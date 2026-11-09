@@ -58,7 +58,7 @@ function audit(database){
   const ev=C.conveyorEvidence(d,eq);
   const subtypeSuggestion=identity.subtype==='unknown'?global.LubricaConveyorArrangement?.suggestSubtypeFromTmc?.(d,eq)||null:null;
   const descendants=C.conveyorDescendants?.(d,eq)||[];
-  const ownedIds=new Set([eq.id,...descendants.map(x=>x.id)]);
+  const ownedIds=new Set([eq.id,...descendants.filter(x=>!outOfScope(x,byId)).map(x=>x.id)]);
   const relatedPoints=points.filter(p=>ownedIds.has(p.equipmentId));
   const relatedTasks=relatedPoints.flatMap(p=>tasksByPoint.get(String(p.id))||[]);
   const directPoints=pointsByOwner.get(eq.id)||[];
