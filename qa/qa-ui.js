@@ -159,6 +159,7 @@ function installConveyorCoverage(host,coverage,redraw){
  const rows=coverage.rows.filter(x=>(line==='all'||x.lineId===line)&&(
   filter==='all'||
   (filter==='unknown'&&x.status==='SUBTYPE_UNKNOWN')||
+  (filter==='suggested'&&!!x.subtypeSuggestion)||
   (filter==='empty'&&x.status==='EVIDENCE_MISSING')||
   (filter==='no_points'&&x.relatedPointCount===0&&x.actualCount>0)||
   (filter==='with_points'&&x.relatedPointCount>0)||
@@ -181,13 +182,14 @@ function installConveyorCoverage(host,coverage,redraw){
     ' · смазочных ТМЦ: '+x.actualCount+' · контекст/валы: '+x.shaftContextCount+
     ' · приводы: '+x.driveCount+' · связанные физические точки: '+x.relatedPointCount+
     (x.childConveyorCount?' · дочерних машин: '+x.childConveyorCount:'')+'</small>'+
+  (x.subtypeSuggestion?'<small>Подсказка по ТМЦ (тип не подтверждён): '+esc(x.subtypeSuggestion.label)+' · '+esc(x.subtypeSuggestion.reason)+'</small>':'')+
   '<small>'+esc(x.next)+'</small></div>'+
   '<button type="button" class="mini-btn" data-qa-open-equipment="'+esc(x.id)+'">Открыть</button></article>'
  ).join('');
  const markup='<details class="qa-conveyor-coverage qa-method" data-qa-conveyor-details'+
   (host.dataset.qaConveyorExpanded==='1'?' open':'')+'>'+
   '<summary><b>Покрытие конструкторов конвейеров</b> · '+coverage.machineCount+
-   ' агрегатов · '+coverage.unknownSubtype+' с неопределённым типом</summary>'+
+   ' агрегатов · '+coverage.unknownSubtype+' с неопределённым типом · '+coverage.withSubtypeSuggestion+' подсказок по ТМЦ</summary>'+
   '<p>Это очередь инженерного разбора, <b>не процент готовности</b>. Тип по названию, наличие ТМЦ и созданная точка ещё не подтверждают полноту конструкции. '+
     'Конвейеры с импортированным типом «other»: '+coverage.extraNamedRecords+' · группы: '+coverage.byRole.group+' · вспомогательные: '+coverage.byRole.ancillary+
     ' · вне текущего объёма (центрифуги/охлаждение): '+coverage.excludedScope+'.</p>'+
@@ -196,7 +198,8 @@ function installConveyorCoverage(host,coverage,redraw){
      coverage.lines.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('')+
     '</select></label><label><span>Состояние</span><select data-qa-conveyor-filter>'+
      '<option value="all">Все агрегаты</option>'+
-     '<option value="unknown">Тип неизвестен</option>'+
+     '<option value="unknown">Тип неизвестен</option>'+ 
+     '<option value="suggested">Есть подсказка по ТМЦ</option>'+
      '<option value="empty">Нет фактических ТМЦ</option>'+
      '<option value="no_points">ТМЦ есть, точки отсутствуют</option>'+
      '<option value="with_points">Есть точки — проверить полноту</option>'+
