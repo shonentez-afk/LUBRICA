@@ -494,7 +494,9 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     const chosen=[];
     const supportAssignments={};
     const shaftAssignments={drive:null,return:null};
-    if(template?.id==='conveyor_arrangement'&&template?.evidence?.supportLayout?.supports?.length===4){
+    const selectedSupportKeys=specs.filter((x,i)=>x.physicalSupport&&form.elements[`use_${i}`]?.checked).map(x=>x.supportKey);
+    const supportSource=String(form.elements['conveyor_support_source']?.value||'').trim();
+    if(template?.id==='conveyor_arrangement'&&template?.evidence?.supportLayout?.supports?.length===4&&selectedSupportKeys.length){
       const layout=template.evidence.supportLayout;
       if(layout.shaftRolesNeedConfirmation&&layout.shaftCandidates?.length>=2){
         const driveId=form.elements['shaft_assign_drive']?.value||'';
@@ -512,10 +514,13 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         const el=form.elements[`bearing_assign_${support.key}`];
         supportAssignments[support.key]=el?.value?bearingPool.find(x=>String(x.id)===String(el.value))||null:null;
       }
-      const missing=template.evidence.supportLayout.supports.filter(x=>!supportAssignments[x.key]);
-      if(missing.length){
-        global.LubricaApp?.showToast(`Укажите подшипниковый узел для всех 4 опор. Не определено: ${missing.map(x=>x.position).join(', ')}`,'warn');
-        form.elements[`bearing_assign_${missing[0].key}`]?.focus();
+      const review=global.LubricaConveyorArrangement?.validateSelectedSupports?.(
+        layout,selectedSupportKeys,supportAssignments,{
+         physicalConfirmed:!!form.elements['conveyor_support_confirm']?.checked,
+         sourceReference:supportSource
+        });
+      if(!review?.allowed){
+        global.LubricaApp?.showToast(review?.errors?.join(' · ')||'Подтвердите реальные обслуживаемые опоры','warn');
         return;
       }
     }
@@ -544,7 +549,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         activities
       });
     }
-    if(source==='equipment'&&template?.id==='conveyor_arrangement'&&!specs.length){
+    if(source==='equipment'&&template?.id==='conveyor_arrangement'&&!chosen.length){
       // Engineer can persist the physical family classification without inventing points.
       // No task/route/fact is touched, and the machine remains in review.
       if((database.lubricationPoints||[]).some(p=>p.equipmentId===equipment.id)){
@@ -578,7 +583,7 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       return;
     }
     // Stage 5B: a non-two-shaft conveyor must have a named actual service location.
-    if(template?.id==='conveyor_arrangement'&&!template.evidence?.supportLayout){
+    if(template?.id==='conveyor_arrangement'){
       if(chosen.some(x=>!String(x.position||'').trim())){
         global.LubricaApp?.showToast('Для каждой выбранной точки конвейера укажите физическое место обслуживания.','warn');
         return;
@@ -630,8 +635,10 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         version:'1.0.33.72',
         subtype:previewRecord.maintenanceEquipmentSubtype||'unknown',
         confirmedAt:new Date().toISOString(),
-        layout:ev.supportLayout?{...ev.supportLayout,shaftRolesNeedConfirmation:false,shafts:ev.supportLayout.shaftRolesNeedConfirmation?[{...(shaftAssignments.drive||{}),role:'drive',label:'Приводной вал'},{...(shaftAssignments.return||{}),role:'return',label:'Натяжной / ведомый вал'}]:(ev.supportLayout.shafts||[]),supports:(ev.supportLayout.supports||[]).map(s=>({...s,shaftId:ev.supportLayout.shaftRolesNeedConfirmation?(s.shaftRole==='drive'?shaftAssignments.drive?.id:shaftAssignments.return?.id):s.shaftId,bearingRef:supportAssignments[s.key]||s.bearingRef||null,suggestedBearingRef:null,assignmentStatus:supportAssignments[s.key]?'confirmed_engineer':s.assignmentStatus}))}:null,
+        layout:ev.supportLayout?{...ev.supportLayout,shaftRolesNeedConfirmation:false,shafts:ev.supportLayout.shaftRolesNeedConfirmation?[{...(shaftAssignments.drive||{}),role:'drive',label:'Приводной вал'},{...(shaftAssignments.return||{}),role:'return',label:'Натяжной / ведомый вал'}]:(ev.supportLayout.shafts||[]),supports:(ev.supportLayout.supports||[]).map(s=>({...s,shaftId:ev.supportLayout.shaftRolesNeedConfirmation?(s.shaftRole==='drive'?shaftAssignments.drive?.id:shaftAssignments.return?.id):s.shaftId,bearingRef:selectedSupportKeys.includes(s.key)?supportAssignments[s.key]||null:null,suggestedBearingRef:null,assignmentStatus:selectedSupportKeys.includes(s.key)?'confirmed_engineer':'not_confirmed'}))}:null,
         createdPointIds:applied.createdPointIds,
+        supportVerification:selectedSupportKeys.length?{physicalConfirmed:true,sourceReference:supportSource,
+          confirmedSupportKeys:selectedSupportKeys.slice(),confirmedAt:new Date().toISOString()}:null,
         source:'engineer_confirmed_constructor'
       };
       if(ev.supportLayout)for(const ctx of (ev.context||[])){
