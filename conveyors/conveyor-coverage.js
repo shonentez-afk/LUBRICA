@@ -31,7 +31,8 @@ function audit(database){
   lines=new Map((d.lines||[]).map(x=>[String(x.id),x])),
   areas=new Map((d.areas||[]).map(x=>[String(x.id),x])),
   byId=new Map(equipment.map(x=>[x.id,x])),
-  byPointId=new Map(points.map(x=>[String(x.id),x]));
+  byPointId=new Map(points.map(x=>[String(x.id),x])),
+  byComponentId=new Map(components.map(x=>[String(x.id),x]));
  const byOwner=new Map(),pointsByOwner=new Map(),tasksByPoint=new Map();
  for(const c of components){if(!byOwner.has(c.equipmentId))byOwner.set(c.equipmentId,[]);byOwner.get(c.equipmentId).push(c)}
  for(const p of points){if(!pointsByOwner.has(p.equipmentId))pointsByOwner.set(p.equipmentId,[]);pointsByOwner.get(p.equipmentId).push(p)}
@@ -66,20 +67,48 @@ function audit(database){
   // Sources from old candidate constructors are traceable through originKey,
   // even before ComponentBinding populated sourceComponentId. Each source
   // must match a concrete component ID: a designation/name is insufficient.
-  const linkedComponents=new Set();
+  const linkedPointIds=new Map();
+  const mark=(sourceId,pointId)=>{
+   const id=String(sourceId||'');if(!id)return;
+   if(!linkedPointIds.has(id))linkedPointIds.set(id,new Set());
+   linkedPointIds.get(id).add(String(pointId));
+  };
   const relatedPointIds=new Set(relatedPoints.map(p=>String(p.id)));
   for(const p of relatedPoints){
-   if(p?.componentBinding?.sourceComponentId)linkedComponents.add(String(p.componentBinding.sourceComponentId));
-   if(p?.installedComponent?.id)linkedComponents.add(String(p.installedComponent.id));
+   mark(p?.componentBinding?.sourceComponentId,p.id);
+   mark(p?.installedComponent?.id,p.id);
    const origin=String(p.candidateOriginKey||'').match(/^component:([^:]+):/);
-   if(origin)linkedComponents.add(origin[1]);
+   if(origin)mark(origin[1],p.id);
   }
   for(const c of components){
    if(!ownedIds.has(c.equipmentId))continue;
-   if((c.candidateCreatedPointIds||[]).some(id=>relatedPointIds.has(String(id))))
-    linkedComponents.add(String(c.id));
+   for(const pid of c.candidateCreatedPointIds||[])
+    if(relatedPointIds.has(String(pid)))mark(c.id,pid);
   }
+  const linkedComponents=new Set(linkedPointIds.keys());
   const unlinked=ev.actual.filter(x=>x.source==='component'&&!linkedComponents.has(String(x.id)));
+  const evidenceRows=[];
+  // Each source retains original equipment ownership; matching part numbers
+  // alone never establish a lubrication point. This report changes no data.
+  for(const [kind,items] of [['CANDIDATE',ev.actual],['DRIVE',ev.assets],['CONTEXT',ev.context],['EXCLUDED',ev.excluded]]){
+   for(const item of items){
+    if(!['component','equipment'].includes(item.source))continue;
+    const component=item.source==='component'?byComponentId.get(String(item.id)):null;
+    const pids=item.source==='component'
+      ?Array.from(linkedPointIds.get(String(item.id))||[])
+      :(pointsByOwner.get(item.id)||[]).map(p=>String(p.id));
+    const tids=Array.from(new Set(pids.flatMap(pid=>(tasksByPoint.get(String(pid))||[]).map(t=>String(t.id)))));
+    evidenceRows.push({
+     sourceId:String(item.id),sourceType:item.source,sourceExternalCode:item.externalCode||'',
+     ownerEquipmentId:item.equipmentId||'',ownerEquipmentName:byId.get(item.equipmentId)?.name||'',
+     name:item.name||'',kind,category:item.category||item.equipmentType||'',
+     candidateState:component?.candidateState||'',servicePolicy:item.servicePolicy||'',
+     reason:item.reason||item.label||'',pointIds:pids,taskIds:tids,
+     state:kind==='CANDIDATE'?(pids.length?'LINKED_POINT_REVIEW':'PHYSICAL_REVIEW'):
+       kind==='DRIVE'?'OEM_REVIEW':kind==='EXCLUDED'?'EXCLUDED_FROM_PROPOSAL':'CONTEXT_ONLY'
+    });
+   }
+  }
   const configured=!!(eq.confirmedConveyorSubtype||eq.conveyorArrangement?.confirmedAt);
   const assembly=ev.assembly?.children||[];
   let status='SOURCE_REVIEW',next='Подтвердить физические места и обслуживание ТМЦ';
@@ -103,6 +132,9 @@ function audit(database){
    unlinkedCandidateCount:unlinked.length,unlinkedSourceComponentIds:unlinked.map(x=>x.id),ownPointCount:directPoints.length,
    relatedPointCount:relatedPoints.length,relatedTaskCount:relatedTasks.length,
    childConveyorCount:assembly.length,childIds:assembly.map(ch=>ch.id),
+   evidenceRows,evidenceRowCount:evidenceRows.length,
+   candidateLinkedCount:evidenceRows.filter(x=>x.kind==='CANDIDATE'&&x.pointIds.length).length,
+   candidateUnlinkedCount:evidenceRows.filter(x=>x.kind==='CANDIDATE'&&!x.pointIds.length).length,
    supportLayoutProposed:!!ev.supportLayout,
    requiresPhysicalConfirmation:true
   });
@@ -121,6 +153,8 @@ function audit(database){
   unknownSubtype:byStatus.SUBTYPE_UNKNOWN||0,
   withSubtypeSuggestion:rows.filter(x=>x.subtypeSuggestion).length,
   totalUnlinkedCandidateRows:rows.reduce((n,x)=>n+number(x.unlinkedCandidateCount),0),
+  totalSourceRows:rows.reduce((n,x)=>n+number(x.evidenceRowCount),0),
+  machinesWithUnlinkedCandidates:rows.filter(x=>x.candidateUnlinkedCount>0).length,
   rows,lines:lineOptions
  };
 }
@@ -136,5 +170,21 @@ function csv(report){
   x.shaftContextCount,x.driveCount,x.excludedCount,x.ownPointCount,x.relatedPointCount,
   x.relatedTaskCount,x.childConveyorCount,x.next])].map(row=>row.map(quote).join(';')).join('\n');
 }
+// Exact source-level read-only field checklist (not the approved map).
+function csvEvidence(report){
+ const quote=v=>{const raw=text(v);return '"'+(/^[=+@-]/.test(raw)?"'"+raw:raw).replace(/"/g,'""')+'"'};
+ const header=['Машина ID','Код машины','Линия','Участок','Машина','Подтип','Статус машины',
+  'Тип источника','Source ID','Код ТМЦ','Владелец ID','Владелец','Наименование ТМЦ / узла',
+  'Группа','Категория','Исходное решение ТМЦ','Состояние проверки','Политика обслуживания',
+  'Причина / источник','Связанные pointId','Связанные taskId'];
+ const rows=[header];
+ for(const machine of report?.rows||[])for(const item of machine.evidenceRows||[])
+  rows.push([machine.id,machine.externalCode,machine.lineName,machine.areaName,machine.name,machine.label,
+   machine.status,item.sourceType,item.sourceId,item.sourceExternalCode,item.ownerEquipmentId,
+   item.ownerEquipmentName,item.name,item.kind,item.category,item.candidateState,item.state,
+   item.servicePolicy,item.reason,item.pointIds.join(', '),item.taskIds.join(', ')]);
+ return rows.map(row=>row.map(quote).join(';')).join('\n');
+}
+API.csvEvidence=csvEvidence;
 API.audit=audit;API.csv=csv;API.outOfScope=outOfScope;
 })(window);

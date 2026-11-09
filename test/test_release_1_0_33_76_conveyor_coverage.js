@@ -126,6 +126,27 @@ assert.equal(get('SCREW').driveCount,2,'ABB + Bonfiglioli remain independent ass
 assert(r.rows.every(x=>x.requiresPhysicalConfirmation===true),'names never mark a constructor as complete');
 assert(!get('SKIP-CENT')&&!get('SKIP-COOL')&&!get('SKIP-NESTED-COOL'),
  'no mechanical or lubrication analysis for excluded systems');
+// Stage 5B.11 source-level read-only evidence matrix.
+const detail=(mid,sid)=>get(mid).evidenceRows.find(x=>x.sourceId===sid);
+assert.equal(detail('ROLLER','R-SY').state,'LINKED_POINT_REVIEW');
+assert.deepEqual(Array.from(detail('ROLLER','R-SY').pointIds),['P-R1']);
+assert.deepEqual(Array.from(detail('ROLLER','R-SY').taskIds),['T1','T2']);
+assert.deepEqual(Array.from(detail('ROLLER','R-LEGACY').pointIds),['P-R2']);
+assert.equal(detail('BELT','B-YAR').state,'PHYSICAL_REVIEW');
+assert.equal(detail('BELT','B-6005').state,'EXCLUDED_FROM_PROPOSAL');
+assert.equal(detail('BELT','A-CHAIN').ownerEquipmentId,'LUBE');
+assert.equal(detail('SCREW','S-GEAR').state,'OEM_REVIEW');
+assert(!get('BELT').evidenceRows.some(x=>x.sourceId==='N-COOL-BEAR'));
+assert.equal(get('ROLLER').candidateUnlinkedCount,0);
+assert.equal(get('BELT').candidateUnlinkedCount,1);
+assert(r.totalSourceRows>=r.rows.reduce((n,x)=>n+x.actualCount,0));
+assert(r.machinesWithUnlinkedCandidates>=1);
+const sourceCsv=A.csvEvidence(r);
+assert(sourceCsv.includes('"R-LEGACY"')&&sourceCsv.includes('"P-R2"'));
+assert(sourceCsv.includes('"S-GEAR"')&&sourceCsv.includes('"OEM_REVIEW"'));
+assert(sourceCsv.includes('"B-6005"')&&sourceCsv.includes('"EXCLUDED_FROM_PROPOSAL"'));
+assert(!sourceCsv.includes('N-COOL-BEAR')&&!sourceCsv.includes('CENT-C'));
+assert(sourceCsv.startsWith('"Машина ID";"Код машины";'));
 const csv=A.csv(r);
 assert(csv.includes('EXT-ROLLER')&&csv.includes('EXT-TURN'));
 assert(!csv.includes('SKIP-CENT')&&!csv.includes('SKIP-COOL')&&!csv.includes('SKIP-NESTED-COOL'));
@@ -142,6 +163,10 @@ assert(qa.includes('function installConveyorCoverage(host,coverage,redraw)'));
 assert(qa.includes('installConveyorCoverage(host,conveyorCoverage,draw)'));
 assert(qa.includes('data-qa-conveyor-line')&&qa.includes('data-qa-conveyor-export'));
 assert(qa.includes('data-qa-conveyor-filter')&&qa.includes('value="suggested"'));
+assert(qa.includes('data-qa-conveyor-search')&&qa.includes('data-qa-conveyor-query'));
+assert(qa.includes('data-qa-conveyor-evidence-export')&&qa.includes('csvEvidence(coverage)'));
+assert(qa.includes('value="unlinked"'));
+assert(qa.includes('x.evidenceRows.slice(0,25)'));
 assert(qa.includes('Подсказка по ТМЦ (тип не подтверждён)'), 'QA explicitly labels hint unapproved');
 assert(qa.includes('data-qa-open-equipment'), 'equipment navigation uses existing QA infrastructure');
 assert(!qa.includes('new LubricaRoute'),'coverage never creates a production route');
