@@ -601,8 +601,8 @@ Arr.ensureManualComponents(md,man,{conveyorSubtype:'belt',bearingDesignation:'П
 assert.equal(md.components.filter(x=>x.status==='active'&&x.candidateCategory==='bearing').length,0);
 assert.equal(md.components.filter(x=>x.status==='active'&&x.candidateCategory==='chain').length,0);
 assert.equal(md.components.filter(x=>x.status==='active'&&['motor','gearbox','motor_gearbox'].includes(x.candidateEquipmentType)).length,0);
-assert.equal(C.conveyorEvidence(md,man).supportLayout.supports.length,4);
-Arr.ensureManualComponents(md,man,{conveyorSubtype:'belt',driveLeftBearing:'Подшипниковый узел UCPA 210',chainEnabled:false,driveMode:'none'});
+assert.equal(C.conveyorEvidence(md,man).supportLayout,null,'two shaft records are not inferred from a blank manual form');
+Arr.ensureManualComponents(md,man,{conveyorSubtype:'belt',driveShaftName:'Вал приводной',returnShaftName:'Вал натяжной',driveLeftBearing:'Подшипниковый узел UCPA 210',chainEnabled:false,driveMode:'none'});
 assert.equal(C.conveyorEvidence(md,man).supportLayout.bearings.length,1);
 const fake={id:'MAN-LEGACY',equipmentId:man.id,origin:'manual',status:'active',
  manualConveyorRole:'bearing_drive_right',name:'Подшипник справа (уточнить)',
