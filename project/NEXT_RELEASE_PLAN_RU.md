@@ -1,4 +1,17 @@
 # LUBRICA — ближайший план после 1.0.33.71 RC
+
+## Stage 5D — подтверждённая автоматическая приёмка 17.11.2026
+
+**Последний программный коммит** [`38667bd9ce41ee8b22bae5493f5e5dece26191b5`](https://github.com/shonentez-afk/LUBRICA/commit/38667bd9ce41ee8b22bae5493f5e5dece26191b5). 5/5 GitHub Actions **PASS** на точном кодовом HEAD:
+- [Stage5B + Stage5D Node + полный regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44065878951)
+- [Chromium UI/UX 1440 / 768 / 390 + скриншоты](https://github.com/shonentez-afk/LUBRICA/actions/runs/44065879136); [скриншоты artifact 14320536569](https://github.com/shonentez-afk/LUBRICA/actions/runs/44065879136/artifacts/14320536569)
+- [Plant Point Completion Stage 1–3](https://github.com/shonentez-afk/LUBRICA/actions/runs/44065878868)
+- [Project Memory Audit](https://github.com/shonentez-afk/LUBRICA/actions/runs/44065878999)
+- [ZIP с SHA-256](https://github.com/shonentez-afk/LUBRICA/actions/runs/44065879057); [artifact 14320032532](https://github.com/shonentez-afk/LUBRICA/actions/runs/44065879057/artifacts/14320032532), действует до 17.12.2026, ZIP SHA-256 `4ac22545939fb0b1f9052f23a022a3bf45d3dca03028a1baa95ef08f0d42dd89` (проверено после скачивания, CRC ZIP PASS).
+
+**Сделано только по указанию пользователя:** конструктор `Saw/Cut/Traverse` и защищённые реальные `Rotating Shaft` опоры. Остальные семейства не развивать. `main` не менять, [PR #22](https://github.com/shonentez-afk/LUBRICA/pull/22) оставить Draft. Полевой Edge `file://` тест **на копии** исходного заводского JSON, реальные количества/места опор, OEM-процедуры для закрытых/сухих узлов ещё не приняты. Не создавать production routes.
+
+
 ## Stage 5C.0 — фактическая приёмка CI пакета ускоренного заполнения (17.11.2026)
 
 **Проверенный кодовый commit:** [`16064cdf8228da17c93b67b09f30a969fbfb6d7f`](https://github.com/shonentez-afk/LUBRICA/commit/16064cdf8228da17c93b67b09f30a969fbfb6d7f). **5/5 GitHub Actions PASS:** [Stage5B + full regression + новый Stage5C Node](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487449), [Plant Point Stage1–3 + full regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487552), [Chromium UI/UX 1440/768/390 Stage5B+5C](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487560), [Project Memory](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487516), [ZIP + SHA256](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487639).
