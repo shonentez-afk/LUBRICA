@@ -553,7 +553,10 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       const assigned=s.physicalSupport&&s.supportKey?supportAssignments[s.supportKey]:null;
       chosen.push({
         ...s,
-        name:s.physicalSupport?form.elements[`pos_${i}`].value.trim():(s.serviceLocationName||form.elements[`name_${i}`].value.trim()||s.name),
+        name:s.physicalSupport?form.elements[`pos_${i}`].value.trim():(template?.id==='conveyor_arrangement'?form.elements[`name_${i}`].value.trim()||s.serviceLocationName||s.name:(s.serviceLocationName||form.elements[`name_${i}`].value.trim()||s.name)),
+        // applyConfirmedSpecs prioritizes serviceLocationName for conveyor
+        // points; it must reflect the edited field, not the original template.
+        serviceLocationName:template?.id==='conveyor_arrangement'?(s.physicalSupport?form.elements[`pos_${i}`].value.trim():(form.elements[`name_${i}`].value.trim()||s.serviceLocationName||s.name)):s.serviceLocationName,
         category:form.elements[`cat_${i}`].value,
         position:form.elements[`pos_${i}`].value.trim(),
         sourceRef:assigned||s.sourceRef,
