@@ -17,7 +17,7 @@ let classified=C.classifyEquipment(db,eq);let layout=classified.maintenanceTempl
 assert(layout&&layout.supports.length===4,'four support layout required');
 assert.equal(layout.bearings.length,2,'two imported bearing refs must be preserved');
 assert(layout.supports.every(s=>!s.bearingRef&&!s.suggestedBearingRef),'two different imported bearings must not be auto-assigned');
-// Manual conveyor: four explicit fields map deterministically to four supports.
+// Manual conveyor: explicit, individually identified positions still map to four source TMCs.
 db={equipment:[],components:[],meta:{}};eq={id:'EQ-2',name:'Конвейер ленточный ручной',equipmentType:'conveyor',origin:'manual',status:'active'};db.equipment.push(eq);
 sandbox.window.LubricaConveyorArrangement.ensureManualComponents(db,eq,{driveShaftName:'Вал приводной',returnShaftRole:'driven',returnShaftName:'Вал ведомый',driveLeftBearing:'UCPA 210',driveRightBearing:'UCPA 210',returnLeftBearing:'UKHA 212',returnRightBearing:'UKHA 212',chainEnabled:false,driveEnabled:false});
 db.components=db.components.map(c=>C.classifyComponent(c));classified=C.classifyEquipment(db,eq);layout=classified.maintenanceTemplate.evidence.supportLayout;

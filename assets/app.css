@@ -3568,3 +3568,191 @@ button.btn,
 .analog-safety-preview ul{margin:6px 0;padding-left:20px}
 .analog-safety-preview .analog-error{color:#9e2d26;font-weight:600}
 @media(max-width:800px){.analog-engineer-confirm{padding:9px}}
+
+
+/* Stage 5B.12: scoped conveyor constructor/UI accessibility and responsive QA.
+   Existing layout and card architecture are intentionally preserved. */
+.manual-conveyor-assets label.hidden{display:none!important}
+.manual-conveyor-assets input,
+.manual-conveyor-assets select,
+.conveyor-support-map-grid input,
+.conveyor-support-map-grid select{min-width:0;max-width:100%;box-sizing:border-box}
+.conveyor-support-map-grid select{white-space:normal}
+.conveyor-support-mapping>.conveyor-support-assign{margin-top:10px}
+.conveyor-selection-counter{
+ display:block;position:relative;margin:12px 0;padding:12px 14px;
+ border:1px solid #cbded9;border-radius:10px;background:#f4f9f7;
+ font-size:13px;font-weight:650;color:#245448;line-height:1.45
+}
+#structureDialog.candidate-finalize-dialog .candidate-point-name input[readonly],
+#structureDialog.candidate-finalize-dialog .candidate-point-category input[readonly]{
+ background:#f0f3f4;color:#46535b;cursor:default
+}
+#structureDialog.candidate-finalize-dialog input:focus-visible,
+#structureDialog.candidate-finalize-dialog select:focus-visible,
+.qa-conveyor-coverage :is(button,input,select,summary):focus-visible,
+.manual-conveyor-assets :is(input,select):focus-visible{
+ outline:3px solid #2a776c;outline-offset:2px
+}
+.qa-conveyor-coverage{min-width:0}
+.qa-conveyor-coverage>summary{cursor:pointer;line-height:1.45}
+.qa-conveyor-coverage .qa-toolbar>*{min-width:0}
+.qa-conveyor-coverage .qa-toolbar .btn{
+ min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;min-height:38px
+}
+.qa-conveyor-coverage .qa-issue-body{min-width:0;overflow-wrap:anywhere}
+.qa-conveyor-coverage .qa-conveyor-sources{
+ max-height:340px;overflow:auto;overscroll-behavior:contain;
+ border:1px solid var(--line);border-radius:8px;background:#f7f9fa
+}
+.qa-conveyor-coverage .qa-conveyor-sources .qa-issue{
+ display:block;min-width:0;background:#fff
+}
+.qa-conveyor-coverage [data-qa-conveyor-one-csv]{
+ margin:8px 0 0;white-space:normal;text-align:left;max-width:100%
+}
+@media(max-width:760px){
+ .qa-conveyor-coverage .qa-toolbar{grid-template-columns:minmax(0,1fr)}
+ .qa-conveyor-coverage .qa-toolbar label,
+ .qa-conveyor-coverage .qa-toolbar .btn{width:100%;max-width:100%}
+ .qa-conveyor-coverage .qa-issue{grid-template-columns:minmax(0,1fr);gap:7px}
+ .qa-conveyor-coverage .qa-issues-list{padding:6px}
+ #structureDialog.candidate-finalize-dialog .conveyor-selection-counter{font-size:12px}
+}
+
+/* Stage 5B.12: user confirmation before discarding unsaved subtype edits. */
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm{
+ display:grid;gap:8px;padding:12px;margin-top:12px;
+ border:1px solid #dfbb77;border-radius:10px;
+ background:#fffaf0;color:#60461d;
+}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm[hidden]{display:none!important}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm b{font-size:13px}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm>span{font-size:12px;line-height:1.5}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-actions{
+ display:flex;flex-wrap:wrap;gap:8px
+}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-actions .btn{
+ white-space:normal;min-width:0
+}
+@media(max-width:600px){
+ #structureDialog.candidate-finalize-dialog .conveyor-switch-actions{flex-direction:column}
+ #structureDialog.candidate-finalize-dialog .conveyor-switch-actions .btn{width:100%}
+}
+
+
+/* Stage 5B.12 visual review of actual Chromium screenshots (17 Nov 2026). */
+#structureDialog.candidate-finalize-dialog .conveyor-subtype-picker .conveyor-subtype-label{
+ display:grid;gap:6px;margin-top:10px;font-size:13px;font-weight:650;
+ min-width:0
+}
+#structureDialog.candidate-finalize-dialog .conveyor-subtype-picker select{
+ width:100%;max-width:100%;min-width:0;min-height:38px;
+ box-sizing:border-box;font:inherit
+}
+#structureDialog.candidate-finalize-dialog:has(.conveyor-subtype-picker) .structure-form>menu{
+ position:sticky;bottom:0;z-index:5;
+ display:flex;flex-wrap:wrap;justify-content:flex-end;gap:9px;
+ padding:12px 10px;margin:14px 0 0;
+ border-top:1px solid var(--line);
+ background:#fff;box-shadow:0 -5px 14px rgba(24,37,42,.08)
+}
+#structureDialog.candidate-finalize-dialog:has(.conveyor-subtype-picker) .structure-form>menu .btn{
+ max-width:100%;white-space:normal;min-height:38px
+}
+.qa-conveyor-coverage>summary{display:list-item}
+.qa-conveyor-coverage .qa-conveyor-summary{font-size:12px;font-weight:400;line-height:1.45;color:var(--muted)}
+.qa-conveyor-coverage>.qa-issues-list>.qa-issue{
+ gap:12px;align-items:start;padding:12px
+}
+.qa-conveyor-coverage>.qa-issues-list>.qa-issue .qa-severity{font-size:11px;line-height:1.35}
+.qa-conveyor-coverage>.qa-issues-list>.qa-issue .qa-issue-body b{font-size:14px;line-height:1.35}
+.qa-conveyor-coverage>.qa-issues-list>.qa-issue .qa-issue-body p{font-size:12px;line-height:1.4}
+.qa-conveyor-coverage>.qa-issues-list>.qa-issue .qa-issue-body small{
+ display:block;margin-top:4px;font-size:11.5px;line-height:1.5
+}
+.qa-conveyor-coverage>.qa-issues-list>.qa-issue .qa-issue-body code{font-size:11px}
+@media(max-width:760px){
+ .qa-conveyor-coverage .qa-conveyor-summary{display:block;margin-top:4px}
+ #structureDialog.candidate-finalize-dialog:has(.conveyor-subtype-picker) .structure-form>menu{
+  flex-direction:column
+ }
+ #structureDialog.candidate-finalize-dialog:has(.conveyor-subtype-picker) .structure-form>menu .btn{width:100%}
+}
+
+/* Stage 5C.0: evidence-first point acceleration (read-only queue + gated inputs).
+   Scoped inside the existing QA pane; no global layout redesign. */
+.point-acceleration{min-width:0}
+.point-accel-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}
+.point-accel-metrics span{display:flex;flex-direction:column;gap:3px;background:#f6f8f8;border:1px solid var(--line);border-radius:8px;padding:11px;font-size:12px;line-height:1.4}
+.point-accel-metrics b{font-size:20px;color:var(--ink)}
+.point-accel-toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.point-accel-toolbar>*,.point-accel-toolbar label{min-width:0;max-width:100%}
+.point-accel-toolbar input,.point-accel-toolbar select{max-width:100%;min-width:0;box-sizing:border-box;width:100%}
+.point-accel-disclaimer{color:#664f1b;background:#fff8e8;border:1px solid #e7d6ac;border-radius:8px;padding:10px;font-size:12px;line-height:1.5}
+.point-accel-list .qa-issue{align-items:start;min-width:0;gap:10px}
+.point-accel-list .qa-issue-body{min-width:0;overflow-wrap:anywhere}
+.point-accel-list .qa-issue-body b{font-size:14px;line-height:1.4}
+.point-accel-list .qa-issue-body small{display:block;margin:6px 0 0;line-height:1.5}
+.point-accel-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:160px}
+.point-accel-actions .mini-btn{white-space:normal;overflow-wrap:anywhere;min-height:36px}
+.point-accel-evidence{border:1px solid var(--line);border-radius:9px;margin:10px 0 0;padding:10px;background:#fcfdfd}
+.point-accel-evidence summary{cursor:pointer;font-weight:650}
+.point-accel-components{max-height:320px;overflow:auto;margin-top:7px}
+.point-accel-component{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.point-accel-component input{flex:none;margin-top:4px}
+.point-accel-component span{min-width:0;overflow-wrap:anywhere}
+.point-accel-component b{display:block}
+.point-accel-component small{display:block;line-height:1.45}
+.point-accel-batch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+.point-accel-batch>b,.point-accel-batch>p,.point-accel-batch>[data-pa-batch-review]{grid-column:1/-1}
+.point-accel-batch>p{margin:0;font-size:12px;color:var(--muted)}
+.point-accel-batch label,.point-accel-form label{min-width:0;display:grid;gap:5px}
+.point-accel-batch input,.point-accel-batch select,.point-accel-form input,.point-accel-form select,.point-accel-form textarea{min-width:0;max-width:100%;width:100%;box-sizing:border-box}
+.point-accel-batch input[type=checkbox],.point-accel-form input[type=checkbox]{width:auto}
+.point-accel-batch [data-pa-batch-review]{overflow-wrap:anywhere;line-height:1.4}
+.point-accel-dialog{max-width:min(900px,calc(100vw - 24px));width:850px;max-height:90vh;overflow:auto;box-sizing:border-box}
+.point-accel-dialog .structure-form{padding:16px;display:grid;gap:12px}
+.point-accel-form .point-accel-count-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.point-accel-form .checkline{display:flex;align-items:center;gap:9px;font-size:12px}
+.point-accel-position{border:1px solid var(--line);background:#fff;border-radius:10px;padding:12px;margin:10px 0;display:grid;gap:10px}
+.point-accel-position-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.point-accel-positions{min-width:0}
+.point-accel-form menu{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;z-index:4;background:#fff;border-top:1px solid var(--line);padding:10px}
+.point-accel-workbook-rows{max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:9px}
+.point-accel-workbook-rows article{display:grid;gap:5px;padding:10px;border-bottom:1px solid var(--line)}
+.point-accel-workbook-rows small{color:var(--muted)}
+.safe-bulk-preview{border:1px solid var(--line);padding:10px;border-radius:8px;margin-top:8px;max-height:240px;overflow:auto}
+@media(max-width:980px){.point-accel-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.point-accel-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.point-accel-list .qa-issue{grid-template-columns:1fr;gap:8px}.point-accel-actions{flex-direction:row;flex-wrap:wrap;min-width:0}}
+@media(max-width:620px){.point-accel-toolbar,.point-accel-form .point-accel-count-grid,.point-accel-batch{grid-template-columns:minmax(0,1fr)}.point-accel-metrics{grid-template-columns:minmax(0,1fr)}.point-accel-actions{display:grid;grid-template-columns:1fr}.point-accel-batch>b,.point-accel-batch>p,.point-accel-batch>[data-pa-batch-review]{grid-column:1}.point-accel-form menu{flex-direction:column}.point-accel-form menu .btn{width:100%}}
+
+/* Default compact workspace: do not displace the original Control dashboard. */
+.point-accel-details>summary{cursor:pointer;padding:10px 12px;margin-top:10px;
+  background:#f5f8f8;border:1px solid var(--line);border-radius:8px;
+  font-size:13px;font-weight:700;line-height:1.45}
+.point-accel-details[open]>summary{margin-bottom:12px}
+.point-accel-details summary:focus-visible{outline:3px solid #2a776c;outline-offset:2px}
+
+/* Stage 5D: saw/cut + real-shaft evidence UI, existing desktop architecture. */
+.saw-cut-form,.rotating-confirm-form{min-width:0}
+.saw-cut-form label,.rotating-confirm-form label{display:grid;gap:6px;min-width:0}
+.saw-cut-form input,.rotating-confirm-form input,.saw-cut-form select,.rotating-confirm-form select,
+.saw-cut-form textarea,.rotating-confirm-form textarea{max-width:100%;min-width:0;width:100%;box-sizing:border-box}
+.saw-cut-form input[type=checkbox],.rotating-confirm-form input[type=checkbox]{width:auto}
+.saw-cut-form .checkline,.rotating-confirm-form .checkline{display:flex;align-items:center;gap:8px;line-height:1.45}
+.saw-cut-form .saw-child-links{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.saw-cut-form .saw-child-links .mini-btn{white-space:normal;max-width:100%}
+.saw-cut-form .saw-inventory-list{max-height:280px;overflow:auto;overscroll-behavior:contain}
+.saw-cut-form .saw-inventory-list .qa-issue-body{min-width:0;overflow-wrap:anywhere}
+.saw-cut-form .saw-inventory-list small{display:block;font-size:12px;line-height:1.5}
+.saw-physical-row,.rotating-physical-row{display:grid;gap:9px;background:#fafcfb;border:1px solid var(--line);border-radius:9px;padding:12px;margin:10px 0}
+.saw-cut-form menu,.rotating-confirm-form menu{position:sticky;bottom:0;z-index:4;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:12px 8px;background:#fff;border-top:1px solid var(--line)}
+.saw-cut-form :is(button,select,input,textarea):focus-visible,
+.rotating-confirm-form :is(button,select,input,textarea):focus-visible{outline:3px solid #2a776c;outline-offset:2px}
+@media(max-width:620px){
+ .saw-cut-form menu,.rotating-confirm-form menu{flex-direction:column}
+ .saw-cut-form menu .btn,.rotating-confirm-form menu .btn{width:100%}
+ .saw-cut-form .saw-inventory-list{max-height:200px}
+}
+
+@media(max-width:620px){.saw-cut-form input,.rotating-confirm-form input,.saw-cut-form select,.rotating-confirm-form select,.saw-cut-form textarea,.rotating-confirm-form textarea{font-size:14px;min-height:34px}}
