@@ -1,4 +1,15 @@
 # LUBRICA — ближайший план после 1.0.33.71 RC
+## Stage 5C.0 — фактическая приёмка CI пакета ускоренного заполнения (17.11.2026)
+
+**Проверенный кодовый commit:** [`16064cdf8228da17c93b67b09f30a969fbfb6d7f`](https://github.com/shonentez-afk/LUBRICA/commit/16064cdf8228da17c93b67b09f30a969fbfb6d7f). **5/5 GitHub Actions PASS:** [Stage5B + full regression + новый Stage5C Node](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487449), [Plant Point Stage1–3 + full regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487552), [Chromium UI/UX 1440/768/390 Stage5B+5C](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487560), [Project Memory](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487516), [ZIP + SHA256](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487639).
+
+**Артефакты:** [preview ZIP artifact `14315512059`](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487639/artifacts/14315512059) (срок 17.12.2026) и [снимки Chromium `14315876216`](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487560/artifacts/14315876216). Весь архив скачан и SHA256 вручную перепроверен: `a9b6029899dc8ba2c7f70acb39040d10a082718b8c55eb03b3f432323af89cd7`; Runtime-файлы новых модулей присутствуют, `zipfile.testzip` без ошибок.
+
+**Готово в коде и проверено:** read-only инженерная очередь/аналоги/проверка Excel, безопасные bulk guard и context/clarify, survey количества/мест подшипников (не выводить физическое количество из модели!), один исходный bearing source на разные отдельно подтверждённые позиции, отсутствие автоматического создания точек и утверждения мероприятий. Все сценарии на синтетических данных и исторический regression PASS.
+
+**НЕ закрыто:** физические схемы всех конвейеров и остальные конструкторы, приёмка на реальном заводском JSON в Edge `file://`, проверка полноты OEM. PR #22 остаётся **Draft**, `main` не менять. Excel пока **только предпросмотр**, не импорт готовой смазочной карты. Мобильный 390 px проверен в изолированном QA-контуре, не вся оболочка приложения. Центрифуги/охлаждение `OUT_OF_SCOPE`; production маршруты пока не создавать.
+
+
 
 ## Stage 5C — безопасное ускоренное заполнение и количество подшипников конвейера (17.11.2026)
 
