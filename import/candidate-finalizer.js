@@ -320,7 +320,12 @@ function conveyorSubtypePanel(template){
  };
  return '<div class="wizard-note"><b>Конструкция конвейера — подтверждение</b><span>Смена варианта перестроит предпросмотр. Пока не нажато «Сохранить», структура не меняется.</span>'+
   '<label style="display:block;margin-top:8px">Фактический тип<select name="conveyorSubtypeChoice">'+opts+'</select></label>'+
-  '<small>'+esc(guidance[current]||guidance.unknown)+'</small></div>'+hintHtml;
+  '<small>'+esc(guidance[current]||guidance.unknown)+'</small>'+
+  '<div class="conveyor-switch-confirm" data-conveyor-switch-confirm hidden>'+
+  '<b>Перестроить конструктор для другого типа?</b>'+
+  '<span>Несохранённые изменения точек и мероприятий будут потеряны. Производственная база пока не изменится.</span>'+
+  '<div class="conveyor-switch-actions"><button type="button" class="btn secondary" data-conveyor-switch-apply>Перестроить предпросмотр</button>'+
+  '<button type="button" class="btn ghost" data-conveyor-switch-cancel>Остаться с текущим типом</button></div></div></div>'+hintHtml;
 }
 function conveyorAssemblyPanel(template){
  if(template?.id!=='conveyor_arrangement')return'';
@@ -442,21 +447,48 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     });
   }
   if(template?.id==='conveyor_arrangement'&&form.elements.conveyorSubtypeChoice){
-    form.elements.conveyorSubtypeChoice.onchange=()=>{
-      const selected=form.elements.conveyorSubtypeChoice.value;
-      if(selected===template.conveyorSubtype)return;
+    const choice=form.elements.conveyorSubtypeChoice;
+    const originalSubtype=template.conveyorSubtype||'unknown';
+    const panel=form.querySelector('[data-conveyor-switch-confirm]');
+    const save=form.querySelector('[data-save]');
+    let pendingSubtype=null;
+    const dismiss=()=>{
+      pendingSubtype=null;choice.value=originalSubtype;
+      if(panel)panel.hidden=true;
+      if(save)save.disabled=false;
+    };
+    const rebuild=()=>{
+      if(!pendingSubtype||pendingSubtype===originalSubtype){dismiss();return}
+      const selected=pendingSubtype;
+      dlg.classList.remove('candidate-finalize-dialog');dlg.close();
+      open(source,id,decisionContext,selected);
+    };
+    const confirm=form.querySelector('[data-conveyor-switch-apply]');
+    const cancel=form.querySelector('[data-conveyor-switch-cancel]');
+    if(confirm)confirm.onclick=rebuild;
+    if(cancel)cancel.onclick=dismiss;
+    choice.onchange=()=>{
+      const selected=choice.value;
+      if(selected===originalSubtype){dismiss();return}
       if((database.lubricationPoints||[]).some(p=>p.equipmentId===equipment.id)){
         global.LubricaApp?.showToast('На оборудовании уже есть физические точки. Изменение типа требует отдельного инженерного пересмотра.','warn');
-        form.elements.conveyorSubtypeChoice.value=template.conveyorSubtype||'unknown';
+        dismiss();
         return;
       }
       if((database.components||[]).some(c=>c.equipmentId===equipment.id&&c.status!=='retired'&&c.manualConveyorSupport)){
         global.LubricaApp?.showToast('Для ручного оборудования сначала проверьте ранее введённые опоры. Переход между схемами через этот мастер заблокирован.','warn');
-        form.elements.conveyorSubtypeChoice.value=template.conveyorSubtype||'unknown';
+        dismiss();
         return;
       }
-      dlg.classList.remove('candidate-finalize-dialog');dlg.close();
-      open(source,id,decisionContext,selected);
+      pendingSubtype=selected;
+      if(panel){
+        panel.hidden=false;
+        if(save)save.disabled=true; // Cannot silently save the previous subtype.
+      }else{
+        // DOM-free historical test harnesses do not instantiate the inline
+        // confirmation panel; the production wizard always includes it.
+        rebuild();
+      }
     };
   }
 

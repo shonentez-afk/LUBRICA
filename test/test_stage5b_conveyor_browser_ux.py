@@ -166,6 +166,23 @@ def test_viewport(browser, width, height, label):
       c.equipmentId !== 'E-BELT' && c.equipmentId !== 'E-IMPORTED').length""") == 0, (
       label + " manual empty form manufactured equipment")
 
+    # Subtype preview must not destroy draft form edits without confirmation.
+    page.evaluate("() => window.LubricaCandidateFinalizer.open('equipment','E-IMPORTED')")
+    assert page.locator('select[name="conveyorSubtypeChoice"]').input_value() == "roller"
+    original_db = page.evaluate("JSON.stringify(window.__db)")
+    page.locator('select[name="conveyorSubtypeChoice"]').select_option("chain")
+    assert page.locator('[data-conveyor-switch-confirm]').is_visible()
+    assert page.locator('button[data-save]').is_disabled()
+    assert page.evaluate("JSON.stringify(window.__db)") == original_db
+    page.locator('[data-conveyor-switch-cancel]').click()
+    assert page.locator('select[name="conveyorSubtypeChoice"]').input_value() == "roller"
+    assert page.locator('button[data-save]').is_enabled()
+    page.locator('select[name="conveyorSubtypeChoice"]').select_option("chain")
+    page.locator('[data-conveyor-switch-apply]').click()
+    assert page.locator('#structureDialog h2').inner_text() == "Цепной конвейер"
+    assert page.evaluate("JSON.stringify(window.__db)") == original_db
+    page.locator('#structureDialog [data-cancel]').first.click()
+
     # SOURCE-CONFIRMED TWO-SHAFT REVIEW: no automatically selected points.
     page.evaluate("() => window.LubricaCandidateFinalizer.open('equipment','E-BELT')")
     assert page.locator('input[name="use_0"]').is_visible()
@@ -205,6 +222,16 @@ def test_viewport(browser, width, height, label):
     page.locator('[data-qa-conveyor-query]').fill("B-REAL")
     page.locator('[data-qa-conveyor-search]').click()
     assert "В выборке: 1 из" in page.locator('.qa-conveyor-coverage').inner_text()
+    # A specific machine's CSV must be complete and exclude other machines.
+    detail = page.locator('.qa-conveyor-coverage article.qa-issue details').first
+    detail.locator('summary').click()
+    with page.expect_download() as download_info:
+        detail.locator('[data-qa-conveyor-one-csv]').click()
+    target = OUTPUT / (label + "_belt_sources.csv")
+    download_info.value.save_as(target)
+    content = target.read_text(encoding="utf-8-sig")
+    assert "B-REAL" in content and "E-BELT" in content, label + " CSV lost traceability"
+    assert "E-IMPORTED" not in content, label + " CSV contains another conveyor"
     page.locator('[data-qa-conveyor-reset]').click()
     assert ("В выборке: " + str(total) + " из " + str(total)) in (
       page.locator('.qa-conveyor-coverage').inner_text())

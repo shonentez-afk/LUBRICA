@@ -3619,3 +3619,23 @@ button.btn,
  .qa-conveyor-coverage .qa-issues-list{padding:6px}
  #structureDialog.candidate-finalize-dialog .conveyor-selection-counter{font-size:12px}
 }
+
+/* Stage 5B.12: user confirmation before discarding unsaved subtype edits. */
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm{
+ display:grid;gap:8px;padding:12px;margin-top:12px;
+ border:1px solid #dfbb77;border-radius:10px;
+ background:#fffaf0;color:#60461d;
+}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm[hidden]{display:none!important}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm b{font-size:13px}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-confirm>span{font-size:12px;line-height:1.5}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-actions{
+ display:flex;flex-wrap:wrap;gap:8px
+}
+#structureDialog.candidate-finalize-dialog .conveyor-switch-actions .btn{
+ white-space:normal;min-width:0
+}
+@media(max-width:600px){
+ #structureDialog.candidate-finalize-dialog .conveyor-switch-actions{flex-direction:column}
+ #structureDialog.candidate-finalize-dialog .conveyor-switch-actions .btn{width:100%}
+}
