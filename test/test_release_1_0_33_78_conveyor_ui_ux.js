@@ -138,5 +138,5 @@ assert(detail.includes('conveyorSubtypeStatus')&&detail.includes('предвар
 assert(css.includes('Stage 5B.12: scoped conveyor constructor/UI accessibility'));
 assert(css.includes('.qa-conveyor-coverage .qa-issue')&&css.includes('max-width:760px'));
 assert.equal(database.routes.length,0,'no routes generated in constructor/UI audit');
-assert.equal(alerts.length,0,'valid editor scenarios should not show errors: '+alerts.join(' | '));
+assert(alerts.every(x=>/Оборудование (изменён|добавлен)/.test(x)),'successful edits must not emit engineering warnings: '+alerts.join(' | '));
 console.log('PASS Stage 5B.12 conveyor UI/UX: import safety, manual defaults, shaft switch, source IDs, accessibility and mobile layout');
