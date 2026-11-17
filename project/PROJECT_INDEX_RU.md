@@ -56,3 +56,7 @@
 ## Текущий функциональный план
 
 - [PLANT_POINT_COMPLETION_PLAN_RU.md](PLANT_POINT_COMPLETION_PLAN_RU.md) — реализация 1.0.33.69, Issues #11–#14, инженерные acceptance gates и отказ от виртуальных точек.
+
+## Полный аудит конвейерного интерфейса Stage 5B.12
+
+См. [`CONVEYOR_STAGE5B_UI_UX_AUDIT_RU.md`](CONVEYOR_STAGE5B_UI_UX_AUDIT_RU.md): реальные Chrome-скриншоты, исправленные P0/P1 дефекты, five CI PASS и незакрытая ручная Edge field acceptance. Приоритет конструкторы → карта → маршруты; `main` не изменён.

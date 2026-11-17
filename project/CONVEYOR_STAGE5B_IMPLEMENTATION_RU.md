@@ -274,3 +274,12 @@
 
 **Далее:** пользовательская приёмка ZIP на копии базы: 10108215/10208215, 10107057/10207057, KTR 10112094, 10107181, 10110511/10210511, 10111293/10111294/10111321, гибрид 10212029 и ручной belt с пустыми полями; поиск по коду/ID ТМЦ и CSV источников; backup/reload и защита существующих 501 точек/517 мероприятий. Затем закрыть неподдержанные физические конфигурации по двум линиям и только после конвейеров переходить к распиловке и другим семействам. **Конструкторы → карта → маршруты**, без микро-PR.
 
+
+## Актуальное продолжение — Stage 5B.12 полный UI/UX-аудит конвейеров (17.11.2026)
+
+**Код:** [`2118ab7b47e1905475888c5d81c57fc3679ffa50`](https://github.com/shonentez-afk/LUBRICA/commit/2118ab7b47e1905475888c5d81c57fc3679ffa50), feature [PR #22](https://github.com/shonentez-afk/LUBRICA/pull/22), остаётся Draft. **5/5 GitHub Actions PASS:** [Conveyor + full regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741520), [Plant Point + full regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741478), [Chromium UI/UX 1440/768/390](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741516), [Memory](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741503), [Edge preview ZIP+checksum](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741521). Скриншоты Chromium artifact `14311391875`; preview ZIP artifact `14310864013`, оба до 17.12.2026.
+
+**Подробный отчёт и реальные найденные/исправленные баги:** [`project/CONVEYOR_STAGE5B_UI_UX_AUDIT_RU.md`](project/CONVEYOR_STAGE5B_UI_UX_AUDIT_RU.md). Без полного редизайна: новый ручной `belt` не придумывает валы; изменение импортированной карточки не подтверждает тип; subtype-switch требует явного согласия на потерю несохранённого предпросмотра; поле позиции и реальное имя точки синхронизированы; реальные source IDs видимы; адаптивный QA и CSV одной машины; закреплённые действия и ручная конструкция выше производителя/модели. Браузерные скриншоты просмотрены.
+
+**НЕ ЗАКРЫТО:** ручная Edge `file://` приёмка на копии пользовательской JSON и физическая сверка конвейеров обеих линий. Chromium 390 px проверил изолированные конвейерные формы, **не** всю мобильную оболочку (старый `body min-width:760px`). Центрифуги/их системы и охлаждение — `OUT_OF_SCOPE`; не трогать. Не создавать production routes до завершения всех конструкторов и полной карты. `main` остаётся 1.0.33.71 RC; PR #22 не сливать.
+
