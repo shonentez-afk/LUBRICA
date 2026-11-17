@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'conveyors/**'
+      - 'qa/point-acceleration*.js'
+      - 'qa/safe-bulk.js'
+      - 'test/test_stage5c_browser_ux.py'
       - 'structure/entity-dialogs.js'
       - 'structure/detail-ui.js'
       - 'import/component-classifier.js'
@@ -34,12 +37,17 @@ jobs:
           python -m pip install --disable-pip-version-check playwright
           python -m playwright install --with-deps chromium
       - name: Browser interaction and responsive geometry
-        run: python test/test_stage5b_conveyor_browser_ux.py
+        run: |
+          python test/test_stage5b_conveyor_browser_ux.py
+          python test/test_stage5c_browser_ux.py
       - name: Upload browser screenshots for independent manual review
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: LUBRICA_STAGE5B_UI_UX_SCREENSHOTS
-          path: test-artifacts/conveyor-ui-ux/*.png
+          path: |
+            test-artifacts/conveyor-ui-ux/*.png
+            test-artifacts/point-acceleration/*.png
+            test-artifacts/point-acceleration/*.csv
           retention-days: 30
           if-no-files-found: warn

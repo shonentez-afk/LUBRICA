@@ -2,6 +2,18 @@
 
 Работай с GitHub-репозиторием LUBRICA как с главным источником проекта. Не начинай проект заново.
 
+## Stage 5C — безопасное ускоренное заполнение и количество подшипников конвейера (17.11.2026)
+
+**Статус:** программный пакет разработан в `feature/stage5b-conveyor-families-20261105`, остаётся draft PR #22, **не принят production**. После публикации обязательно сверить Actions на HEAD. Не менять `main` и пользовательскую production JSON. Подробно: [`project/POINT_ACCELERATION_STAGE5C_IMPLEMENTATION_RU.md`](project/POINT_ACCELERATION_STAGE5C_IMPLEMENTATION_RU.md).
+
+- Новая складная ведомость **«Ускоренное заполнение · физические точки»** в существующем «Контроль»: линия/участок, семейство, ТМЦ, источник, имеющиеся `pointId/taskId`, пробелы конструкторов, подсказки по аналогу. CSV и read-only предпросмотр Excel, **не импортирует** неподтверждённые данные непосредственно в карту.
+- Конвейер с неуказанными подшипниками: `BEARING_SOURCE_UNKNOWN`, предложить найти шильдик/фото/ведомость, **0 созданных опор**. Если модель ТМЦ известна, но число/расположение не задано: `MODEL_KNOWN_COUNT_UNKNOWN`; количество не угадывать из модели или числа валов. Инженер вводит **фактическое количество**, список **физических позиций** с источниками, сервисность и доступ к смазке. Один `bearing` ТМЦ может соответствовать нескольким фактически подтверждённым позициям; первичный survey записывает **только доказательства**, не точки. Финализатор предлагает по одной `review` точке на каждую отдельно подтверждённую обслуживаемую позицию, с идемпотентной стабильной привязкой; несмазываемые позиции остаются контекстом.
+- `qa/safe-bulk.js` и обновление `ui/bulk-edit.js`: массовое изменение возможно только через preview и readiness guard, не затрагивает утверждённое/отключённое, маршрут/факт. `qa/engineering-decisions.js` принимает `context/clarify` без искусственно назначенной категории, но `point` всё ещё требует физического доказательства.
+- Потребности в новых семействах по старому аудиту: **распиловка/режущие валы и каретки (P0), питатели и очистка, штабеллеры/подъёмники/упаковка, измельчители LINDNER VEGA 1500 (P1), маслосистемы/насосы, составные приводы (P2)**. Не делать конструктор под каждый ТМЦ; использовать существующие Rotating, Oscillating, Fan, Conveyor, PP53736 и OEM-калькуляторы. Центрифуги/их шпиндельная маслосистема и охлаждение **OUT_OF_SCOPE**.
+- Новый targeted Node `test/test_stage5c_point_acceleration.js`, Chromium `test/test_stage5c_browser_ux.py` (1440/768/390), включение в full regression и существующие CI. До их фактического успешного запуска на GitHub не объявлять код принятым.
+- Очерёдность прежняя: **закрытие всех конструкторов → вся карта → маршруты**; реальная ручная Edge `file://` приёмка на **копии** заводского JSON остаётся открытой.
+
+
 ## Актуальное продолжение — Stage 5B.12 полный UI/UX-аудит конвейеров (17.11.2026)
 
 **Код:** [`2118ab7b47e1905475888c5d81c57fc3679ffa50`](https://github.com/shonentez-afk/LUBRICA/commit/2118ab7b47e1905475888c5d81c57fc3679ffa50), feature [PR #22](https://github.com/shonentez-afk/LUBRICA/pull/22), остаётся Draft. **5/5 GitHub Actions PASS:** [Conveyor + full regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741520), [Plant Point + full regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741478), [Chromium UI/UX 1440/768/390](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741516), [Memory](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741503), [Edge preview ZIP+checksum](https://github.com/shonentez-afk/LUBRICA/actions/runs/44045741521). Скриншоты Chromium artifact `14311391875`; preview ZIP artifact `14310864013`, оба до 17.12.2026.

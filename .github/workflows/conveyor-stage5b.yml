@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - 'conveyors/**'
+      - 'qa/point-acceleration*.js'
+      - 'qa/engineering-decisions.js'
+      - 'qa/safe-bulk.js'
+      - 'ui/bulk-edit.js'
+      - 'test/test_stage5c_point_acceleration.js'
       - 'qa/qa-ui.js'
       - 'index.html'
       - 'test/test_release_1_0_33_76_conveyor_coverage.js'
@@ -48,6 +53,10 @@ jobs:
         run: |
           node --check import/component-classifier.js
           node --check conveyors/conveyor-arrangement.js
+          node --check conveyors/bearing-verification.js
+          node --check qa/point-acceleration.js
+          node --check qa/point-acceleration-ui.js
+          node --check qa/safe-bulk.js
           node --check conveyors/conveyor-coverage.js
           node --check qa/qa-ui.js
           node --check import/candidate-finalizer.js
@@ -60,6 +69,7 @@ jobs:
           node test/test_release_1_0_33_76_conveyor_coverage.js
           node test/test_release_1_0_33_77_two_shaft_support_guard.js
           node test/test_release_1_0_33_78_conveyor_ui_ux.js
+          node test/test_stage5c_point_acceleration.js
       - name: Historical conveyor targeted acceptance
         run: |
           node tests/test_release_1_0_33_47_chain_scraper_conveyor.js

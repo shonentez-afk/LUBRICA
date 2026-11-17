@@ -180,7 +180,27 @@ function specsFor(record,source){
   if(template?.id==='conveyor_arrangement'){
     const ev=template.evidence||{},actual=ev.actual||[],assets=ev.assets||[],layout=ev.supportLayout||null;
     const specs=[];
-    if(layout?.supports?.length===4){
+    // Confirmed inventory gives individual physical locations even when one
+    // imported TMC designation refers to several bearings on a conveyor.
+    // It supersedes four hypothetical two-shaft locations and the one-TMC-one-
+    // point fallback, but only after engineer proof and a service-access check.
+    const survey=record.conveyorBearingSurvey||null;
+    const hasSurvey=!!survey;
+    const verifiedSurvey=survey?.physicalCountConfirmed===true&&survey.status==='CONFIRMED';
+    const surveyPositions=verifiedSurvey?(survey.positions||[]).filter(x=>
+      x.state==='serviceable'&&x.serviceAccessConfirmed&&x.bearingSourceId&&String(x.location||'').trim()):[];
+    if(verifiedSurvey){
+      for(const site of surveyPositions){
+        const source=actual.find(x=>x.source==='component'&&x.category==='bearing'&&
+          String(x.id)===String(site.bearingSourceId));
+        if(!source)continue; // Changed imported source must be reverified.
+        specs.push(spec(`conveyor_survey_${site.positionId}`,site.location,'bearing',
+          site.location,['Досмазывание'],false,{actual:true,conveyorEvidence:true,
+          physicalSupport:true,requiresPhysicalConfirmation:true,
+          surveyPositionId:site.positionId,sourceRef:source,
+          serviceLocationName:site.location,assignmentStatus:'confirmed_engineer'}));
+      }
+    }else if(layout?.supports?.length===4&&!hasSurvey){
       for(const support of layout.supports){
         const br=support.bearingRef||support.suggestedBearingRef||null;
         specs.push(spec(
@@ -193,7 +213,7 @@ function specsFor(record,source){
           {actual:true,conveyorEvidence:true,physicalSupport:true,requiresPhysicalConfirmation:true,serviceLocationName:support.position,shaftId:support.shaftId,side:support.side,sourceRef:br,supportKey:support.key,assignmentStatus:support.assignmentStatus||'unassigned'}
         ));
       }
-    }else{
+    }else if(!hasSurvey){
       for(const a of actual.filter(x=>x.category==='bearing'||x.category==='linear_bearing')){
         specs.push(spec(`conveyor_${a.source}_${a.id}`,a.name,a.category||'bearing','',['Досмазывание'],!!layout,{actual:true,conveyorEvidence:true,serviceLocationName:a.name,sourceRef:a}));
       }
@@ -284,6 +304,17 @@ function applyConfirmedSpecs(database,source,record,equipment,template,chosen){
   return {originBase,createdPointIds};
 }
 
+// Single component designation is not a quantity. A generic conveyor bearing
+// needs a physical place and explicit documentary confirmation in this wizard.
+function conveyorGenericBearingPanel(template,specs){
+ if(template?.id!=='conveyor_arrangement'||!specs.some(x=>x.category==='bearing'&&!x.physicalSupport))return'';
+ return '<div class="wizard-note conveyor-generic-bearing-proof">'+
+  '<b>Модель подшипника ≠ число опор</b><span>Выбирайте только отдельную подтверждённую физическую точку. '+
+  'Для нескольких позиций одинаковой модели сначала внесите их через «Проверку числа и мест опор» в Контроль.</span>'+
+  '<label class="checkline"><input type="checkbox" name="conveyor_generic_confirm"> '+
+  'Проверено по месту: эта конкретная опора существует и имеет место подачи смазки</label>'+
+  '<label>Источник проверки<input name="conveyor_generic_source" placeholder="Осмотр, фото или паспорт установленного узла"></label></div>';
+}
 function conveyorSupportAssignmentPanel(template){
   if(template?.id!=='conveyor_arrangement')return'';
   const ev=template.evidence||{},layout=ev.supportLayout||null,bearings=(ev.actual||[]).filter(x=>x.category==='bearing'&&!/(?:уточнить|не\s+указан)/i.test(x.name||''));
@@ -425,11 +456,12 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     ${conveyorAssemblyPanel(template)}
     ${conveyorEvidencePanel(template)}
     ${conveyorSupportAssignmentPanel(template)}
+    ${conveyorGenericBearingPanel(template,specs)}
     <div class="candidate-finalize-list">${template?.evidence?.assembly&&!specs.length?'<div class="wizard-note"><b>У родителя нет собственных точек смазки.</b><span>Откройте конструктор нужного дочернего конвейера выше. Его точки, ТМЦ и мероприятия сохраняются на собственной карточке.</span></div>':specs.length?specs.map((s,i)=>`<div class="candidate-finalize-item" data-spec-index="${i}">
       <label class="candidate-finalize-check"><input type="checkbox" name="use_${i}" ${s.selected?'checked':''}><span>${template?.id==='conveyor_arrangement'?'Включить точку':'Создать'}</span></label>
       <label class="candidate-point-name"><span>${s.physicalSupport?'Название по физическому месту':template?.id==='conveyor_arrangement'?'Точка обслуживания':'Точка смазки'}</span><input name="name_${i}" value="${esc(s.name)}" ${s.physicalSupport?'readonly':''}></label>${template?.id==='conveyor_arrangement'&&s.sourceRef?.name?`<div class="candidate-source-tmc"><span>Узел / ТМЦ</span><b>${esc(cleanTmcName(s.sourceRef.name))}</b></div>`:''}
       <label class="candidate-point-category"><span>Категория</span>${s.physicalSupport?'<input value="Подшипник качения" readonly aria-label="Категория фиксирована: подшипник"><input name="cat_'+i+'" type="hidden" value="bearing">':'<select name="cat_'+i+'">'+Object.entries(C.categoryLabels).map(([k,v])=>'<option value="'+k+'" '+(k===s.category?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select>'}</label>
-      <label class="candidate-point-position"><span>Положение</span><input name="pos_${i}" value="${esc(s.position||'')}"></label>
+      <label class="candidate-point-position"><span>Положение</span><input name="pos_${i}" value="${esc(s.position||'')}" ${s.surveyPositionId?'readonly title="Место подтверждено в реестре опор"':''}></label>
       <div class="candidate-actions-field" data-activity-box="${i}"><span class="candidate-field-title">Мероприятия</span>${activityChecks(s.category,s.activities,i)}${s.requiresOemVerification?'<small>Операции редуктора не выбраны: подтвердите масло/смазку и обслуживание по OEM перед созданием точки.</small>':''}</div>
     </div>`).join(''):`<div class="wizard-note"><b>${equipmentType==='motor'?'Плановые точки досмазывания не создаются автоматически.':'Фактические подшипниковые опоры не найдены.'}</b><span>${equipmentType==='motor'?(global.LubricaMotorOEM?.resolve?.(record.name||'')?.policy==='NO_ROUTINE_RELUBE'?'OEM-профиль двигателя указывает закрытую / greased-for-life конструкцию. Двигатель остаётся в структуре, но ложное мероприятие «Досмазывание» в карту не добавляется.':'Сначала подтвердите фактическую обслуживаемость DE/NDE и наличие точек подачи. LUBRICA не придумывает внутренние подшипники по одному названию двигателя.'):'LUBRICA не создаёт условные «левую/правую» опоры автоматически. Сначала добавьте или подтвердите реальные подшипники/опоры в структуре, либо создайте точку вручную из «Карты смазки». '}</span></div>`}</div>
     ${specs.length&&template?.id==='conveyor_arrangement'?'<div class="conveyor-selection-counter" role="status" aria-live="polite" data-conveyor-selected-count>Выбрано точек: 0 из '+specs.length+'. Новые мероприятия останутся на проверке.</div>':''}
@@ -538,7 +570,8 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
     const chosen=[];
     const supportAssignments={};
     const shaftAssignments={drive:null,return:null};
-    const selectedSupportKeys=specs.filter((x,i)=>x.physicalSupport&&form.elements[`use_${i}`]?.checked).map(x=>x.supportKey);
+    const selectedSupportKeys=specs.filter((x,i)=>x.physicalSupport&&x.supportKey&&form.elements[`use_${i}`]?.checked).map(x=>x.supportKey);
+    const selectedSurveySpecs=specs.filter((x,i)=>x.surveyPositionId&&form.elements[`use_${i}`]?.checked);
     const supportSource=String(form.elements['conveyor_support_source']?.value||'').trim();
     if(template?.id==='conveyor_arrangement'&&template?.evidence?.supportLayout?.supports?.length===4&&selectedSupportKeys.length){
       const layout=template.evidence.supportLayout;
@@ -629,6 +662,24 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
       global.LubricaApp?.showToast('Выберите хотя бы одну точку смазки','warn');
       return;
     }
+    if(template?.id==='conveyor_arrangement'&&selectedSurveySpecs.length){
+      const survey=equipment.conveyorBearingSurvey;
+      const valid=global.LubricaConveyorBearingVerification?.verifiedPositions?.(database,equipment)||[];
+      for(const s of selectedSurveySpecs){
+        const row=valid.find(x=>String(x.positionId)===String(s.surveyPositionId));
+        if(!row||String(row.location)!==String(s.position)||
+           String(row.bearingSourceId)!==String(s.sourceRef?.id)){
+          global.LubricaApp?.showToast('Подтверждённая позиция или исходный ТМЦ изменились. Повторно проверьте реестр опор.','warn');return;
+        }
+      }
+      if(!survey?.sourceReference){global.LubricaApp?.showToast('Нет источника фактической схемы опор.','warn');return}
+    }
+    if(template?.id==='conveyor_arrangement'&&chosen.some(x=>x.category==='bearing'&&!x.physicalSupport)){
+      if(!form.elements.conveyor_generic_confirm?.checked||
+        !String(form.elements.conveyor_generic_source?.value||'').trim()){
+        global.LubricaApp?.showToast('Подтвердите наличие каждой выбираемой опоры и источник проверки.','warn');return;
+      }
+    }
     // Stage 5B: a non-two-shaft conveyor must have a named actual service location.
     if(template?.id==='conveyor_arrangement'){
       if(chosen.some(x=>x.physicalSupport&&x.category!=='bearing')){
@@ -688,7 +739,14 @@ function open(source,id,decisionContext=null,subtypeOverride=null){
         layout:ev.supportLayout?{...ev.supportLayout,shaftRolesNeedConfirmation:selectedSupportKeys.length?false:ev.supportLayout.shaftRolesNeedConfirmation,shafts:selectedSupportKeys.length&&ev.supportLayout.shaftRolesNeedConfirmation?[{...(shaftAssignments.drive||{}),role:'drive',label:'Приводной вал'},{...(shaftAssignments.return||{}),role:'return',label:'Натяжной / ведомый вал'}]:(ev.supportLayout.shafts||[]),supports:(ev.supportLayout.supports||[]).map(s=>({...s,shaftId:ev.supportLayout.shaftRolesNeedConfirmation?(s.shaftRole==='drive'?shaftAssignments.drive?.id:shaftAssignments.return?.id):s.shaftId,bearingRef:selectedSupportKeys.includes(s.key)?supportAssignments[s.key]||null:null,suggestedBearingRef:null,assignmentStatus:selectedSupportKeys.includes(s.key)?'confirmed_engineer':'not_confirmed'}))}:null,
         createdPointIds:applied.createdPointIds,
         supportVerification:selectedSupportKeys.length?{physicalConfirmed:true,sourceReference:supportSource,
-          confirmedSupportKeys:selectedSupportKeys.slice(),confirmedAt:new Date().toISOString()}:null,
+          confirmedSupportKeys:selectedSupportKeys.slice(),confirmedAt:new Date().toISOString()}:
+          selectedSurveySpecs.length?{physicalConfirmed:true,
+          sourceReference:targetRecord.conveyorBearingSurvey?.sourceReference||'',
+          confirmedSurveyPositionIds:selectedSurveySpecs.map(x=>x.surveyPositionId),
+          confirmedAt:new Date().toISOString()}:
+          chosen.some(x=>x.category==='bearing'&&!x.physicalSupport)?{physicalConfirmed:true,
+          sourceReference:String(form.elements.conveyor_generic_source?.value||'').trim(),
+          confirmedAt:new Date().toISOString()}:null,
         source:'engineer_confirmed_constructor'
       };
       // Shaft TMCs do not become engineer-confirmed merely because a chain

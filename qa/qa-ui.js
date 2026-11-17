@@ -316,6 +316,7 @@ function render(view){
   host.querySelector('[data-qa-query]').oninput=e=>{query=e.target.value;host.dataset.qaQuery=query;clearTimeout(searchTimer);const caret=e.target.selectionStart??query.length;searchTimer=setTimeout(()=>{draw();const q=host.querySelector('[data-qa-query]');if(q){q.focus();try{q.setSelectionRange(caret,caret)}catch(_){}}},160)};
   const qSelect=host.querySelector('[data-qa-candidate-line]');if(qSelect){qSelect.value=qLine;qSelect.onchange=e=>{host.dataset.qaCandidateLine=e.target.value;host.dataset.qaCandidatePage='0';draw()}}
   installConveyorCoverage(host,conveyorCoverage,draw);
+  global.LubricaPointAccelerationUI?.install?.(host,draw);
   host.querySelectorAll('[data-qa-open-equipment]').forEach(b=>b.onclick=()=>openIssue({entityType:'equipment',entityId:b.dataset.qaOpenEquipment}));
   const qPrev=host.querySelector('[data-qa-prev]'),qNext=host.querySelector('[data-qa-next]');
   if(qPrev)qPrev.onclick=()=>{host.dataset.qaCandidatePage=String(Math.max(0,qPage-1));draw()};

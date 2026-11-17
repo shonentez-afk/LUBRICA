@@ -31,9 +31,9 @@ function preview(db,id,action,params={}){
  if(!c){errors.push('Импортированный компонент отсутствует в текущей базе.');return{allowed:false,errors,warnings,action:p.action}}
  if(!allowed.has(p.action))errors.push('Неизвестное инженерное решение.');
  if(c.engineeringDecision)errors.push('По компоненту уже сохранено решение. Для изменения сначала отмените его безопасным способом.');
- if(!['candidate','review'].includes(clean(c.candidateState).toLowerCase()))errors.push('Компонент уже подтверждён, исключён или относится к другому рабочему процессу.');
+ if(!(p.action==='point'?['candidate','review']:['candidate','review','unclassified']).includes(clean(c.candidateState).toLowerCase()))errors.push('Компонент уже подтверждён, исключён или относится к другому рабочему процессу.');
  if(!clean(c.equipmentId)||!arr(db.equipment).some(e=>String(e.id)===String(c.equipmentId)))errors.push('Нельзя принять решение без фактического оборудования.');
- if(!clean(c.candidateCategory))errors.push('Категория обслуживаемого компонента не определена.');
+ if(p.action==='point'&&!clean(c.candidateCategory))errors.push('Для создания физической точки категория обслуживаемого компонента должна быть определена.');
  if(clean(c.status).toLowerCase()==='retired')errors.push('Снятая с эксплуатации ТМЦ требует проверки статуса, а не создания точки.');
  if(linkedPoints(db,id).length)errors.push('Компонент уже привязан к физической точке. Новую точку создавать нельзя.');
  if(p.reason.length<8)errors.push('Укажите основание решения (не менее 8 символов).');

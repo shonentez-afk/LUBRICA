@@ -60,3 +60,7 @@
 ## Полный аудит конвейерного интерфейса Stage 5B.12
 
 См. [`CONVEYOR_STAGE5B_UI_UX_AUDIT_RU.md`](CONVEYOR_STAGE5B_UI_UX_AUDIT_RU.md): реальные Chrome-скриншоты, исправленные P0/P1 дефекты, five CI PASS и незакрытая ручная Edge field acceptance. Приоритет конструкторы → карта → маршруты; `main` не изменён.
+
+## Stage 5C — ускоренное заполнение инженерной карты
+
+Подробности, source-ID/позиция, отложенное создание точек, безопасный массовый preview и очередь новых конструкторов: [`POINT_ACCELERATION_STAGE5C_IMPLEMENTATION_RU.md`](POINT_ACCELERATION_STAGE5C_IMPLEMENTATION_RU.md). PR #22 draft; не менять production JSON. Физическая приёмка обязательна.

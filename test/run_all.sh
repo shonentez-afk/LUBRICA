@@ -113,4 +113,5 @@ node test/test_release_1_0_33_75_composite_conveyor_ui.js
 echo '[CONVEYOR COVERAGE STAGE 5B.6]'; node test/test_release_1_0_33_76_conveyor_coverage.js
 echo '[CONVEYOR TWO-SHAFT PHYSICAL SUPPORTS STAGE 5B.9]'; node test/test_release_1_0_33_77_two_shaft_support_guard.js
 echo '[CONVEYOR FULL UI/UX STAGE 5B.12]'; node test/test_release_1_0_33_78_conveyor_ui_ux.js
+echo '[POINT ACCELERATION 5C: PHYSICAL COUNT, ANALOG, MASS SAFETY]'; node test/test_stage5c_point_acceleration.js
 echo 'ALL INTEGRATION TESTS PASS'
