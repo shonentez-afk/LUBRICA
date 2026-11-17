@@ -115,3 +115,7 @@ Targeted + full regression, Edge `file://`, проверка сохранени�
 ## RC1 для ручной приёмки Stage 2+3
 
 Тестовый ZIP `LUBRICA_RELEASE_1_0_33_71_RC1.zip` опубликован как GitHub prerelease `v1.0.33.71-rc1`. Подтверждение целостности: `project/RELEASE_PACKAGE_1_0_33_71_RC1.json`. Ручная приёмка на пользовательской базе в Edge остаётся открытой; документация пользователя отложена.
+
+## Stage 5D — ограничение объёма по решению пользователя
+
+Фокус только на `Saw / Cut / Traverse` и реальных опорах `Rotating Arrangement`. Другие новые конструкторы временно отложены. Детали: [`SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md`](SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md). Производственный JSON не меняем, маршруты не начинаем, PR #22 Draft до полевой приёмки.

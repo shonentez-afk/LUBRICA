@@ -1,6 +1,16 @@
 # ПРОДОЛЖЕНИЕ ПРОЕКТА LUBRICA — START HERE
 
 Работай с GitHub-репозиторием LUBRICA как с главным источником проекта. Не начинай проект заново.
+
+## Stage 5D — только пилы/резка/каретки и реальный валовый контур (17.11.2026)
+
+Сделан новый семейный конструктор `machines/saw-cut-arrangement.js`, встроен в привычную «Структура». Сохраняется владелец ТМЦ (например, колесо пилы — дочерняя машина), источники и существующие `pointId`; группа «Пилы» не создаёт точек. Инженер указывает реальное место, источник и доступ. Один исходный подшипник может соответствовать нескольким **раздельно подтверждённым** физическим местам; `2RS/2CS`, IGUS/drylin/OILAMID без OEM не превращаются в рутинную досмазку.
+
+Доработан `rotating/rotating-arrangement.js`: число опор по умолчанию **неизвестно**; допускается 0–6 подтверждённых мест, survey-only без точек при нехватке сведений; реальные позиции и маслёнки подтверждаются отдельно. Ручное создание тоже 0–6. Из Saw/Cut доступен переход в конструктор вала. Запись и повторное применение — только через штатный `candidate-finalizer`, `review`, anti-duplicate, protect approved/route/fact.
+
+**Подробности и регрессионный контракт:** [`project/SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md`](project/SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md). Два новых теста: `test/test_stage5d_saws_shafts.js` и `test/test_stage5d_browser_ux.py`. Локальный Node и Chromium 1440/768/390 PASS; GitHub Actions после push проверять отдельно. PR #22 оставлять Draft, `main` и production JSON не менять. **Другие механизмы сейчас отложены пользователем**. Edge `file://` на резервной копии заводской JSON и фактические места на участке ещё не приняты.
+
+
 ## Stage 5C.0 — фактическая приёмка CI пакета ускоренного заполнения (17.11.2026)
 
 **Проверенный кодовый commit:** [`16064cdf8228da17c93b67b09f30a969fbfb6d7f`](https://github.com/shonentez-afk/LUBRICA/commit/16064cdf8228da17c93b67b09f30a969fbfb6d7f). **5/5 GitHub Actions PASS:** [Stage5B + full regression + новый Stage5C Node](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487449), [Plant Point Stage1–3 + full regression](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487552), [Chromium UI/UX 1440/768/390 Stage5B+5C](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487560), [Project Memory](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487516), [ZIP + SHA256](https://github.com/shonentez-afk/LUBRICA/actions/runs/44055487639).

@@ -3732,3 +3732,27 @@ button.btn,
   font-size:13px;font-weight:700;line-height:1.45}
 .point-accel-details[open]>summary{margin-bottom:12px}
 .point-accel-details summary:focus-visible{outline:3px solid #2a776c;outline-offset:2px}
+
+/* Stage 5D: saw/cut + real-shaft evidence UI, existing desktop architecture. */
+.saw-cut-form,.rotating-confirm-form{min-width:0}
+.saw-cut-form label,.rotating-confirm-form label{display:grid;gap:6px;min-width:0}
+.saw-cut-form input,.rotating-confirm-form input,.saw-cut-form select,.rotating-confirm-form select,
+.saw-cut-form textarea,.rotating-confirm-form textarea{max-width:100%;min-width:0;width:100%;box-sizing:border-box}
+.saw-cut-form input[type=checkbox],.rotating-confirm-form input[type=checkbox]{width:auto}
+.saw-cut-form .checkline,.rotating-confirm-form .checkline{display:flex;align-items:center;gap:8px;line-height:1.45}
+.saw-cut-form .saw-child-links{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.saw-cut-form .saw-child-links .mini-btn{white-space:normal;max-width:100%}
+.saw-cut-form .saw-inventory-list{max-height:280px;overflow:auto;overscroll-behavior:contain}
+.saw-cut-form .saw-inventory-list .qa-issue-body{min-width:0;overflow-wrap:anywhere}
+.saw-cut-form .saw-inventory-list small{display:block;font-size:12px;line-height:1.5}
+.saw-physical-row,.rotating-physical-row{display:grid;gap:9px;background:#fafcfb;border:1px solid var(--line);border-radius:9px;padding:12px;margin:10px 0}
+.saw-cut-form menu,.rotating-confirm-form menu{position:sticky;bottom:0;z-index:4;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:12px 8px;background:#fff;border-top:1px solid var(--line)}
+.saw-cut-form :is(button,select,input,textarea):focus-visible,
+.rotating-confirm-form :is(button,select,input,textarea):focus-visible{outline:3px solid #2a776c;outline-offset:2px}
+@media(max-width:620px){
+ .saw-cut-form menu,.rotating-confirm-form menu{flex-direction:column}
+ .saw-cut-form menu .btn,.rotating-confirm-form menu .btn{width:100%}
+ .saw-cut-form .saw-inventory-list{max-height:200px}
+}
+
+@media(max-width:620px){.saw-cut-form input,.rotating-confirm-form input,.saw-cut-form select,.rotating-confirm-form select,.saw-cut-form textarea,.rotating-confirm-form textarea{font-size:14px;min-height:34px}}

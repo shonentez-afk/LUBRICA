@@ -64,3 +64,7 @@
 ## Stage 5C — ускоренное заполнение инженерной карты
 
 Подробности, source-ID/позиция, отложенное создание точек, безопасный массовый preview и очередь новых конструкторов: [`POINT_ACCELERATION_STAGE5C_IMPLEMENTATION_RU.md`](POINT_ACCELERATION_STAGE5C_IMPLEMENTATION_RU.md). PR #22 draft; не менять production JSON. Физическая приёмка обязательна.
+
+## Stage 5D — семейные конструкторы пил и валов
+
+[SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md](SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md) — исходные ТМЦ двух линий, физические позиции опор, защита old pointId и OEM, targeted Node + Chromium. Остальные семейства не в текущем объёме.

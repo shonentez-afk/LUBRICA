@@ -10,7 +10,7 @@ const byId=a=>new Map(arr(a).map(x=>[String(x.id),x]));
 const fq=(s,q)=>norm(s).includes(norm(q));
 const FAMILIES=Object.freeze({
  conveyor:{label:'Конвейерные машины',status:'EXISTING_REVIEW',constructor:'Conveyor Arrangement',priority:1},
- saw_cut:{label:'Пилы, резка и каретки',status:'CONSTRUCTOR_GAP',constructor:'Saw / Cut & Traverse Arrangement',priority:2},
+ saw_cut:{label:'Пилы, резка и каретки',status:'EXISTING_REVIEW',constructor:'Saw / Cut & Traverse Arrangement',priority:2},
  fan:{label:'Вентиляторы и подшипниковые блоки',status:'EXISTING_REVIEW',constructor:'Fan Bearing Arrangement',priority:3},
  feeder:{label:'Питатели и дозаторы',status:'CONSTRUCTOR_GAP',constructor:'Feeder Arrangement',priority:4},
  cleaning:{label:'Щёточная очистка',status:'CONSTRUCTOR_GAP',constructor:'Brush / Cleaning Arrangement',priority:5},
