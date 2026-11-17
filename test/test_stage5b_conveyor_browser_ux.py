@@ -116,7 +116,10 @@ def install_fixture(page):
       </body></html>""")
     page.add_style_tag(content=(ROOT / "assets/app.css").read_text(encoding="utf-8"))
     page.add_style_tag(content="""html,body{max-width:100%;min-height:100%;margin:0}
-      body{display:block!important;overflow-x:hidden}
+      /* This fixture isolates conveyor surfaces from the desktop app shell.
+         The production body has a legacy min-width:760px below 1120px;
+         separate mobile-app acceptance is required for the entire shell. */
+      body{display:block!important;min-width:0!important;overflow-x:hidden}
       #programQaView{max-width:100%;box-sizing:border-box}""")
     page.evaluate("() => {\n" + SETUP.replace("__FIXTURE__", json.dumps(fixture(), ensure_ascii=False)) + "\n}")
     for filename in SCRIPTS:
