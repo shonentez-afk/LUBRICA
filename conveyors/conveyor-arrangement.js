@@ -38,6 +38,13 @@ function ensureManualComponents(db,equipment,setup={}){
   // Compound and multi-roller machines do not inherit the two-shaft, four-support layout.
   // Only explicitly identified drive / chain assets are allowed; bearings need real TMCs.
   if(!['belt','chain_scraper'].includes(subtype)){
+    // A family switch cannot leave old hypothetical belt shafts in evidence.
+    // Any component already bound to a real point stays active and requires
+    // a separate engineering decision, never an implicit deletion.
+    for(const role of ['drive_shaft','return_shaft','bearing_drive_left',
+      'bearing_drive_right','bearing_return_left','bearing_return_right']){
+      retire(db.components.find(c=>c.equipmentId===equipment.id&&c.manualConveyorRole===role));
+    }
     const driveMode=clean(setup.driveMode)||'none';
     const upsertDrive=(role,value,kind)=>upsert(role,value,kind);
     if(driveMode==='motor_gearbox'){
@@ -70,8 +77,8 @@ function ensureManualComponents(db,equipment,setup={}){
  const driveRight=identified(setup.driveRightBearing);
  const returnLeft=identified(setup.returnLeftBearing);
  const returnRight=identified(setup.returnRightBearing);
- upsert('drive_shaft',clean(setup.driveShaftName)||'Вал приводной','shaft',{candidateEquipmentSubtype:'drive'});
- upsert('return_shaft',clean(setup.returnShaftName)||(returnRole==='driven'?'Вал ведомый':'Вал натяжной'),'shaft',{candidateEquipmentSubtype:returnRole});
+ upsert('drive_shaft',identified(setup.driveShaftName),'shaft',{candidateEquipmentSubtype:'drive'});
+ upsert('return_shaft',identified(setup.returnShaftName),'shaft',{candidateEquipmentSubtype:returnRole});
  upsert('bearing_drive_left',driveLeft,'bearing',{manualConveyorSupport:'drive_left'});
  upsert('bearing_drive_right',driveRight,'bearing',{manualConveyorSupport:'drive_right'});
  upsert('bearing_return_left',returnLeft,'bearing',{manualConveyorSupport:'return_left'});
@@ -93,7 +100,7 @@ function ensureManualComponents(db,equipment,setup={}){
    retireRole('drive_gearbox');retireRole('drive_motor');
    upsert('drive',identified(setup.driveName),'motor_gearbox');
  }
- equipment.manualConveyorSetup={version:'1.0.33.47',conveyorSubtype:clean(setup.conveyorSubtype)||equipment.manualConveyorSetup?.conveyorSubtype||'belt',layout:'TWO_SHAFT_FOUR_SUPPORTS',returnShaftRole:returnRole,driveShaftName:clean(setup.driveShaftName)||'Вал приводной',returnShaftName:clean(setup.returnShaftName)||(returnRole==='driven'?'Вал ведомый':'Вал натяжной'),driveLeftBearing:clean(setup.driveLeftBearing),driveRightBearing:clean(setup.driveRightBearing),returnLeftBearing:clean(setup.returnLeftBearing),returnRightBearing:clean(setup.returnRightBearing),chainEnabled:setup.chainEnabled!==false,chainName:clean(setup.chainName),driveMode,driveEnabled:driveMode!=='none',driveName:clean(setup.driveName),gearboxName:clean(setup.gearboxName),motorName:clean(setup.motorName),updatedAt:now()};
+ equipment.manualConveyorSetup={version:'1.0.33.78',conveyorSubtype:clean(setup.conveyorSubtype)||equipment.manualConveyorSetup?.conveyorSubtype||'belt',layout:identified(setup.driveShaftName)&&identified(setup.returnShaftName)?'TWO_SHAFT_FOUR_SUPPORTS':'SHAFTS_REQUIRE_FIELD_CONFIRMATION',returnShaftRole:returnRole,driveShaftName:identified(setup.driveShaftName),returnShaftName:identified(setup.returnShaftName),driveLeftBearing:clean(setup.driveLeftBearing),driveRightBearing:clean(setup.driveRightBearing),returnLeftBearing:clean(setup.returnLeftBearing),returnRightBearing:clean(setup.returnRightBearing),chainEnabled:setup.chainEnabled!==false,chainName:clean(setup.chainName),driveMode,driveEnabled:driveMode!=='none',driveName:clean(setup.driveName),gearboxName:clean(setup.gearboxName),motorName:clean(setup.motorName),updatedAt:now()};
  return identifyManualComponents(db,equipment);
 }
 

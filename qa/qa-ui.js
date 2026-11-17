@@ -190,13 +190,16 @@ function installConveyorCoverage(host,coverage,redraw){
   (x.subtypeSuggestion?'<small>Подсказка по ТМЦ (тип не подтверждён): '+esc(x.subtypeSuggestion.label)+' · '+esc(x.subtypeSuggestion.reason)+'</small>':'')+
   '<small>'+esc(x.next)+'</small>'+
   (x.evidenceRows?.length?'<details class="qa-method"><summary>Исходные ТМЦ и привязки · '+x.evidenceRows.length+'</summary>'+
-   '<div class="qa-issues-list">'+x.evidenceRows.slice(0,25).map(e=>
-    '<div class="qa-issue"><div class="qa-issue-body"><b>'+esc(e.name)+'</b> <code>'+esc(e.sourceId)+'</code>'+
+   '<div class="qa-issues-list qa-conveyor-sources">'+x.evidenceRows.slice(0,25).map(e=>
+    '<div class="qa-issue"><div class="qa-issue-body"><b>'+esc(e.name)+'</b> <code>'+esc(e.sourceExternalCode||e.sourceId)+'</code>'+
     '<small>'+esc(({CANDIDATE:'Кандидат — проверить обслуживание',DRIVE:'Привод — OEM-проверка',CONTEXT:'Конструктивный контекст',EXCLUDED:'Не предлагается к смазке'})[e.kind]||e.kind)+
-    ' · '+esc(e.state)+' · pointId: '+esc(e.pointIds.join(', ')||'нет')+
+    ' · source ID: '+esc(e.sourceId)+
+    ' · владелец: '+esc(e.ownerEquipmentName||e.ownerEquipmentId||'—')+
+    ' · точка: '+esc(e.pointIds.join(', ')||'нет')+
+    ' · мероприятия: '+esc(e.taskIds.join(', ')||'нет')+
     (e.reason?' · '+esc(e.reason):'')+'</small></div></div>'
-   ).join('')+(x.evidenceRows.length>25?'<small>Показаны первые 25; полный реестр — CSV по ТМЦ.</small>':'')+
-   '</div></details>':'')+'</div>'+
+   ).join('')+(x.evidenceRows.length>25?'<small>Показаны 25 из '+x.evidenceRows.length+' источников. Все записи доступны в CSV конкретной машины.</small>':'')+
+   '</div><button type="button" class="mini-btn" data-qa-conveyor-one-csv="'+esc(x.id)+'">CSV этой машины · '+x.evidenceRows.length+' источников</button></details>':'')+'</div>'+
   '<button type="button" class="mini-btn" data-qa-open-equipment="'+esc(x.id)+'">Открыть</button></article>'
  ).join('');
  const markup='<details class="qa-conveyor-coverage qa-method" data-qa-conveyor-details'+
@@ -220,6 +223,7 @@ function installConveyorCoverage(host,coverage,redraw){
      '<option value="composite">Составные машины</option></select></label>'+
      '<label class="qa-search"><span>Поиск по имени, коду или ТМЦ</span><input data-qa-conveyor-query value="'+esc(query)+'" placeholder="Код / название / ID ТМЦ"></label>'+
      '<button type="button" class="btn ghost" data-qa-conveyor-search>Найти</button>'+
+     '<button type="button" class="btn ghost" data-qa-conveyor-reset>Сбросить фильтры</button>'+
      '<button type="button" class="btn ghost" data-qa-conveyor-export>Скачать список машин CSV</button>'+
      '<button type="button" class="btn ghost" data-qa-conveyor-evidence-export>Ведомость ТМЦ CSV</button>'+
      '<small>В выборке: '+rows.length+' из '+coverage.machineCount+'</small></div>'+
@@ -245,6 +249,17 @@ function installConveyorCoverage(host,coverage,redraw){
  const searchButton=q('[data-qa-conveyor-search]'),searchInput=q('[data-qa-conveyor-query]');
  if(searchButton)searchButton.onclick=applySearch;
  if(searchInput)searchInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();applySearch()}};
+ const resetButton=q('[data-qa-conveyor-reset]');
+ if(resetButton)resetButton.onclick=()=>{
+   host.dataset.qaConveyorLine='all';host.dataset.qaConveyorFilter='all';
+   host.dataset.qaConveyorQuery='';host.dataset.qaConveyorPage='0';
+   host.dataset.qaConveyorExpanded='1';redraw();
+ };
+ host.querySelectorAll('[data-qa-conveyor-one-csv]').forEach(button=>button.onclick=()=>{
+   const machine=coverage.rows.find(x=>String(x.id)===String(button.dataset.qaConveyorOneCsv));
+   if(machine)download('LUBRICA_Конвейер_'+String(machine.externalCode||machine.id).replace(/[^a-zA-Z0-9_-]/g,'_')+'_ТМЦ.csv',
+     global.LubricaConveyorCoverage.csvEvidence({rows:[machine]}));
+ });
  const exportButton=q('[data-qa-conveyor-export]');
  if(exportButton)exportButton.onclick=()=>download('LUBRICA_Конструкторы_конвейеров.csv',global.LubricaConveyorCoverage.csv(coverage));
  const sourceButton=q('[data-qa-conveyor-evidence-export]');

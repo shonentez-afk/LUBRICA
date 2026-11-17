@@ -3568,3 +3568,54 @@ button.btn,
 .analog-safety-preview ul{margin:6px 0;padding-left:20px}
 .analog-safety-preview .analog-error{color:#9e2d26;font-weight:600}
 @media(max-width:800px){.analog-engineer-confirm{padding:9px}}
+
+
+/* Stage 5B.12: scoped conveyor constructor/UI accessibility and responsive QA.
+   Existing layout and card architecture are intentionally preserved. */
+.manual-conveyor-assets label.hidden{display:none!important}
+.manual-conveyor-assets input,
+.manual-conveyor-assets select,
+.conveyor-support-map-grid input,
+.conveyor-support-map-grid select{min-width:0;max-width:100%;box-sizing:border-box}
+.conveyor-support-map-grid select{white-space:normal}
+.conveyor-support-mapping>.conveyor-support-assign{margin-top:10px}
+.conveyor-selection-counter{
+ display:block;position:relative;margin:12px 0;padding:12px 14px;
+ border:1px solid #cbded9;border-radius:10px;background:#f4f9f7;
+ font-size:13px;font-weight:650;color:#245448;line-height:1.45
+}
+#structureDialog.candidate-finalize-dialog .candidate-point-name input[readonly],
+#structureDialog.candidate-finalize-dialog .candidate-point-category input[readonly]{
+ background:#f0f3f4;color:#46535b;cursor:default
+}
+#structureDialog.candidate-finalize-dialog input:focus-visible,
+#structureDialog.candidate-finalize-dialog select:focus-visible,
+.qa-conveyor-coverage :is(button,input,select,summary):focus-visible,
+.manual-conveyor-assets :is(input,select):focus-visible{
+ outline:3px solid #2a776c;outline-offset:2px
+}
+.qa-conveyor-coverage{min-width:0}
+.qa-conveyor-coverage>summary{cursor:pointer;line-height:1.45}
+.qa-conveyor-coverage .qa-toolbar>*{min-width:0}
+.qa-conveyor-coverage .qa-toolbar .btn{
+ min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;min-height:38px
+}
+.qa-conveyor-coverage .qa-issue-body{min-width:0;overflow-wrap:anywhere}
+.qa-conveyor-coverage .qa-conveyor-sources{
+ max-height:340px;overflow:auto;overscroll-behavior:contain;
+ border:1px solid var(--line);border-radius:8px;background:#f7f9fa
+}
+.qa-conveyor-coverage .qa-conveyor-sources .qa-issue{
+ display:block;min-width:0;background:#fff
+}
+.qa-conveyor-coverage [data-qa-conveyor-one-csv]{
+ margin:8px 0 0;white-space:normal;text-align:left;max-width:100%
+}
+@media(max-width:760px){
+ .qa-conveyor-coverage .qa-toolbar{grid-template-columns:minmax(0,1fr)}
+ .qa-conveyor-coverage .qa-toolbar label,
+ .qa-conveyor-coverage .qa-toolbar .btn{width:100%;max-width:100%}
+ .qa-conveyor-coverage .qa-issue{grid-template-columns:minmax(0,1fr);gap:7px}
+ .qa-conveyor-coverage .qa-issues-list{padding:6px}
+ #structureDialog.candidate-finalize-dialog .conveyor-selection-counter{font-size:12px}
+}

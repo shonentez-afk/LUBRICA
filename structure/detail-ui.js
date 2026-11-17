@@ -36,8 +36,11 @@ const C=global.LubricaStructureContext;const D=global.LubricaStructureDetail=glo
         '<p>'+C.esc(ch.name)+' · '+C.esc(ch.externalCode||ch.id)+'</p>'+
         '<button type="button" class="btn secondary" data-conveyor-child-id="'+C.esc(ch.id)+'">Конструктор</button></div>'
       ).join('')+'</div>':'';
+    const conveyorSubtypeStatus=isConcreteConveyor?(x.confirmedConveyorSubtype&&x.confirmedConveyorSubtype!=='unknown'
+      ?'Тип указан инженером; полнота физической схемы требует проверки'
+      :'Подтип определён предварительно; необходимо подтвердить'):'';
     const conveyorAction=isConcreteConveyor?'<button class="btn secondary" data-conveyor-arrangement>Открыть конструктор</button>':'';
-    const conveyorCard=isConcreteConveyor?`<section class="structure-arrangement-card conveyor-structure-card"><div class="structure-arrangement-copy"><span class="eyebrow">КОНСТРУКЦИЯ КОНВЕЙЕРА</span><b>Фактическая комплектация</b><p>${C.esc(conveyorTemplate.summary||'Проверить фактические обслуживаемые узлы конвейера.')}</p><small>${Number(conveyorEvidence?.count||0)} собственных обслуживаемых ТМЦ · ${Number(conveyorEvidence?.assets?.length||0)} собственных приводных агрегатов · виртуальные опоры не создаются</small>${conveyorAssemblyList}</div>${conveyorAction}</section>`:'';
+    const conveyorCard=isConcreteConveyor?`<section class="structure-arrangement-card conveyor-structure-card"><div class="structure-arrangement-copy"><span class="eyebrow">КОНСТРУКЦИЯ КОНВЕЙЕРА</span><b>Состав и источники</b><p>${C.esc(conveyorTemplate.summary||'Проверить фактические обслуживаемые узлы конвейера.')}</p><small>${C.esc(conveyorSubtypeStatus)} · ${Number(conveyorEvidence?.count||0)} кандидатов ТМЦ в связанной конструкции · ${Number(conveyorEvidence?.assets?.length||0)} связанных приводов · виртуальные опоры не создаются</small>${conveyorAssemblyList}</div>${conveyorAction}</section>`:'';
     const rotatingType=C.selected.type==='equipment'?(x.maintenanceEquipmentType||x.equipmentType):null;
     const isRotating=!!(C.selected.type==='equipment'&&global.LubricaRotatingArrangement?.ROTATING_TYPES?.has?.(rotatingType));
     const rotatingEvidence=isRotating?global.LubricaRotatingArrangement?.evidence?.(d,x,x,'equipment'):null;
