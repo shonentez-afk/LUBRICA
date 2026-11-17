@@ -204,8 +204,8 @@ function installConveyorCoverage(host,coverage,redraw){
  ).join('');
  const markup='<details class="qa-conveyor-coverage qa-method" data-qa-conveyor-details'+
   (host.dataset.qaConveyorExpanded==='1'?' open':'')+'>'+
-  '<summary><b>Покрытие конструкторов конвейеров</b> · '+coverage.machineCount+
-   ' агрегатов · '+coverage.unknownSubtype+' с неопределённым типом · '+coverage.withSubtypeSuggestion+' подсказок по ТМЦ · '+coverage.machinesWithUnlinkedCandidates+' машин с неподтверждёнными кандидатами</summary>'+
+  '<summary><b>Покрытие конструкторов конвейеров</b><span class="qa-conveyor-summary"> · '+coverage.machineCount+
+   ' агрегатов · '+coverage.unknownSubtype+' с неопределённым типом · '+coverage.withSubtypeSuggestion+' подсказок по ТМЦ · '+coverage.machinesWithUnlinkedCandidates+' машин с неподтверждёнными кандидатами</span></summary>'+
   '<p>Это очередь инженерного разбора, <b>не процент готовности</b>. Тип по названию, наличие ТМЦ и созданная точка ещё не подтверждают полноту конструкции. '+
     'Конвейеры с импортированным типом «other»: '+coverage.extraNamedRecords+' · группы: '+coverage.byRole.group+' · вспомогательные: '+coverage.byRole.ancillary+
     ' · вне текущего объёма (центрифуги/охлаждение): '+coverage.excludedScope+'.</p>'+

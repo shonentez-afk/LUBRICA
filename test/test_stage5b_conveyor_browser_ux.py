@@ -145,6 +145,10 @@ def test_viewport(browser, width, height, label):
     assert page.locator("input[name=conveyorDriveShaftName]").input_value() == ""
     assert page.locator("input[name=conveyorReturnShaftName]").input_value() == ""
     assert page.locator("input[name=conveyorDriveShaftName]").is_visible()
+    assert page.evaluate("""() => {
+      const label=document.querySelector('select[name=equipmentType]').closest('label');
+      return label.nextElementSibling?.matches('[data-manual-conveyor]');
+    }"""), label + " subtype constructor should follow equipment type, not manufacturer"
     assert not page.locator("input[name=conveyorChainName]").is_visible()
     assert not page.locator("input[name=conveyorDriveName]").is_visible()
     check_dialog_in_view(page, viewport, label + ": manual")
@@ -187,6 +191,7 @@ def test_viewport(browser, width, height, label):
     page.evaluate("() => window.LubricaCandidateFinalizer.open('equipment','E-BELT')")
     assert page.locator('input[name="use_0"]').is_visible()
     assert page.locator('[data-conveyor-selected-count]').count() == 1
+    assert page.locator('.conveyor-subtype-picker .conveyor-subtype-label').count() == 1
     assert "Выбрано точек: 0" in page.locator('[data-conveyor-selected-count]').inner_text()
     select_text = page.locator('select[name="bearing_assign_drive_left"]').inner_text()
     assert "10101111" in select_text or "B-REAL" in select_text

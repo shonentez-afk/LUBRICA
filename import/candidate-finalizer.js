@@ -318,8 +318,8 @@ function conveyorSubtypePanel(template){
   weighing:'Весовой датчик не считается точкой смазки; обслуживаются механические узлы.',
   unknown:'Тип конвейера требует уточнения. Добавьте реальные ТМЦ или сохраните профиль без точек.'
  };
- return '<div class="wizard-note"><b>Конструкция конвейера — подтверждение</b><span>Смена варианта перестроит предпросмотр. Пока не нажато «Сохранить», структура не меняется.</span>'+
-  '<label style="display:block;margin-top:8px">Фактический тип<select name="conveyorSubtypeChoice">'+opts+'</select></label>'+
+ return '<div class="wizard-note conveyor-subtype-picker"><b>Конструкция конвейера — подтверждение</b><span>Смена варианта перестроит предпросмотр. Пока не нажато «Сохранить», структура не меняется.</span>'+
+  '<label class="conveyor-subtype-label">Фактический тип<select name="conveyorSubtypeChoice">'+opts+'</select></label>'+
   '<small>'+esc(guidance[current]||guidance.unknown)+'</small>'+
   '<div class="conveyor-switch-confirm" data-conveyor-switch-confirm hidden>'+
   '<b>Перестроить конструктор для другого типа?</b>'+

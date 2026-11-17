@@ -48,6 +48,12 @@ const Core=global.LubricaCore;const C=global.LubricaStructureContext;const E=glo
       const fanAssets=form.querySelector('[data-manual-fan-assets]');
       const conveyorAssets=form.querySelector('[data-manual-conveyor]');
       const importedConveyorHint=form.querySelector('[data-import-conveyor-hint]');
+      // Keep the machine subtype near the equipment-type selector on all
+      // widths. Generic manufacturer/model inputs follow, not precede, the
+      // conveyor constructor's most important field.
+      const typeField=form.elements.equipmentType?.closest?.('label');
+      typeField?.after?.(conveyorAssets);
+      conveyorAssets?.after?.(importedConveyorHint);
       const rotatingAssets=form.querySelector('[data-manual-rotating]');
       const oscillatingAssets=form.querySelector('[data-manual-oscillating]');
       const ppAssets=form.querySelector('[data-manual-pp53736]');
