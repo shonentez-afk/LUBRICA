@@ -1,0 +1,45 @@
+name: LUBRICA Stage 5B Browser UI UX
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'conveyors/**'
+      - 'structure/entity-dialogs.js'
+      - 'structure/detail-ui.js'
+      - 'import/component-classifier.js'
+      - 'import/candidate-finalizer.js'
+      - 'qa/qa-ui.js'
+      - 'assets/app.css'
+      - 'test/test_stage5b_conveyor_browser_ux.py'
+      - '.github/workflows/conveyor-stage5b-ui-ux.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-ux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout tested branch
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Chromium and Playwright
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Browser interaction and responsive geometry
+        run: python test/test_stage5b_conveyor_browser_ux.py
+      - name: Upload browser screenshots for independent manual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_STAGE5B_UI_UX_SCREENSHOTS
+          path: test-artifacts/conveyor-ui-ux/*.png
+          retention-days: 30
+          if-no-files-found: warn
