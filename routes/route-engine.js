@@ -41,10 +41,11 @@
    const assignedManual=new Set(d.routes.filter(r=>r.source!=='auto'&&r.status==='active').flatMap(r=>r.taskIds||[]).map(String));
    for(const [key,g] of groups){
      let r=byKey.get(key);
+     if(!r&&!g.contexts.some(c=>!assignedManual.has(String(c.task.id))))continue;
      if(!r){r=normalizeRoute({id:nextRouteId(d.routes),lineId:g.lineId,areaId:g.areaId,interval:g.interval,source:'auto'});d.routes.push(r);byKey.set(key,r);created++}
      const eligible=g.contexts.map(c=>String(c.task.id)).filter(id=>!assignedManual.has(id)),eligibleSet=new Set(eligible),excluded=new Set((r.excludedTaskIds||[]).filter(id=>eligibleSet.has(String(id))));
      const kept=(r.taskIds||[]).filter(id=>eligibleSet.has(String(id))&&!excluded.has(String(id))),seen=new Set(kept);
-     const appended=eligible.filter(id=>!seen.has(id)&&!excluded.has(id));const next=[...kept,...appended];
+     const appended=eligible.filter(id=>!seen.has(id)&&!excluded.has(id));const next=[...kept,...appended];if(!next.length&&r.status==='active'){r.status='draft';r.updatedAt=now()}
      if(JSON.stringify(next)!==JSON.stringify(r.taskIds)||r.lineId!==g.lineId||r.areaId!==g.areaId){r.taskIds=next;r.lineId=g.lineId;r.areaId=g.areaId;r.lineName=g.contexts[0]?.line?.name||r.lineName||'';r.areaName=g.contexts[0]?.area?.name||r.areaName||'';r.updatedAt=now();updated++}
    }
    // Keep manually configured routes, but remove task references that are no longer approved.
@@ -57,13 +58,13 @@
    if(!d)return [];
    let routes=(d.routes||[]).map(normalizeRoute);
    if(!routes.length&&preview){const temp=clone(d);syncRoutes(temp);routes=temp.routes}
-   const pmap=legacyPointMap(d),m=maps(d);
+   const pmap=legacyPointMap(d),m=maps(d),eligible=eligibleGroups(d);
    const visible=routes.filter(r=>includeArchived||r.status!=='archived').filter(r=>status==='all'||r.status===status);
    return visible.map(r=>{
      const area=m.areas.get(r.areaId)||{},line=m.lines.get(r.lineId)||{};
      const points=(r.taskIds||[]).map(id=>pmap.get(String(id))).filter(Boolean);
      const excludedPoints=(r.excludedTaskIds||[]).map(id=>pmap.get(String(id))).filter(Boolean);
-     const allEligible=eligibleGroups(d).get([r.lineId,r.areaId,r.interval].join('|'))?.contexts||[];
+     const allEligible=eligible.get([r.lineId,r.areaId,r.interval].join('|'))?.contexts||[];
      const pointGroups=pointGroupsForRoute(r.id,d),physicalPointCount=new Set(pointGroups.map(g=>String(g.pointId))).size;return {...r,key:[r.lineId,r.areaId,r.interval].join('|'),line:line.name||r.lineName||String(r.lineId||'').replace(/^legacy-line:/,'')||'Без линии',area:area.name||r.areaName||String(r.areaId||'').replace(/^legacy-area:/,'')||(r.source==='manual'||r.source==='copy'?'Все участки':'Без участка'),points,pointGroups,pointCount:pointGroups.length,physicalPointCount,excludedPoints,eligibleCount:allEligible.length,excludedCount:(r.excludedTaskIds||[]).length,estimatedMinutes:(Number(r.fixedMinutes)||0)+points.length*(Number(r.estimatedMinutesPerTask)||5)};
    }).sort((a,b)=>(a.line+a.area+a.interval).localeCompare(b.line+b.area+b.interval,'ru'));
  }
@@ -120,9 +121,9 @@
  }
  function pointTaskCandidates(routeId,d=database(),options={}){
    const includeUnapproved=!!options.includeUnapproved,r=rawRoute(d,routeId);if(!r)return[];
-   const m=maps(d),pmap=legacyPointMap(d),current=new Set((r.taskIds||[]).map(String)),assign=taskAssignments(d),groups=new Map();
+   const m=maps(d),readiness=includeUnapproved?null:readinessIndex(d),pmap=legacyPointMap(d),current=new Set((r.taskIds||[]).map(String)),assign=taskAssignments(d),groups=new Map();
    for(const t of d.tasks||[]){
-     if(!includeUnapproved&&!approved(t))continue;
+     if(!includeUnapproved&&!routeEligibility(t,d,readiness).ok)continue;
      const c=taskContext(d,t,m),id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`;
      let g=groups.get(pointId);
      if(!g){g={pointKey:pointId,pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,category:lp.category||legacy.type||'other',line:c.line?.name||'',area:c.area?.name||'',lineId:c.lineId,areaId:c.areaId,tasks:[]};groups.set(pointId,g)}
@@ -214,14 +215,14 @@
  }
  function previewPointTaskCatalog(input={},d=database()){
    if(!d)return {points:[],matchingTaskIds:[],pointCount:0,taskCount:0};
-   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),pmap=legacyPointMap(d),groups=new Map();
-   for(const t of d.tasks||[]){if(!approved(t))continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`,matchesInterval=spec.intervalMode==='mixed'||c.interval===spec.interval;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',tasks:[]};groups.set(pointId,g)}g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||'',matchesInterval})}
+   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),readiness=readinessIndex(d),pmap=legacyPointMap(d),groups=new Map();
+   for(const t of d.tasks||[]){if(!routeEligibility(t,d,readiness).ok)continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`,matchesInterval=spec.intervalMode==='mixed'||c.interval===spec.interval;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',tasks:[]};groups.set(pointId,g)}g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||'',matchesInterval})}
    const points=[...groups.values()].sort((a,b)=>(a.equipmentCode+a.pointName).localeCompare(b.equipmentCode+b.pointName,'ru')),matchingTaskIds=points.flatMap(g=>g.tasks.filter(t=>t.matchesInterval).map(t=>t.id));return {points,matchingTaskIds,pointCount:points.length,taskCount:points.reduce((n,g)=>n+g.tasks.length,0),matchingTaskCount:matchingTaskIds.length};
  }
  function previewRouteCandidates(input={},d=database()){
    if(!d)return {points:[],variants:[],taskIds:[],pointCount:0,taskCount:0};
-   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),pmap=legacyPointMap(d),groups=new Map();
-   for(const t of d.tasks||[]){if(!approved(t))continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId)||(spec.intervalMode!=='mixed'&&c.interval!==spec.interval))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',taskIds:[],tasks:[]};groups.set(pointId,g)}g.taskIds.push(id);g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||''})}
+   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),readiness=readinessIndex(d),pmap=legacyPointMap(d),groups=new Map();
+   for(const t of d.tasks||[]){if(!routeEligibility(t,d,readiness).ok)continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId)||(spec.intervalMode!=='mixed'&&c.interval!==spec.interval))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',taskIds:[],tasks:[]};groups.set(pointId,g)}g.taskIds.push(id);g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||''})}
    const points=[...groups.values()].sort((a,b)=>(a.equipmentCode+a.pointName).localeCompare(b.equipmentCode+b.pointName,'ru')),taskIds=points.flatMap(g=>g.taskIds);return {points,variants:points,taskIds,pointCount:points.length,physicalPointCount:points.length,taskCount:taskIds.length};
  }
  function createRoute(input={},d=database()){
@@ -232,7 +233,7 @@
    const code=clean(input.code)||nextRouteCode(d.routes,lineId,areaId);if(d.routes.some(r=>clean(r.code)&&clean(r.code)===code))return {ok:false,reason:`Код маршрута ${code} уже используется`};
    const r=normalizeRoute({id:nextRouteId(d.routes),code,name:clean(input.name)||suggestRouteName({lineId,areaId,interval},d),description:clean(input.description),lineId,areaId,interval,intervalMode:input.intervalMode||'fixed',routeType:input.routeType||'lubrication',sequenceMode:'manual',assignee:clean(input.assignee)||'Смазчик',estimatedMinutesPerTask:Number(input.estimatedMinutesPerTask)||5,fixedMinutes:Number(input.fixedMinutes)||10,planningAnchorDate:input.planningAnchorDate||'',runtimePlanningHoursPerDay:Number(input.runtimePlanningHoursPerDay)||0,status:input.status||'draft',source:input.source||'manual',taskIds:[],excludedTaskIds:[]});
    d.routes.push(r);
-   if(input.fillMode==='automatic'){const m=maps(d);r.taskIds=(d.tasks||[]).filter(approved).filter(t=>{const c=taskContext(d,t,m);return c.lineId===r.lineId&&(!r.areaId||c.areaId===r.areaId)&&(r.intervalMode==='mixed'||c.interval===r.interval)}).map(t=>String(t.id));}
+   if(input.fillMode==='automatic'){const m=maps(d),readiness=readinessIndex(d);r.taskIds=(d.tasks||[]).filter(t=>routeEligibility(t,d,readiness).ok).filter(t=>{const c=taskContext(d,t,m);return c.lineId===r.lineId&&(!r.areaId||c.areaId===r.areaId)&&(r.intervalMode==='mixed'||c.interval===r.interval)}).map(t=>String(t.id));}
    if(Array.isArray(input.taskIds))for(const id of input.taskIds.map(String))if(!r.taskIds.includes(id))r.taskIds.push(id);
    if(r.status==='active'){const report=validateRoute(r.id,d);if(!report.valid){d.routes=d.routes.filter(x=>x!==r);return{ok:false,reason:'Маршрут не готов к активации',report}}}
    ensureRouteRevision(r.id,d,{note:'Исходная версия маршрута',reason:'create'});save(d,'Маршрут создан');return {ok:true,route:r};
