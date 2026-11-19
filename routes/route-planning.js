@@ -20,7 +20,22 @@
   if(/год|лет/.test(u))return{kind:'years',value:n,label:clean(text)};
   return null
  }
- function addInterval(date,spec){const d=new Date(`${isoDate(date)}T00:00:00`);if(!spec||Number.isNaN(d.getTime()))return'';if(spec.kind==='days')d.setDate(d.getDate()+spec.value);else if(spec.kind==='weeks')d.setDate(d.getDate()+spec.value*7);else if(spec.kind==='months')d.setMonth(d.getMonth()+spec.value);else if(spec.kind==='years')d.setFullYear(d.getFullYear()+spec.value);return d.toISOString().slice(0,10)}
+ function addInterval(date,spec){
+  const iso=isoDate(date);if(!iso||!spec)return'';
+  const [y,m,day]=iso.split('-').map(Number),d=new Date(Date.UTC(y,m-1,day));
+  if(spec.kind==='days')d.setUTCDate(d.getUTCDate()+spec.value);
+  else if(spec.kind==='weeks')d.setUTCDate(d.getUTCDate()+spec.value*7);
+  else if(spec.kind==='months'||spec.kind==='years'){
+   const months=spec.kind==='years'?spec.value*12:spec.value;
+   if(!Number.isInteger(months))return'';
+   const lastOfSource=new Date(Date.UTC(y,m,0)).getUTCDate()===day;
+   const first=new Date(Date.UTC(y,m-1+months,1));
+   const targetLast=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+1,0)).getUTCDate();
+   first.setUTCDate(lastOfSource?targetLast:Math.min(day,targetLast));
+   return first.toISOString().slice(0,10);
+  }else return'';
+  return d.toISOString().slice(0,10)
+ }
  function parseRuntimeInterval(text){const raw=clean(text).toLowerCase().replace(/,/g,'.');const m=raw.match(/(\d+(?:\.\d+)?)\s*(?:ч|час(?:а|ов)?|моточас(?:а|ов)?)/i);if(!m)return null;const n=Number(m[1]);return n>0?{kind:'runtime_hours',value:n,label:clean(text)}:null}
  function runtimeStepDays(route,spec){const hpd=Number(route?.runtimePlanningHoursPerDay)||0;return hpd>0?Math.max(1,Math.ceil(spec.value/hpd)):0}
  function runtimeAnchorForRoute(route,spec,d){const last=lastCompletedDate(route.id,d),step=runtimeStepDays(route,spec);if(last&&step)return{date:addInterval(last,{kind:'days',value:step}),source:'last_completed_runtime_forecast',lastCompleted:last};const anchor=isoDate(route.planningAnchorDate);if(anchor)return{date:anchor,source:'route_runtime_anchor',lastCompleted:last||''};return{date:'',source:'missing',lastCompleted:last||''}}
@@ -33,10 +48,12 @@
  function preview({startDate,endDate,includeDraft=false}={},d=db()){
   if(!d)return{items:[],warnings:[{code:'DATABASE_MISSING',message:'База данных недоступна'}],summary:{routes:0,items:0,minutes:0}};
   const start=isoDate(startDate)||today(),end=isoDate(endDate)||start;if(end<start)return{items:[],warnings:[{code:'INVALID_RANGE',message:'Дата окончания раньше даты начала'}],summary:{routes:0,items:0,minutes:0}};
-  const routes=(global.LubricaRouteEngine?.routeEntries?.(d,{includeArchived:false,preview:false})||[]).filter(r=>r.status==='active'||(includeDraft&&r.status==='draft'));
+  const routes=(global.LubricaRouteEngine?.routeEntries?.(d,{includeArchived:false,preview:false})||[]).filter(r=>r.status==='active'||(includeDraft&&r.status==='draft'));const rejected=new Set();
   const items=[],warnings=[];
   const pushItem=(route,due,revision,taskIds,extra={})=>items.push({planKey:`${route.id}|${due}`,routeId:route.id,routeCode:route.code||route.id,routeName:route.name||route.id,line:route.line,area:route.area,interval:route.interval,plannedDate:due,plannedMinutes:Number(route.estimatedMinutes)||0,routeRevision:Number(revision?.revision)||Number(route.revision)||1,routeRevisionId:revision?.id||'',taskIds:clone(taskIds),anchorSource:extra.anchorSource||'',lastCompletedDate:extra.lastCompletedDate||'',planningBasis:extra.planningBasis||'calendar',runtimeIntervalHours:extra.runtimeIntervalHours||null,runtimePlanningHoursPerDay:extra.runtimePlanningHoursPerDay||null,runtimeForecast:extra.runtimeForecast===true});
   for(const route of routes){
+   const check=global.LubricaRouteEngine?.validateRoute?.(route.id,d);
+   if(check&&!check.valid){rejected.add(route.id);warnings.push({code:'ROUTE_NOT_READY',routeId:route.id,message:`${route.code||route.id}: маршрут не готов (${check.errors.length} ошибок)`});continue}
    if(route.intervalMode==='mixed'){warnings.push({code:'MIXED_INTERVAL',routeId:route.id,message:`${route.code||route.id}: смешанная периодичность — календарная дата должна задаваться вручную`});continue}
    const runtimeSpec=parseRuntimeInterval(route.interval);
    if(runtimeSpec){
@@ -58,10 +75,10 @@
    guard=0;while(due&&due<=end&&guard++<1000){pushItem(route,due,revision,taskIds,{anchorSource:anchor.source,lastCompletedDate:anchor.lastCompleted,planningBasis:'calendar'});due=addInterval(due,spec)}
   }
   items.sort((a,b)=>a.plannedDate.localeCompare(b.plannedDate)||a.routeName.localeCompare(b.routeName,'ru'));
-  return{items,warnings,summary:{routes:new Set(items.map(x=>x.routeId)).size,items:items.length,minutes:items.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0),warningCount:warnings.length,startDate:start,endDate:end}}
+  return{items,warnings,summary:{skippedRoutes:rejected.size,skippedRouteIds:[...rejected],routes:new Set(items.map(x=>x.routeId)).size,items:items.length,minutes:items.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0),warningCount:warnings.length,startDate:start,endDate:end}}
  }
  function commit(options={},d=db()){
-  if(!d)return{ok:false,reason:'База данных недоступна'};const result=preview(options,d);if(result.warnings.some(x=>x.code==='INVALID_RANGE'))return{ok:false,reason:'Некорректный период',preview:result};const store=planStore(d),existing=new Set(store.filter(x=>!['cancelled'].includes(x.status)).map(x=>x.planKey||`${x.routeId}|${x.plannedDate}`));let created=0;
+  if(!d)return{ok:false,reason:'База данных недоступна'};const result=preview(options,d);if(result.warnings.some(x=>['INVALID_RANGE','ROUTE_NOT_READY','MIXED_INTERVAL','ANCHOR_MISSING','INTERVAL_UNSUPPORTED','RUNTIME_ANCHOR_MISSING'].includes(x.code)))return{ok:false,reason:'Сначала исправьте настройки и ошибки маршрутов',preview:result};const store=planStore(d),existing=new Set(store.filter(x=>!['cancelled'].includes(x.status)).map(x=>x.planKey||`${x.routeId}|${x.plannedDate}`));let created=0;
   for(const item of result.items){if(existing.has(item.planKey))continue;const revResult=global.LubricaRouteEngine?.ensureRouteRevision?.(item.routeId,d,{note:'Автофиксация перед планированием смазочных работ',reason:'planning'}),rev=revResult?.revision||currentRevision(item.routeId,d);const frozen={...item,routeRevision:Number(rev?.revision)||item.routeRevision||1,routeRevisionId:rev?.id||item.routeRevisionId||'',taskIds:clone(rev?.snapshot?.taskIds||item.taskIds||[])};store.push({...frozen,id:nextPlanId(d),status:'planned',runId:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});existing.add(item.planKey);created++}
   global.LubricaCore?.State?.setDatabase?.(d);global.LubricaApp?.showToast?.(`План смазочных работ обновлён · добавлено ${created}`);return{ok:true,created,preview:result}
  }
