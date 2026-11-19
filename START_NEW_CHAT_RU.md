@@ -1,5 +1,10 @@
 # ПРОДОЛЖЕНИЕ ПРОЕКТА LUBRICA — START HERE
 
+## 19.11.2026 — Stage R1: исправление маршрутов без начала production R
+
+Ветка `feature/route-safety-ux-20261119`, [draft PR #23](https://github.com/shonentez-afk/LUBRICA/pull/23) на базе Stage 5D PR #22. Принятые конструкторы не менять. Доработаны QA-gate готовности к маршруту, уникальность плановых назначений, архив, календарь, безопасный план и чек-лист с пропусками. **Полная программа контрольных тестов и ручная Edge/file:// приёмка обязательны до merge. Production routes не создавать.** Подробности: [`project/ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md`](project/ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md).
+
+
 Работай с GitHub-репозиторием LUBRICA как с главным источником проекта. Не начинай проект заново.
 
 ## Stage 5D — подтверждённая автоматическая приёмка 17.11.2026
