@@ -59,6 +59,15 @@
 .route-visit-procedure ol{margin:8px 0 0;padding:9px 10px 9px 26px;border:1px solid #e0e8e9;border-radius:8px;background:#f9fbfb}
 .route-visit-procedure li{padding:2px 0;line-height:1.4}
 .route-visit-card :focus-visible,.route-view-switch button:focus-visible,.route-visit-toolbar :focus-visible{outline:2px solid #307c66;outline-offset:2px}
+/* The existing 300px route sidebar must not squeeze the route working sheet. */
+@media(max-width:900px){
+ #routes .routes-split{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,auto) minmax(0,1fr)}
+ #routes .route-browser{max-height:210px;min-height:0}
+ #routes .route-browser-list{max-height:110px}
+ #routes .route-preview-head{flex-wrap:wrap}
+ #routes .route-preview-actions{justify-content:flex-start}
+ #routes .route-preview-scroll{min-width:0}
+}
 @media(max-width:960px){
  .route-visit-task-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
  .route-visit-task-facts .route-visit-planned{grid-column:1/-1}
