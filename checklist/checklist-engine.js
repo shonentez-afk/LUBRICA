@@ -212,7 +212,13 @@
  function updateTask(runId,id,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;r.taskResults=r.taskResults||{};r.taskResults[id]={done:false,resultStatus:'pending',observations:'',actualQuantity:'',actualQuantityUnit:'',deviationReason:'',...r.taskResults[id],...patch,updatedAt:now()};
   if(r.taskResults[id].done)r.taskResults[id].resultStatus='completed';
   else if(!['skipped','not_applicable'].includes(r.taskResults[id].resultStatus))r.taskResults[id].resultStatus='pending';r.updatedAt=now();global.LubricaCore.State.setDatabase(d);return r.taskResults[id]}
- function progress(run,route){const ids=runTaskIds(run,route),done=ids.filter(id=>run?.taskResults?.[id]?.done===true).length;return{done,total:ids.length,percent:ids.length?Math.round(done/ids.length*100):0,complete:ids.length>0&&done===ids.length}}
+ function progress(run,route){
+ const ids=runTaskIds(run,route),done=ids.filter(id=>run?.taskResults?.[id]?.done===true).length;
+ const skipped=ids.filter(id=>!run?.taskResults?.[id]?.done&&['skipped','not_applicable'].includes(run?.taskResults?.[id]?.resultStatus)).length;
+ const resolved=done+skipped,total=ids.length;
+ return{done,total,percent:total?Math.round(done/total*100):0,complete:total>0&&done===total,
+  skipped,resolved,pending:total-resolved,resolvedPercent:total?Math.round(resolved/total*100):0}
+}
  function validateCompletion(run,route){
   if(!run||run.status!=='in_progress')return{ok:false,progress:{done:0,total:0,percent:0,complete:false},missing:['Нет активного выполнения']};
   const p=progress(run,route),missing=[];const ids=runTaskIds(run,route),results=run.taskResults||{};
