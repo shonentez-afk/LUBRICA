@@ -94,7 +94,7 @@ def check(browser,width,height,label):
  page.locator('[data-task-observation="T2"]').fill('Нет доступа к узлу')
  assert page.evaluate('window.__db.checklistRuns[0].taskResults.T2.deviationReason')=='Нет доступа к узлу'
  assert 'Обработано 2/3' in page.locator('.checklist-progress-block').inner_text()
- page.locator('[data-route-visit-filter]').select_option('deviations')
+ page.locator('select[data-route-visit-filter]').select_option('deviations')
  assert page.locator('.route-visit-card').count()==1
  assert page.locator('.route-visit-card').first.get_attribute('data-route-visit')=='P1'
  page.locator('[data-route-sheet-mode="table"]').click()
@@ -106,7 +106,7 @@ def check(browser,width,height,label):
  page.locator('#printChecklist').click()
  assert page.evaluate('window.__printedTable')==True,'print must have full table'
  assert page.locator('.route-visit-card').count()==1,'compact mode restored after print'
- page.locator('[data-route-visit-filter]').select_option('all')
+ page.locator('select[data-route-visit-filter]').select_option('all')
  page.locator('[data-task-result="T3"]').select_option('completed')
  assert page.evaluate('window.__db.checklistRuns[0].taskResults.T3.done')==True
  assert 'Обработано 3/3' in page.locator('.checklist-progress-block').inner_text()
