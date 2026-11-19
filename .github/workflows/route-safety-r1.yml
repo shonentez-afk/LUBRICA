@@ -44,3 +44,48 @@ jobs:
         run: node test/test_route_safety_stage_r1.js
       - name: Full regression
         run: bash test/run_all.sh
+      - name: Build isolated Edge file preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/LUBRICA_ROUTE_SAFETY_R1_PREVIEW"
+          mkdir -p "$STAGE"
+          rsync -a ./ "$STAGE/" \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            --exclude 'test/' \
+            --exclude 'tests/' \
+            --exclude 'project/' \
+            --exclude 'acceptance/' \
+            --exclude 'releases/' \
+            --exclude 'README.md' \
+            --exclude 'START_NEW_CHAT_RU.md'
+          find "$STAGE" -maxdepth 1 -type f \( -name 'RELEASE_*.md' -o -name 'LUBRICA_*.md' -o -name 'LUBRICA_*.txt' -o -name 'LUBRICA_*.json' -o -name 'LUBRICA_*.csv' \) -delete
+          printf '%s\n' 'LUBRICA ROUTE SAFETY STAGE R1' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check QA readiness, duplicates, archive, monthly planning and checklist skips.' > "$STAGE/ROUTE_R1_README.txt"
+          test -f "$STAGE/index.html"
+          test -f "$STAGE/manifest.json"
+          test -f "$STAGE/routes/route-engine.js"
+          test -f "$STAGE/routes/route-planning.js"
+          test -f "$STAGE/checklist/checklist-engine.js"
+          test ! -d "$STAGE/project"
+          test ! -d "$STAGE/test"
+      - name: ZIP and verify checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTE_SAFETY_R1_PREVIEW.zip" LUBRICA_ROUTE_SAFETY_R1_PREVIEW
+          cd "$GITHUB_WORKSPACE"
+          unzip -tq LUBRICA_ROUTE_SAFETY_R1_PREVIEW.zip
+          sha256sum LUBRICA_ROUTE_SAFETY_R1_PREVIEW.zip > LUBRICA_ROUTE_SAFETY_R1_PREVIEW.zip.sha256
+          sha256sum -c LUBRICA_ROUTE_SAFETY_R1_PREVIEW.zip.sha256
+      - name: Upload ZIP for manual Edge QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_ROUTE_SAFETY_R1_PREVIEW
+          path: |
+            LUBRICA_ROUTE_SAFETY_R1_PREVIEW.zip
+            LUBRICA_ROUTE_SAFETY_R1_PREVIEW.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
