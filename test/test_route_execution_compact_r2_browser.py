@@ -71,6 +71,7 @@ def check(browser,width,height,label):
  window.LubricaSystem={registerModule(){}};
  window.LubricaApp={showToast:(message)=>{window.__toasts=(window.__toasts||[]).concat(message)},refreshFromCore(){}};
  window.LubricaCore={State:{getDatabase:()=>window.__db,setDatabase:d=>{window.__db=d}}};
+ window.exportRoutesCsv=()=>{};window.switchView=()=>{};
  window.LubricaRouteEngine={routeEntries:()=>[window.__route],
    revisionState:()=>({revision:1,changed:false}),routeRevisions:()=>[]};
  window.__printedTable=false;
