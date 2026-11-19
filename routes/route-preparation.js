@@ -36,7 +36,7 @@
     const tool=tools.get(key);tool.taskIds.add(x.taskId);tool.pointIds.add(x.pointId);if(clean(x.toolCalibration))tool.calibrations.add(x.toolCalibration);
    }
   }
-  if(route.status==='draft')warnings.push({code:'ROUTE_DRAFT',message:'Маршрут имеет статус «Черновик». Перед эксплуатацией проверьте и активируйте его.'});
+  if(route.status!=='active')errors.push({code:'ROUTE_NOT_ACTIVE',message:'Для выполнения маршрут должен быть активирован'});
   const materialRows=[...materials.values()].map(m=>({code:m.code,name:m.name,taskCount:m.taskIds.size,pointCount:m.pointIds.size,total:m.total,dimension:m.dimension,baseUnit:m.baseUnit,unknownQty:m.unknownQty,totalLabel:m.dimension==='unknown'?'Количество уточнить':demandLabel(m.dimension,m.total,m.baseUnit)}));
   const toolRows=[...tools.values()].map(t=>({code:t.code,name:t.name,taskCount:t.taskIds.size,pointCount:t.pointIds.size,calibrations:[...t.calibrations]}));
   const status=errors.length?'blocked':warnings.length?'warning':'ready';
