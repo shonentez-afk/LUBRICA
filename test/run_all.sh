@@ -115,4 +115,5 @@ echo '[CONVEYOR TWO-SHAFT PHYSICAL SUPPORTS STAGE 5B.9]'; node test/test_release
 echo '[CONVEYOR FULL UI/UX STAGE 5B.12]'; node test/test_release_1_0_33_78_conveyor_ui_ux.js
 echo '[POINT ACCELERATION 5C: PHYSICAL COUNT, ANALOG, MASS SAFETY]'; node test/test_stage5c_point_acceleration.js
 echo '[SAW CUT + ROTATING PHYSICAL SHAFTS STAGE 5D]'; node test/test_stage5d_saws_shafts.js
+echo '[ROUTE SAFETY STAGE R1]'; node test/test_route_safety_stage_r1.js
 echo 'ALL INTEGRATION TESTS PASS'
