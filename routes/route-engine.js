@@ -6,6 +6,12 @@
  const now=()=>new Date().toISOString();
  function database(){return global.LubricaCore?.State?.getDatabase?.()||null}
  function approved(t){return t?.approvalStatus==='approved'||t?.approvalStatus==='ready'}
+ function intervalForTask(t){const s=t?.schedule||{},v=clean(s.calendarValue),u=clean(s.calendarUnit);return clean(s.legacyText)||clean(s.interval)||clean(t?.interval)||clean(t?.legacy?.interval)||(s.runtimeHours>0?`${s.runtimeHours} ч`:'')||(v&&u?`${v} ${u}`:'')||(s.strategy==='По состоянию'?'По состоянию':'Без периодичности')}
+ function isPeriodic(v){return !!clean(v)&&!/без период|по состояни|по событ|по требован/i.test(v)}
+ // Use existing seven-step Task Readiness, omitting route-coverage findings to avoid circular gating.
+ function readinessIndex(d){if(!global.LubricaTaskReadiness?.summarize)return null;const issues=(global.LubricaProgramQA?.audit?.(d)?.issues||[]).filter(x=>x.category!=='routes');return new Map((global.LubricaTaskReadiness.summarize(d,issues).items||[]).map(x=>[String(x.taskId),x]))}
+ function routeEligibility(t,d,index=null){if(!approved(t))return{ok:false,code:'TASK_NOT_APPROVED',message:'Мероприятие не утверждено'};if(!isPeriodic(taskContext(d,t).interval))return{ok:false,code:'TASK_NON_PERIODIC',message:'Не задана плановая периодичность'};const item=index?.get(String(t.id));if(item){const missing=(item.steps||[]).filter(x=>!x.ok).map(x=>x.label);if(item.status!=='ready'||missing.length)return{ok:false,code:'TASK_NOT_READY',message:missing.length?'Не завершено: '+missing.join(', '):item.next?.reason||'Инженерная готовность не подтверждена'}}return{ok:true,code:'READY',message:''}}
+
  function maps(d){return {
    tasks:new Map((d.tasks||[]).map(x=>[String(x.id),x])),
    lps:new Map((d.lubricationPoints||[]).map(x=>[x.id,x])),
@@ -17,12 +23,12 @@
  function taskContext(d,t,m=maps(d)){
    const lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},line=m.lines.get(eq.lineId)||{},area=m.areas.get(eq.areaId)||{};
    const legacy=(global.state?.points||[]).find(p=>String(p.taskId||p.id)===String(t.id))||{};
-   return {task:t,lp,eq,node,line:{name:line.name||legacy.line||'',...line},area:{name:area.name||legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope||'',...area},lineId:eq.lineId||`legacy-line:${clean(legacy.line)||'none'}`,areaId:eq.areaId||`legacy-area:${clean(legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope)||'none'}`,interval:clean(t.schedule?.legacyText)||clean(legacy.interval)||'Без периодичности'};
+   return {task:t,lp,eq,node,line:{name:line.name||legacy.line||'',...line},area:{name:area.name||legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope||'',...area},lineId:eq.lineId||`legacy-line:${clean(legacy.line)||'none'}`,areaId:eq.areaId||`legacy-area:${clean(legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope)||'none'}`,interval:intervalForTask(t)==='Без периодичности'?clean(legacy.interval)||'Без периодичности':intervalForTask(t)};
  }
  function groupKey(c){return [c.lineId,c.areaId,c.interval].join('|')}
  function eligibleGroups(d){
-   const groups=new Map(),m=maps(d);
-   (d.tasks||[]).filter(approved).forEach(t=>{const c=taskContext(d,t,m),key=groupKey(c);if(!groups.has(key))groups.set(key,{key,lineId:c.lineId,areaId:c.areaId,interval:c.interval,contexts:[]});groups.get(key).contexts.push(c)});
+   const groups=new Map(),m=maps(d),readiness=readinessIndex(d);
+   (d.tasks||[]).filter(t=>routeEligibility(t,d,readiness).ok).forEach(t=>{const c=taskContext(d,t,m),key=groupKey(c);if(!groups.has(key))groups.set(key,{key,lineId:c.lineId,areaId:c.areaId,interval:c.interval,contexts:[]});groups.get(key).contexts.push(c)});
    return groups;
  }
  function nextRouteId(routes){let n=1;const used=new Set((routes||[]).map(r=>r.id));while(used.has(`М-${String(n).padStart(3,'0')}`))n++;return `М-${String(n).padStart(3,'0')}`}
@@ -31,18 +37,27 @@
  function syncRoutes(d=database()){
    if(!d)return {database:null,created:0,updated:0,removed:0,routes:[]};
    d.routes=(d.routes||[]).map(normalizeRoute);
-   const groups=eligibleGroups(d),byKey=new Map(d.routes.filter(r=>r.source==='auto').map(r=>[[r.lineId,r.areaId,r.interval].join('|'),r]));let created=0,updated=0;
+   const groups=eligibleGroups(d),byKey=new Map(d.routes.filter(r=>r.source==='auto'&&r.status!=='archived').map(r=>[[r.lineId,r.areaId,r.interval].join('|'),r]));let created=0,updated=0;
+   const assignedManual=new Set(d.routes.filter(r=>r.source!=='auto'&&r.status==='active').flatMap(r=>r.taskIds||[]).map(String));
    for(const [key,g] of groups){
      let r=byKey.get(key);
+     if(!r&&!g.contexts.some(c=>!assignedManual.has(String(c.task.id))))continue;
      if(!r){r=normalizeRoute({id:nextRouteId(d.routes),lineId:g.lineId,areaId:g.areaId,interval:g.interval,source:'auto'});d.routes.push(r);byKey.set(key,r);created++}
-     const eligible=g.contexts.map(c=>String(c.task.id)),eligibleSet=new Set(eligible),excluded=new Set((r.excludedTaskIds||[]).filter(id=>eligibleSet.has(String(id))));
+     const eligible=g.contexts.map(c=>String(c.task.id)).filter(id=>!assignedManual.has(id)),eligibleSet=new Set(eligible),excluded=new Set((r.excludedTaskIds||[]).filter(id=>eligibleSet.has(String(id))));
      const kept=(r.taskIds||[]).filter(id=>eligibleSet.has(String(id))&&!excluded.has(String(id))),seen=new Set(kept);
-     const appended=eligible.filter(id=>!seen.has(id)&&!excluded.has(id));const next=[...kept,...appended];
+     const appended=eligible.filter(id=>!seen.has(id)&&!excluded.has(id));const next=[...kept,...appended];if(!next.length&&r.status==='active'){r.status='draft';r.updatedAt=now()}
      if(JSON.stringify(next)!==JSON.stringify(r.taskIds)||r.lineId!==g.lineId||r.areaId!==g.areaId){r.taskIds=next;r.lineId=g.lineId;r.areaId=g.areaId;r.lineName=g.contexts[0]?.line?.name||r.lineName||'';r.areaName=g.contexts[0]?.area?.name||r.areaName||'';r.updatedAt=now();updated++}
+   }
+   // Retire current auto routes whose engineering-ready groups have disappeared.
+   // Immutable archive and completed execution snapshots remain untouched.
+   for(const r of d.routes.filter(x=>x.source==='auto'&&x.status!=='archived')){
+     if(groups.has([r.lineId,r.areaId,r.interval].join('|')))continue;
+     if((r.taskIds||[]).length){r.taskIds=[];r.updatedAt=now();updated++}
+     if(r.status==='active'){r.status='draft';r.updatedAt=now()}
    }
    // Keep manually configured routes, but remove task references that are no longer approved.
    const approvedIds=new Set((d.tasks||[]).filter(approved).map(t=>String(t.id)));
-   d.routes.forEach(r=>{r.taskIds=(r.taskIds||[]).filter(id=>approvedIds.has(String(id)));r.excludedTaskIds=(r.excludedTaskIds||[]).filter(id=>approvedIds.has(String(id)))});
+   d.routes.filter(r=>r.status!=='archived').forEach(r=>{r.taskIds=(r.taskIds||[]).filter(id=>approvedIds.has(String(id)));r.excludedTaskIds=(r.excludedTaskIds||[]).filter(id=>approvedIds.has(String(id)))});
    return {database:d,created,updated,removed:0,routes:d.routes};
  }
  function legacyPointMap(d){const legacy=global.LubricaCore?.Database?.toLegacy?.(d)?.points||global.state?.points||[];return new Map(legacy.map(p=>[String(global.taskKey?global.taskKey(p):(p.taskId||p.id)),p]))}
@@ -50,13 +65,13 @@
    if(!d)return [];
    let routes=(d.routes||[]).map(normalizeRoute);
    if(!routes.length&&preview){const temp=clone(d);syncRoutes(temp);routes=temp.routes}
-   const pmap=legacyPointMap(d),m=maps(d);
+   const pmap=legacyPointMap(d),m=maps(d),eligible=eligibleGroups(d);
    const visible=routes.filter(r=>includeArchived||r.status!=='archived').filter(r=>status==='all'||r.status===status);
    return visible.map(r=>{
      const area=m.areas.get(r.areaId)||{},line=m.lines.get(r.lineId)||{};
      const points=(r.taskIds||[]).map(id=>pmap.get(String(id))).filter(Boolean);
      const excludedPoints=(r.excludedTaskIds||[]).map(id=>pmap.get(String(id))).filter(Boolean);
-     const allEligible=eligibleGroups(d).get([r.lineId,r.areaId,r.interval].join('|'))?.contexts||[];
+     const allEligible=eligible.get([r.lineId,r.areaId,r.interval].join('|'))?.contexts||[];
      const pointGroups=pointGroupsForRoute(r.id,d),physicalPointCount=new Set(pointGroups.map(g=>String(g.pointId))).size;return {...r,key:[r.lineId,r.areaId,r.interval].join('|'),line:line.name||r.lineName||String(r.lineId||'').replace(/^legacy-line:/,'')||'Без линии',area:area.name||r.areaName||String(r.areaId||'').replace(/^legacy-area:/,'')||(r.source==='manual'||r.source==='copy'?'Все участки':'Без участка'),points,pointGroups,pointCount:pointGroups.length,physicalPointCount,excludedPoints,eligibleCount:allEligible.length,excludedCount:(r.excludedTaskIds||[]).length,estimatedMinutes:(Number(r.fixedMinutes)||0)+points.length*(Number(r.estimatedMinutesPerTask)||5)};
    }).sort((a,b)=>(a.line+a.area+a.interval).localeCompare(b.line+b.area+b.interval,'ru'));
  }
@@ -113,9 +128,9 @@
  }
  function pointTaskCandidates(routeId,d=database(),options={}){
    const includeUnapproved=!!options.includeUnapproved,r=rawRoute(d,routeId);if(!r)return[];
-   const m=maps(d),pmap=legacyPointMap(d),current=new Set((r.taskIds||[]).map(String)),assign=taskAssignments(d),groups=new Map();
+   const m=maps(d),readiness=includeUnapproved?null:readinessIndex(d),pmap=legacyPointMap(d),current=new Set((r.taskIds||[]).map(String)),assign=taskAssignments(d),groups=new Map();
    for(const t of d.tasks||[]){
-     if(!includeUnapproved&&!approved(t))continue;
+     if(!includeUnapproved&&!routeEligibility(t,d,readiness).ok)continue;
      const c=taskContext(d,t,m),id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`;
      let g=groups.get(pointId);
      if(!g){g={pointKey:pointId,pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,category:lp.category||legacy.type||'other',line:c.line?.name||'',area:c.area?.name||'',lineId:c.lineId,areaId:c.areaId,tasks:[]};groups.set(pointId,g)}
@@ -136,15 +151,15 @@
    r.taskIds.push(...unique);
  }
  function addTasksToRoute(routeId,taskIds,options={},d=database()){
-   const target=rawRoute(d,routeId);if(!target)return {ok:false,reason:'Маршрут не найден'};
-   const ids=[...new Set((taskIds||[]).map(String))],m=maps(d),accepted=[],warnings=[],conflicts=[];
+   const target=rawRoute(d,routeId);if(!target)return {ok:false,reason:'Маршрут не найден'};if(target.status==='archived')return{ok:false,reason:'Архивный маршрут нельзя менять'};
+   const readiness=readinessIndex(d),ids=[...new Set((taskIds||[]).map(String))],m=maps(d),accepted=[],warnings=[],conflicts=[];
    for(const id of ids){
      const t=m.tasks.get(id);if(!t){conflicts.push({taskId:id,reason:'Мероприятие не найдено'});continue}
-     if(!approved(t)){conflicts.push({taskId:id,reason:'Мероприятие не утверждено'});continue}
+     if(!approved(t)){conflicts.push({taskId:id,reason:'Мероприятие не утверждено'});continue}const eligibility=routeEligibility(t,d,readiness);if(!eligibility.ok){conflicts.push({taskId:id,reason:eligibility.message});continue}
      const c=taskContext(d,t,m),sameLine=c.lineId===target.lineId,sameArea=!target.areaId||c.areaId===target.areaId,sameInterval=target.intervalMode==='mixed'||c.interval===target.interval;
-     if(!sameInterval&&!options.allowIntervalMismatch){conflicts.push({taskId:id,reason:`Другая периодичность: ${c.interval}`});continue}
-     if(!sameLine)warnings.push(`${id}: другая линия`);if(!sameArea)warnings.push(`${id}: другой участок`);
-     const other=(d.routes||[]).filter(r=>r.id!==routeId&&(r.taskIds||[]).some(x=>String(x)===id));
+     if(!sameInterval&&(!options.allowIntervalMismatch||target.status==='active')){conflicts.push({taskId:id,reason:`Другая периодичность: ${c.interval}`});continue}
+     if(!sameLine||!sameArea){if(target.status==='active'){conflicts.push({taskId:id,reason:'Линия или участок отличаются'});continue}if(!sameLine)warnings.push(`${id}: другая линия`);if(!sameArea)warnings.push(`${id}: другой участок`)}
+     const other=(d.routes||[]).filter(r=>r.id!==routeId&&r.status!=='archived'&&(r.taskIds||[]).some(x=>String(x)===id));if(target.status==='active'&&other.some(r=>r.status==='active')){conflicts.push({taskId:id,reason:'Мероприятие уже назначено в активном маршруте'});continue}
      if(other.length&&options.copy!==true&&options.move!==true){conflicts.push({taskId:id,reason:`Мероприятие уже включено: ${other.map(r=>r.code||r.id).join(', ')}`});continue}
      if(options.move===true){const native=pointNativeRoute(d,id);for(const r of other)r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);if(native&&native.id!==routeId)native.excludedTaskIds=[...new Set([...(native.excludedTaskIds||[]),id])]}
      target.excludedTaskIds=(target.excludedTaskIds||[]).filter(x=>String(x)!==id);accepted.push(id);
@@ -199,7 +214,7 @@
  }
 
  function routeCreationOptions(d=database()){
-   const m=maps(d||{}),intervals=[...new Set((d?.tasks||[]).filter(approved).map(t=>clean(t.schedule?.legacyText)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+   const m=maps(d||{}),intervals=[...new Set((d?.tasks||[]).filter(approved).map(intervalForTask).filter(isPeriodic))].sort((a,b)=>a.localeCompare(b,'ru'));
    return {lines:[...(d?.lines||[])].map(x=>({id:x.id,name:x.name||x.id})),areas:[...(d?.areas||[])].map(x=>({id:x.id,lineId:x.lineId||'',name:x.name||x.id})),intervals,routes:(d?.routes||[]).map(normalizeRoute).filter(r=>r.status!=='archived')};
  }
  function suggestRouteName({lineId='',areaId='',interval=''}={},d=database()){
@@ -207,14 +222,14 @@
  }
  function previewPointTaskCatalog(input={},d=database()){
    if(!d)return {points:[],matchingTaskIds:[],pointCount:0,taskCount:0};
-   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),pmap=legacyPointMap(d),groups=new Map();
-   for(const t of d.tasks||[]){if(!approved(t))continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`,matchesInterval=spec.intervalMode==='mixed'||c.interval===spec.interval;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',tasks:[]};groups.set(pointId,g)}g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||'',matchesInterval})}
+   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),readiness=readinessIndex(d),pmap=legacyPointMap(d),groups=new Map();
+   for(const t of d.tasks||[]){if(!routeEligibility(t,d,readiness).ok)continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`,matchesInterval=spec.intervalMode==='mixed'||c.interval===spec.interval;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',tasks:[]};groups.set(pointId,g)}g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||'',matchesInterval})}
    const points=[...groups.values()].sort((a,b)=>(a.equipmentCode+a.pointName).localeCompare(b.equipmentCode+b.pointName,'ru')),matchingTaskIds=points.flatMap(g=>g.tasks.filter(t=>t.matchesInterval).map(t=>t.id));return {points,matchingTaskIds,pointCount:points.length,taskCount:points.reduce((n,g)=>n+g.tasks.length,0),matchingTaskCount:matchingTaskIds.length};
  }
  function previewRouteCandidates(input={},d=database()){
    if(!d)return {points:[],variants:[],taskIds:[],pointCount:0,taskCount:0};
-   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),pmap=legacyPointMap(d),groups=new Map();
-   for(const t of d.tasks||[]){if(!approved(t))continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId)||(spec.intervalMode!=='mixed'&&c.interval!==spec.interval))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',taskIds:[],tasks:[]};groups.set(pointId,g)}g.taskIds.push(id);g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||''})}
+   const spec={lineId:clean(input.lineId),areaId:clean(input.areaId),interval:clean(input.interval),intervalMode:input.intervalMode||'fixed'},m=maps(d),readiness=readinessIndex(d),pmap=legacyPointMap(d),groups=new Map();
+   for(const t of d.tasks||[]){if(!routeEligibility(t,d,readiness).ok)continue;const c=taskContext(d,t,m);if(c.lineId!==spec.lineId||(spec.areaId&&c.areaId!==spec.areaId)||(spec.intervalMode!=='mixed'&&c.interval!==spec.interval))continue;const id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`;let g=groups.get(pointId);if(!g){g={pointId,pointDisplayId:lp.legacyId||legacy.pointDisplayId||pointId,equipmentCode:eq.externalCode||legacy.position||'',equipment:eq.name||legacy.equipment||'Не определено',node:node.name||legacy.unit||'Без узла',pointName:lp.name||legacy.unit||legacy.component||pointId,line:c.line?.name||'',area:c.area?.name||'',taskIds:[],tasks:[]};groups.set(pointId,g)}g.taskIds.push(id);g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||''})}
    const points=[...groups.values()].sort((a,b)=>(a.equipmentCode+a.pointName).localeCompare(b.equipmentCode+b.pointName,'ru')),taskIds=points.flatMap(g=>g.taskIds);return {points,variants:points,taskIds,pointCount:points.length,physicalPointCount:points.length,taskCount:taskIds.length};
  }
  function createRoute(input={},d=database()){
@@ -225,17 +240,18 @@
    const code=clean(input.code)||nextRouteCode(d.routes,lineId,areaId);if(d.routes.some(r=>clean(r.code)&&clean(r.code)===code))return {ok:false,reason:`Код маршрута ${code} уже используется`};
    const r=normalizeRoute({id:nextRouteId(d.routes),code,name:clean(input.name)||suggestRouteName({lineId,areaId,interval},d),description:clean(input.description),lineId,areaId,interval,intervalMode:input.intervalMode||'fixed',routeType:input.routeType||'lubrication',sequenceMode:'manual',assignee:clean(input.assignee)||'Смазчик',estimatedMinutesPerTask:Number(input.estimatedMinutesPerTask)||5,fixedMinutes:Number(input.fixedMinutes)||10,planningAnchorDate:input.planningAnchorDate||'',runtimePlanningHoursPerDay:Number(input.runtimePlanningHoursPerDay)||0,status:input.status||'draft',source:input.source||'manual',taskIds:[],excludedTaskIds:[]});
    d.routes.push(r);
-   if(input.fillMode==='automatic'){const m=maps(d);r.taskIds=(d.tasks||[]).filter(approved).filter(t=>{const c=taskContext(d,t,m);return c.lineId===r.lineId&&(!r.areaId||c.areaId===r.areaId)&&(r.intervalMode==='mixed'||c.interval===r.interval)}).map(t=>String(t.id));}
+   if(input.fillMode==='automatic'){const m=maps(d),readiness=readinessIndex(d);r.taskIds=(d.tasks||[]).filter(t=>routeEligibility(t,d,readiness).ok).filter(t=>{const c=taskContext(d,t,m);return c.lineId===r.lineId&&(!r.areaId||c.areaId===r.areaId)&&(r.intervalMode==='mixed'||c.interval===r.interval)}).map(t=>String(t.id));}
    if(Array.isArray(input.taskIds))for(const id of input.taskIds.map(String))if(!r.taskIds.includes(id))r.taskIds.push(id);
+   if(r.status==='active'){const report=validateRoute(r.id,d);if(!report.valid){d.routes=d.routes.filter(x=>x!==r);return{ok:false,reason:'Маршрут не готов к активации',report}}}
    ensureRouteRevision(r.id,d,{note:'Исходная версия маршрута',reason:'create'});save(d,'Маршрут создан');return {ok:true,route:r};
  }
  function cloneRoute(routeId,input={},d=database()){
    const src=rawRoute(d,routeId);if(!src)return {ok:false,reason:'Маршрут не найден'};const result=createRoute({...src,...input,id:undefined,code:input.code||'',name:input.name||`${src.name||src.id} — копия`,status:'draft',source:'copy',fillMode:'empty',taskIds:[...(src.taskIds||[])]},d);return result;
  }
- function archiveRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return false;r.status='archived';r.updatedAt=now();save(d,'Маршрут архивирован');return true}
+ function archiveRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return false;ensureRouteRevision(routeId,d,{note:'Перед архивированием',reason:'archive'});r.status='archived';r.updatedAt=now();save(d,'Маршрут архивирован');return true}
  function restoreRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};r.status='draft';r.updatedAt=now();save(d,'Маршрут восстановлен из архива');return {ok:true,route:r}}
  function setRouteStatus(routeId,status,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(!['draft','active','archived'].includes(status))return {ok:false,reason:'Неизвестный статус маршрута'};if(status==='active'){const report=validateRoute(routeId,d);if(!report.valid)return {ok:false,reason:`Маршрут содержит ошибок: ${report.errors.length}`,report}}r.status=status;r.updatedAt=now();save(d,status==='active'?'Маршрут активирован':status==='archived'?'Маршрут архивирован':'Маршрут переведён в черновик');return {ok:true,route:r}}
- function deleteRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(r.source==='auto')return {ok:false,reason:'Автоматический маршрут нельзя удалить — его можно архивировать'};if(r.status==='active')return {ok:false,reason:'Активный маршрут сначала архивируйте'};d.routes=d.routes.filter(x=>String(x.id)!==String(routeId));save(d,'Маршрут удалён');return {ok:true}}
+ function deleteRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if((d.checklistRuns||[]).some(x=>x.routeId===routeId)||(d.routePlanItems||[]).some(x=>x.routeId===routeId))return{ok:false,reason:'Существуют выполнение или план; маршрут нужно архивировать'};if(r.source==='auto')return {ok:false,reason:'Автоматический маршрут нельзя удалить — его можно архивировать'};if(r.status==='active')return {ok:false,reason:'Активный маршрут сначала архивируйте'};d.routes=d.routes.filter(x=>String(x.id)!==String(routeId));save(d,'Маршрут удалён');return {ok:true}}
  function candidatePointVariants(routeId,d=database(),options={}){
    const includeCurrent=!!options.includeCurrent;return pointTaskCandidates(routeId,d).flatMap(g=>{
      const byInterval=new Map();for(const t of g.tasks){if(!includeCurrent&&t.inCurrent)continue;const key=t.interval||'Без периодичности';if(!byInterval.has(key))byInterval.set(key,[]);byInterval.get(key).push(t)}
@@ -254,17 +270,31 @@
    return addTasksToRoute(routeId,variant.taskIds,{...options,move:options.copy===true?false:true,copy:options.copy===true},d);
  }
  function movePointToRoute(sourceRouteId,targetRouteId,pointRef,options={},d=database()){
-   const source=rawRoute(d,sourceRouteId),target=rawRoute(d,targetRouteId);if(!source||!target)return {ok:false,reason:'Маршрут не найден'};const group=findVisitGroup(pointGroupsForRoute(sourceRouteId,d),pointRef);if(!group)return {ok:false,reason:'Точка не найдена в исходном маршруте'};
+   const source=rawRoute(d,sourceRouteId),target=rawRoute(d,targetRouteId);if(!source||!target)return {ok:false,reason:'Маршрут не найден'};if(source.status==='archived'||target.status==='archived')return{ok:false,reason:'Архивный маршрут нельзя менять'};if(source.lineId!==target.lineId||(source.areaId&&target.areaId&&source.areaId!==target.areaId))return{ok:false,reason:'Разные линии или участки'};const group=findVisitGroup(pointGroupsForRoute(sourceRouteId,d),pointRef);if(!group)return {ok:false,reason:'Точка не найдена в исходном маршруте'};
    const m=maps(d),incompatible=group.taskIds.filter(id=>{const t=m.tasks.get(String(id));if(!t)return true;const c=taskContext(d,t,m);return target.intervalMode!=='mixed'&&c.interval!==target.interval});
    if(incompatible.length)return {ok:false,reason:'Не все мероприятия точки соответствуют периодичности маршрута назначения',taskIds:incompatible};
    const ids=[...group.taskIds];source.taskIds=(source.taskIds||[]).filter(x=>!ids.includes(String(x)));insertTaskIds(target,ids,options,d);source.updatedAt=target.updatedAt=now();save(d,'Мероприятия точки перемещены в другой маршрут');return {ok:true,taskIds:ids,pointId:group.pointId};
  }
  function validateRoute(routeId,d=database()){
-   const r=rawRoute(d,routeId);if(!r)return {valid:false,errors:[{code:'ROUTE_MISSING',message:'Маршрут не найден'}],warnings:[],recommendations:[]};const m=maps(d),errors=[],warnings=[],seen=new Set();
-   for(const id of r.taskIds||[]){const t=m.tasks.get(String(id));if(!t){errors.push({code:'TASK_MISSING',taskId:id,message:`Мероприятие ${id} не найдено`});continue}const c=taskContext(d,t,m);if(!m.lps.get(t.lubricationPointId))errors.push({code:'POINT_MISSING',taskId:id,message:`Для ${id} не найдена точка смазки`});if(seen.has(String(id)))warnings.push({code:'DUPLICATE_TASK',taskId:id,message:`Мероприятие ${id} включено повторно`});seen.add(String(id));if(c.lineId!==r.lineId)warnings.push({code:'LINE_MISMATCH',taskId:id,message:`${id}: другая линия`});if(r.areaId&&c.areaId!==r.areaId)warnings.push({code:'AREA_MISMATCH',taskId:id,message:`${id}: другой участок`});if(r.intervalMode!=='mixed'&&c.interval!==r.interval)warnings.push({code:'INTERVAL_MISMATCH',taskId:id,message:`${id}: ${c.interval} вместо ${r.interval}`})}
-   const recommended=candidatePointVariants(routeId,d).filter(x=>x.recommended&&x.inCurrentCount===0).length;if(recommended)warnings.push({code:'NEW_MATCHING_POINTS',message:`Найдено новых подходящих точек: ${recommended}`});return {valid:errors.length===0,errors,warnings,recommendations:[],summary:{errorCount:errors.length,warningCount:warnings.length}};
+   const r=rawRoute(d,routeId);if(!r)return{valid:false,errors:[{code:'ROUTE_MISSING',message:'Маршрут не найден'}],warnings:[],recommendations:[]};
+   const m=maps(d),readiness=readinessIndex(d),errors=[],warnings=[],seen=new Set();
+   if(!(r.taskIds||[]).length)errors.push({code:'ROUTE_EMPTY',message:'В маршруте нет мероприятий'});
+   if(!r.lineId)errors.push({code:'ROUTE_LINE_MISSING',message:'Не указана линия'});
+   const assigned=new Map();for(const other of d.routes||[])if(other.id!==r.id&&other.status==='active')for(const id of other.taskIds||[])if(!assigned.has(String(id)))assigned.set(String(id),other);
+   for(const id of r.taskIds||[]){const t=m.tasks.get(String(id));if(!t){errors.push({code:'TASK_MISSING',taskId:id,message:`Мероприятие ${id} отсутствует`});continue}
+     const c=taskContext(d,t,m),eligibility=routeEligibility(t,d,readiness);
+     if(!eligibility.ok)errors.push({code:eligibility.code,taskId:id,message:`${id}: ${eligibility.message}`});
+     if(!m.lps.has(t.lubricationPointId))errors.push({code:'POINT_MISSING',taskId:id,message:`${id}: отсутствует физическая точка`});
+     if(seen.has(String(id)))errors.push({code:'DUPLICATE_TASK',taskId:id,message:`${id}: повторяется в маршруте`});seen.add(String(id));
+     if(c.lineId!==r.lineId)errors.push({code:'LINE_MISMATCH',taskId:id,message:`${id}: другая линия`});
+     if(r.areaId&&c.areaId!==r.areaId)errors.push({code:'AREA_MISMATCH',taskId:id,message:`${id}: другой участок`});
+     if(r.intervalMode!=='mixed'&&c.interval!==r.interval)errors.push({code:'INTERVAL_MISMATCH',taskId:id,message:`${id}: ${c.interval} вместо ${r.interval}`});
+     if(assigned.has(String(id))){const other=assigned.get(String(id)),issue={code:'ASSIGNED_ACTIVE_ROUTE',taskId:id,message:`${id}: уже назначено в ${other.code||other.id}`};errors.push(issue)}
+   }
+   if(r.intervalMode==='mixed')warnings.push({code:'MIXED_ROUTE',message:'Смешанная периодичность не поддерживает автоматический календарь'});
+   return{valid:errors.length===0,errors,warnings,recommendations:[],summary:{errorCount:errors.length,warningCount:warnings.length}};
  }
 
- window.LubricaRouteEngine=Object.freeze({routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,moveTask,excludeTask,restoreTask,taskContext,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute});
+ window.LubricaRouteEngine=Object.freeze({routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute});
  global.LubricaSystem?.registerModule?.('Маршруты','ok','Создание, ревизии и календарное планирование маршрутов');
 })(window);

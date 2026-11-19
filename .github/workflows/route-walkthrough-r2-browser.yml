@@ -1,0 +1,43 @@
+name: LUBRICA Route Walkthrough R2 Chromium UX
+
+on:
+  pull_request:
+    branches:
+      - feature/stage5b-conveyor-families-20261105
+      - main
+    paths:
+      - 'routes/routes-ui.js'
+      - 'routes/route-compact-ui.js'
+      - 'checklist/checklist-engine.js'
+      - 'assets/route-compact.css'
+      - 'index.html'
+      - 'test/test_route_execution_compact_r2_browser.py'
+      - '.github/workflows/route-walkthrough-r2-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser automation
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Real route UI execution, responsive layout and screenshots
+        run: python test/test_route_execution_compact_r2_browser.py
+      - name: Export screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_ROUTES_R2_CHROMIUM_SCREENSHOTS
+          path: test-artifacts/routes-r2/*.png
+          if-no-files-found: warn
+          retention-days: 30
