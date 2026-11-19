@@ -68,3 +68,7 @@
 ## Stage 5D — семейные конструкторы пил и валов
 
 [SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md](SAW_SHAFT_STAGE5D_IMPLEMENTATION_RU.md) — исходные ТМЦ двух линий, физические позиции опор, защита old pointId и OEM, targeted Node + Chromium. Остальные семейства не в текущем объёме.
+
+## Stage R1 — безопасность и UX маршрутного ядра (19.11.2026)
+
+Рабочая ветка `feature/route-safety-ux-20261119` / [PR #23](https://github.com/shonentez-afk/LUBRICA/pull/23). Код исправляет QA-готовность, дубли, архив, календарь, план и прогресс чек-листа; production route не создавались. Полная история тестирования и ручная приёмка: [ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md](ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md). Стадии К3 и М1 остаются gate перед production R.
