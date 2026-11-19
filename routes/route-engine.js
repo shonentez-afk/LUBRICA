@@ -143,15 +143,15 @@
    r.taskIds.push(...unique);
  }
  function addTasksToRoute(routeId,taskIds,options={},d=database()){
-   const target=rawRoute(d,routeId);if(!target)return {ok:false,reason:'Маршрут не найден'};
-   const ids=[...new Set((taskIds||[]).map(String))],m=maps(d),accepted=[],warnings=[],conflicts=[];
+   const target=rawRoute(d,routeId);if(!target)return {ok:false,reason:'Маршрут не найден'};if(target.status==='archived')return{ok:false,reason:'Архивный маршрут нельзя менять'};
+   const readiness=readinessIndex(d),ids=[...new Set((taskIds||[]).map(String))],m=maps(d),accepted=[],warnings=[],conflicts=[];
    for(const id of ids){
      const t=m.tasks.get(id);if(!t){conflicts.push({taskId:id,reason:'Мероприятие не найдено'});continue}
-     if(!approved(t)){conflicts.push({taskId:id,reason:'Мероприятие не утверждено'});continue}
+     if(!approved(t)){conflicts.push({taskId:id,reason:'Мероприятие не утверждено'});continue}const eligibility=routeEligibility(t,d,readiness);if(!eligibility.ok){conflicts.push({taskId:id,reason:eligibility.message});continue}
      const c=taskContext(d,t,m),sameLine=c.lineId===target.lineId,sameArea=!target.areaId||c.areaId===target.areaId,sameInterval=target.intervalMode==='mixed'||c.interval===target.interval;
-     if(!sameInterval&&!options.allowIntervalMismatch){conflicts.push({taskId:id,reason:`Другая периодичность: ${c.interval}`});continue}
-     if(!sameLine)warnings.push(`${id}: другая линия`);if(!sameArea)warnings.push(`${id}: другой участок`);
-     const other=(d.routes||[]).filter(r=>r.id!==routeId&&(r.taskIds||[]).some(x=>String(x)===id));
+     if(!sameInterval&&(!options.allowIntervalMismatch||target.status==='active')){conflicts.push({taskId:id,reason:`Другая периодичность: ${c.interval}`});continue}
+     if(!sameLine||!sameArea){if(target.status==='active'){conflicts.push({taskId:id,reason:'Линия или участок отличаются'});continue}if(!sameLine)warnings.push(`${id}: другая линия`);if(!sameArea)warnings.push(`${id}: другой участок`)}
+     const other=(d.routes||[]).filter(r=>r.id!==routeId&&r.status!=='archived'&&(r.taskIds||[]).some(x=>String(x)===id));if(target.status==='active'&&other.some(r=>r.status==='active')){conflicts.push({taskId:id,reason:'Мероприятие уже назначено в активном маршруте'});continue}
      if(other.length&&options.copy!==true&&options.move!==true){conflicts.push({taskId:id,reason:`Мероприятие уже включено: ${other.map(r=>r.code||r.id).join(', ')}`});continue}
      if(options.move===true){const native=pointNativeRoute(d,id);for(const r of other)r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);if(native&&native.id!==routeId)native.excludedTaskIds=[...new Set([...(native.excludedTaskIds||[]),id])]}
      target.excludedTaskIds=(target.excludedTaskIds||[]).filter(x=>String(x)!==id);accepted.push(id);
@@ -234,15 +234,16 @@
    d.routes.push(r);
    if(input.fillMode==='automatic'){const m=maps(d);r.taskIds=(d.tasks||[]).filter(approved).filter(t=>{const c=taskContext(d,t,m);return c.lineId===r.lineId&&(!r.areaId||c.areaId===r.areaId)&&(r.intervalMode==='mixed'||c.interval===r.interval)}).map(t=>String(t.id));}
    if(Array.isArray(input.taskIds))for(const id of input.taskIds.map(String))if(!r.taskIds.includes(id))r.taskIds.push(id);
+   if(r.status==='active'){const report=validateRoute(r.id,d);if(!report.valid){d.routes=d.routes.filter(x=>x!==r);return{ok:false,reason:'Маршрут не готов к активации',report}}}
    ensureRouteRevision(r.id,d,{note:'Исходная версия маршрута',reason:'create'});save(d,'Маршрут создан');return {ok:true,route:r};
  }
  function cloneRoute(routeId,input={},d=database()){
    const src=rawRoute(d,routeId);if(!src)return {ok:false,reason:'Маршрут не найден'};const result=createRoute({...src,...input,id:undefined,code:input.code||'',name:input.name||`${src.name||src.id} — копия`,status:'draft',source:'copy',fillMode:'empty',taskIds:[...(src.taskIds||[])]},d);return result;
  }
- function archiveRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return false;r.status='archived';r.updatedAt=now();save(d,'Маршрут архивирован');return true}
+ function archiveRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return false;ensureRouteRevision(routeId,d,{note:'Перед архивированием',reason:'archive'});r.status='archived';r.updatedAt=now();save(d,'Маршрут архивирован');return true}
  function restoreRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};r.status='draft';r.updatedAt=now();save(d,'Маршрут восстановлен из архива');return {ok:true,route:r}}
  function setRouteStatus(routeId,status,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(!['draft','active','archived'].includes(status))return {ok:false,reason:'Неизвестный статус маршрута'};if(status==='active'){const report=validateRoute(routeId,d);if(!report.valid)return {ok:false,reason:`Маршрут содержит ошибок: ${report.errors.length}`,report}}r.status=status;r.updatedAt=now();save(d,status==='active'?'Маршрут активирован':status==='archived'?'Маршрут архивирован':'Маршрут переведён в черновик');return {ok:true,route:r}}
- function deleteRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(r.source==='auto')return {ok:false,reason:'Автоматический маршрут нельзя удалить — его можно архивировать'};if(r.status==='active')return {ok:false,reason:'Активный маршрут сначала архивируйте'};d.routes=d.routes.filter(x=>String(x.id)!==String(routeId));save(d,'Маршрут удалён');return {ok:true}}
+ function deleteRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if((d.checklistRuns||[]).some(x=>x.routeId===routeId)||(d.routePlanItems||[]).some(x=>x.routeId===routeId))return{ok:false,reason:'Существуют выполнение или план; маршрут нужно архивировать'};if(r.source==='auto')return {ok:false,reason:'Автоматический маршрут нельзя удалить — его можно архивировать'};if(r.status==='active')return {ok:false,reason:'Активный маршрут сначала архивируйте'};d.routes=d.routes.filter(x=>String(x.id)!==String(routeId));save(d,'Маршрут удалён');return {ok:true}}
  function candidatePointVariants(routeId,d=database(),options={}){
    const includeCurrent=!!options.includeCurrent;return pointTaskCandidates(routeId,d).flatMap(g=>{
      const byInterval=new Map();for(const t of g.tasks){if(!includeCurrent&&t.inCurrent)continue;const key=t.interval||'Без периодичности';if(!byInterval.has(key))byInterval.set(key,[]);byInterval.get(key).push(t)}
@@ -261,15 +262,29 @@
    return addTasksToRoute(routeId,variant.taskIds,{...options,move:options.copy===true?false:true,copy:options.copy===true},d);
  }
  function movePointToRoute(sourceRouteId,targetRouteId,pointRef,options={},d=database()){
-   const source=rawRoute(d,sourceRouteId),target=rawRoute(d,targetRouteId);if(!source||!target)return {ok:false,reason:'Маршрут не найден'};const group=findVisitGroup(pointGroupsForRoute(sourceRouteId,d),pointRef);if(!group)return {ok:false,reason:'Точка не найдена в исходном маршруте'};
+   const source=rawRoute(d,sourceRouteId),target=rawRoute(d,targetRouteId);if(!source||!target)return {ok:false,reason:'Маршрут не найден'};if(source.status==='archived'||target.status==='archived')return{ok:false,reason:'Архивный маршрут нельзя менять'};if(source.lineId!==target.lineId||(source.areaId&&target.areaId&&source.areaId!==target.areaId))return{ok:false,reason:'Разные линии или участки'};const group=findVisitGroup(pointGroupsForRoute(sourceRouteId,d),pointRef);if(!group)return {ok:false,reason:'Точка не найдена в исходном маршруте'};
    const m=maps(d),incompatible=group.taskIds.filter(id=>{const t=m.tasks.get(String(id));if(!t)return true;const c=taskContext(d,t,m);return target.intervalMode!=='mixed'&&c.interval!==target.interval});
    if(incompatible.length)return {ok:false,reason:'Не все мероприятия точки соответствуют периодичности маршрута назначения',taskIds:incompatible};
    const ids=[...group.taskIds];source.taskIds=(source.taskIds||[]).filter(x=>!ids.includes(String(x)));insertTaskIds(target,ids,options,d);source.updatedAt=target.updatedAt=now();save(d,'Мероприятия точки перемещены в другой маршрут');return {ok:true,taskIds:ids,pointId:group.pointId};
  }
  function validateRoute(routeId,d=database()){
-   const r=rawRoute(d,routeId);if(!r)return {valid:false,errors:[{code:'ROUTE_MISSING',message:'Маршрут не найден'}],warnings:[],recommendations:[]};const m=maps(d),errors=[],warnings=[],seen=new Set();
-   for(const id of r.taskIds||[]){const t=m.tasks.get(String(id));if(!t){errors.push({code:'TASK_MISSING',taskId:id,message:`Мероприятие ${id} не найдено`});continue}const c=taskContext(d,t,m);if(!m.lps.get(t.lubricationPointId))errors.push({code:'POINT_MISSING',taskId:id,message:`Для ${id} не найдена точка смазки`});if(seen.has(String(id)))warnings.push({code:'DUPLICATE_TASK',taskId:id,message:`Мероприятие ${id} включено повторно`});seen.add(String(id));if(c.lineId!==r.lineId)warnings.push({code:'LINE_MISMATCH',taskId:id,message:`${id}: другая линия`});if(r.areaId&&c.areaId!==r.areaId)warnings.push({code:'AREA_MISMATCH',taskId:id,message:`${id}: другой участок`});if(r.intervalMode!=='mixed'&&c.interval!==r.interval)warnings.push({code:'INTERVAL_MISMATCH',taskId:id,message:`${id}: ${c.interval} вместо ${r.interval}`})}
-   const recommended=candidatePointVariants(routeId,d).filter(x=>x.recommended&&x.inCurrentCount===0).length;if(recommended)warnings.push({code:'NEW_MATCHING_POINTS',message:`Найдено новых подходящих точек: ${recommended}`});return {valid:errors.length===0,errors,warnings,recommendations:[],summary:{errorCount:errors.length,warningCount:warnings.length}};
+   const r=rawRoute(d,routeId);if(!r)return{valid:false,errors:[{code:'ROUTE_MISSING',message:'Маршрут не найден'}],warnings:[],recommendations:[]};
+   const m=maps(d),readiness=readinessIndex(d),errors=[],warnings=[],seen=new Set();
+   if(!(r.taskIds||[]).length)errors.push({code:'ROUTE_EMPTY',message:'В маршруте нет мероприятий'});
+   if(!r.lineId)errors.push({code:'ROUTE_LINE_MISSING',message:'Не указана линия'});
+   const assigned=new Map();for(const other of d.routes||[])if(other.id!==r.id&&other.status==='active')for(const id of other.taskIds||[])if(!assigned.has(String(id)))assigned.set(String(id),other);
+   for(const id of r.taskIds||[]){const t=m.tasks.get(String(id));if(!t){errors.push({code:'TASK_MISSING',taskId:id,message:`Мероприятие ${id} отсутствует`});continue}
+     const c=taskContext(d,t,m),eligibility=routeEligibility(t,d,readiness);
+     if(!eligibility.ok)errors.push({code:eligibility.code,taskId:id,message:`${id}: ${eligibility.message}`});
+     if(!m.lps.has(t.lubricationPointId))errors.push({code:'POINT_MISSING',taskId:id,message:`${id}: отсутствует физическая точка`});
+     if(seen.has(String(id)))errors.push({code:'DUPLICATE_TASK',taskId:id,message:`${id}: повторяется в маршруте`});seen.add(String(id));
+     if(c.lineId!==r.lineId)errors.push({code:'LINE_MISMATCH',taskId:id,message:`${id}: другая линия`});
+     if(r.areaId&&c.areaId!==r.areaId)errors.push({code:'AREA_MISMATCH',taskId:id,message:`${id}: другой участок`});
+     if(r.intervalMode!=='mixed'&&c.interval!==r.interval)errors.push({code:'INTERVAL_MISMATCH',taskId:id,message:`${id}: ${c.interval} вместо ${r.interval}`});
+     if(assigned.has(String(id))){const other=assigned.get(String(id)),issue={code:'ASSIGNED_ACTIVE_ROUTE',taskId:id,message:`${id}: уже назначено в ${other.code||other.id}`};if(r.status==='active')errors.push(issue);else warnings.push(issue)}
+   }
+   if(r.intervalMode==='mixed')warnings.push({code:'MIXED_ROUTE',message:'Смешанная периодичность не поддерживает автоматический календарь'});
+   return{valid:errors.length===0,errors,warnings,recommendations:[],summary:{errorCount:errors.length,warningCount:warnings.length}};
  }
 
  window.LubricaRouteEngine=Object.freeze({routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute});
