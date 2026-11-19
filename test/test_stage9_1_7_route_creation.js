@@ -25,7 +25,7 @@ const whole=E.createRoute({lineId:'L1',areaId:'',interval:'4 недели',name:
 manualFresh=db.routes.find(r=>r.id===manual.id);const candidates=E.candidatePointVariants(manual.id,db);const mismatch=candidates.find(x=>x.pointId==='LP1'&&x.interval==='1 неделя');a(mismatch&&!mismatch.sameInterval&&mismatch.warnings.includes('Другая периодичность'),'interval mismatch candidate classified');
 const otherArea=candidates.find(x=>x.pointId==='LP2');a(otherArea&&!otherArea.sameArea,'other area candidate classified');
 const add=E.addPointVariantToRoute(manual.id,otherArea.variantKey,{position:'start'},db);manualFresh=db.routes.find(r=>r.id===manual.id);a(add.ok&&manualFresh.taskIds[0]==='T2','mismatch point can be deliberately inserted at start');
-const report=E.validateRoute(manual.id,db);a(report.warnings.some(x=>x.code==='AREA_MISMATCH'),'validation catches area mismatch');
+const report=E.validateRoute(manual.id,db);a(report.errors.some(x=>x.code==='AREA_MISMATCH'),'activation-blocking validation catches area mismatch');
 const target=E.createRoute({lineId:'L1',areaId:'A1',interval:'1 неделя',name:'Недельный',fillMode:'empty'}).route;const moved=E.movePointToRoute(manual.id,target.id,'LP1',{position:'end'},db);manualFresh=db.routes.find(r=>r.id===manual.id);a(moved.ok===false&&manualFresh.taskIds.includes('T1')&&!target.taskIds.includes('T1'),'point activities cannot be moved to a route with another periodicity');
 const copy=E.cloneRoute(target.id,{name:'Копия недельного'});a(copy.ok&&copy.route.source==='copy'&&copy.route.id!==target.id&&copy.route.taskIds.join(',')===target.taskIds.join(','),'route copy works');
 console.log('STAGE 9.1.7 ROUTE CREATION TEST PASS');
