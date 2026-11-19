@@ -281,7 +281,7 @@
      if(c.lineId!==r.lineId)errors.push({code:'LINE_MISMATCH',taskId:id,message:`${id}: другая линия`});
      if(r.areaId&&c.areaId!==r.areaId)errors.push({code:'AREA_MISMATCH',taskId:id,message:`${id}: другой участок`});
      if(r.intervalMode!=='mixed'&&c.interval!==r.interval)errors.push({code:'INTERVAL_MISMATCH',taskId:id,message:`${id}: ${c.interval} вместо ${r.interval}`});
-     if(assigned.has(String(id))){const other=assigned.get(String(id)),issue={code:'ASSIGNED_ACTIVE_ROUTE',taskId:id,message:`${id}: уже назначено в ${other.code||other.id}`};if(r.status==='active')errors.push(issue);else warnings.push(issue)}
+     if(assigned.has(String(id))){const other=assigned.get(String(id)),issue={code:'ASSIGNED_ACTIVE_ROUTE',taskId:id,message:`${id}: уже назначено в ${other.code||other.id}`};errors.push(issue)}
    }
    if(r.intervalMode==='mixed')warnings.push({code:'MIXED_ROUTE',message:'Смешанная периодичность не поддерживает автоматический календарь'});
    return{valid:errors.length===0,errors,warnings,recommendations:[],summary:{errorCount:errors.length,warningCount:warnings.length}};
