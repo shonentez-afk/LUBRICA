@@ -48,6 +48,13 @@
      const appended=eligible.filter(id=>!seen.has(id)&&!excluded.has(id));const next=[...kept,...appended];if(!next.length&&r.status==='active'){r.status='draft';r.updatedAt=now()}
      if(JSON.stringify(next)!==JSON.stringify(r.taskIds)||r.lineId!==g.lineId||r.areaId!==g.areaId){r.taskIds=next;r.lineId=g.lineId;r.areaId=g.areaId;r.lineName=g.contexts[0]?.line?.name||r.lineName||'';r.areaName=g.contexts[0]?.area?.name||r.areaName||'';r.updatedAt=now();updated++}
    }
+   // Retire current auto routes whose engineering-ready groups have disappeared.
+   // Immutable archive and completed execution snapshots remain untouched.
+   for(const r of d.routes.filter(x=>x.source==='auto'&&x.status!=='archived')){
+     if(groups.has([r.lineId,r.areaId,r.interval].join('|')))continue;
+     if((r.taskIds||[]).length){r.taskIds=[];r.updatedAt=now();updated++}
+     if(r.status==='active'){r.status='draft';r.updatedAt=now()}
+   }
    // Keep manually configured routes, but remove task references that are no longer approved.
    const approvedIds=new Set((d.tasks||[]).filter(approved).map(t=>String(t.id)));
    d.routes.filter(r=>r.status!=='archived').forEach(r=>{r.taskIds=(r.taskIds||[]).filter(id=>approvedIds.has(String(id)));r.excludedTaskIds=(r.excludedTaskIds||[]).filter(id=>approvedIds.has(String(id)))});
