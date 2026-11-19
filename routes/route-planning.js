@@ -70,9 +70,13 @@
    }
    const spec=parseInterval(route.interval);if(!spec){warnings.push({code:'INTERVAL_UNSUPPORTED',routeId:route.id,message:`${route.code||route.id}: не удалось распознать периодичность «${route.interval||'—'}»`});continue}
    const anchor=anchorForRoute(route,d);if(!anchor.date){warnings.push({code:'ANCHOR_MISSING',routeId:route.id,message:`${route.code||route.id}: укажите дату первого планового выполнения в параметрах маршрута`});continue}
-   let due=anchor.date,guard=0;while(due<start&&guard++<1000)due=addInterval(due,spec);
+   // Generate every recurrence from its original anchor to avoid month-end drift
+   // (30 Jan -> 28 Feb -> 30 Mar, rather than incorrectly moving to 31 Mar).
+   let cycle=0,guard=0;
+   const dueAt=n=>n===0?anchor.date:addInterval(anchor.date,{...spec,value:spec.value*n});
+   let due=dueAt(cycle);while(due&&due<start&&guard++<1000)due=dueAt(++cycle);
    const revision=currentRevision(route.id,d),taskIds=[...(revision?.snapshot?.taskIds||route.taskIds||[])].map(String);
-   guard=0;while(due&&due<=end&&guard++<1000){pushItem(route,due,revision,taskIds,{anchorSource:anchor.source,lastCompletedDate:anchor.lastCompleted,planningBasis:'calendar'});due=addInterval(due,spec)}
+   guard=0;while(due&&due<=end&&guard++<1000){pushItem(route,due,revision,taskIds,{anchorSource:anchor.source,lastCompletedDate:anchor.lastCompleted,planningBasis:'calendar'});due=dueAt(++cycle)}
   }
   items.sort((a,b)=>a.plannedDate.localeCompare(b.plannedDate)||a.routeName.localeCompare(b.routeName,'ru'));
   return{items,warnings,summary:{skippedRoutes:rejected.size,skippedRouteIds:[...rejected],routes:new Set(items.map(x=>x.routeId)).size,items:items.length,minutes:items.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0),warningCount:warnings.length,startDate:start,endDate:end}}
