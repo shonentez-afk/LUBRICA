@@ -1,0 +1,46 @@
+name: LUBRICA Route Safety R1
+
+on:
+  pull_request:
+    branches:
+      - feature/stage5b-conveyor-families-20261105
+      - main
+    paths:
+      - 'routes/**'
+      - 'checklist/**'
+      - 'test/run_all.sh'
+      - 'test/test_route_safety_stage_r1.js'
+      - 'test/test_stage9_1_7_route_creation.js'
+      - 'test/test_stage9_3_route_planning.js'
+      - '.github/workflows/route-safety-r1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  route-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Regression Python dependencies
+        run: python -m pip install --disable-pip-version-check beautifulsoup4 openpyxl pillow
+      - name: Syntax
+        run: |
+          node --check routes/route-engine.js
+          node --check routes/route-planning.js
+          node --check routes/route-preparation.js
+          node --check routes/route-planning-ui.js
+          node --check routes/routes-ui.js
+          node --check checklist/checklist-engine.js
+          node --check test/test_route_safety_stage_r1.js
+      - name: Route safety R1
+        run: node test/test_route_safety_stage_r1.js
+      - name: Full regression
+        run: bash test/run_all.sh
