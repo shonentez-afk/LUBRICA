@@ -34,6 +34,7 @@ const route=E.createRoute({lineId:'L',areaId:'A',interval:'1 месяц',taskIds
 assert(route.ok,route.reason);
 const preview=P.preview({startDate:'2027-01-01',endDate:'2027-03-31'},d);
 assert.deepStrictEqual(preview.items.filter(x=>x.routeId===route.route.id).map(x=>x.plannedDate),['2027-01-31','2027-02-28','2027-03-31']);
+route.route.planningAnchorDate='2027-01-30';const noDrift=P.preview({startDate:'2027-01-01',endDate:'2027-03-31'},d);assert.deepStrictEqual(noDrift.items.filter(x=>x.routeId===route.route.id).map(x=>x.plannedDate),['2027-01-30','2027-02-28','2027-03-30']);route.route.planningAnchorDate='2027-01-31';
 const conflicting=E.createRoute({lineId:'L',areaId:'A',interval:'1 месяц',taskIds:['T'],status:'draft',name:'Неправильный'});
 assert(conflicting.ok);conflicting.route.status='active';// corrupted legacy state: planning must reject it
 const badPlan=P.commit({startDate:'2027-01-01',endDate:'2027-03-31'},d);
