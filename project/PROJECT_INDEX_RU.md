@@ -72,3 +72,7 @@
 ## Stage R1 — безопасность и UX маршрутного ядра (19.11.2026)
 
 Рабочая ветка `feature/route-safety-ux-20261119` / [PR #23](https://github.com/shonentez-afk/LUBRICA/pull/23). Код исправляет QA-готовность, дубли, архив, календарь, план и прогресс чек-листа; production route не создавались. Полная история тестирования и ручная приёмка: [ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md](ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md). Стадии К3 и М1 остаются gate перед production R.
+
+## Stage R2 — компактное выполнение маршрута (19.11.2026)
+
+[ROUTE_WALKTHROUGH_STAGE_R2_IMPLEMENTATION_RU.md](ROUTE_WALKTHROUGH_STAGE_R2_IMPLEMENTATION_RU.md) — подробности безопасного экранного обхода, фильтра физических точек, факта и печати. Реализация в draft PR #23; ручная Edge/file:// приёмка ещё обязательна.
