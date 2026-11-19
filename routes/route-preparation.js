@@ -2,11 +2,11 @@
 (function(global){
  function db(){return global.LubricaCore?.State?.getDatabase?.()||null}
  function clean(v){return String(v??'').trim()}
- function num(v){const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:null}
+ function num(v){if(v==null||String(v).trim()==='')return null;const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null}
  function taskIdFromPoint(p){return String(p?.taskId||p?.id||'')}
  function unitKey(u){const x=clean(u).toLowerCase().replace(/³/g,'3').replace(/\s+/g,'');if(['г','гр','g'].includes(x))return{dim:'mass',base:'g',factor:1,label:'г'};if(['кг','kg'].includes(x))return{dim:'mass',base:'g',factor:1000,label:'кг'};if(['мл','ml','см3','см^3','cm3','cc'].includes(x))return{dim:'volume',base:'ml',factor:1,label:'мл'};if(['л','l','литр','литра','литров'].includes(x))return{dim:'volume',base:'ml',factor:1000,label:'л'};return x?{dim:'other',base:x,factor:1,label:clean(u)}:null}
  function fmt(n,d=2){return Number(n).toLocaleString('ru-RU',{maximumFractionDigits:d})}
- function demand(task){const q=task?.quantity||{},unit=clean(q.unit),u=unitKey(unit);const value=num(q.approved);if(u&&value!=null)return{amount:value*u.factor,dim:u.dim,base:u.base,source:'approved',raw:value,unit};// Calculated amounts are estimates, not an approved material demand.return null}
+ function demand(task){const q=task?.quantity||{},unit=clean(q.unit),u=unitKey(unit);const value=num(q.approved);if(u&&value!=null)return{amount:value*u.factor,dim:u.dim,base:u.base,source:'approved',raw:value,unit};return null}
  function demandLabel(dim,amount,base){if(dim==='mass'){return amount>=1000?`${fmt(amount/1000,3)} кг`:`${fmt(amount,2)} г`}if(dim==='volume'){return amount>=1000?`${fmt(amount/1000,3)} л`:`${fmt(amount,2)} мл`}return`${fmt(amount,3)} ${base}`}
  function build(route,d=db()){
   if(!route||!d)return null;
