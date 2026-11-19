@@ -6,6 +6,12 @@
  const now=()=>new Date().toISOString();
  function database(){return global.LubricaCore?.State?.getDatabase?.()||null}
  function approved(t){return t?.approvalStatus==='approved'||t?.approvalStatus==='ready'}
+ function intervalForTask(t){const s=t?.schedule||{},v=clean(s.calendarValue),u=clean(s.calendarUnit);return clean(s.legacyText)||clean(s.interval)||clean(t?.interval)||clean(t?.legacy?.interval)||(s.runtimeHours>0?`${s.runtimeHours} ч`:'')||(v&&u?`${v} ${u}`:'')||(s.strategy==='По состоянию'?'По состоянию':'Без периодичности')}
+ function isPeriodic(v){return !!clean(v)&&!/без период|по состояни|по событ|по требован/i.test(v)}
+ // Use existing seven-step Task Readiness, omitting route-coverage findings to avoid circular gating.
+ function readinessIndex(d){if(!global.LubricaTaskReadiness?.summarize)return null;const issues=(global.LubricaProgramQA?.audit?.(d)?.issues||[]).filter(x=>x.category!=='routes');return new Map((global.LubricaTaskReadiness.summarize(d,issues).items||[]).map(x=>[String(x.taskId),x]))}
+ function routeEligibility(t,d,index=null){if(!approved(t))return{ok:false,code:'TASK_NOT_APPROVED',message:'Мероприятие не утверждено'};if(!isPeriodic(taskContext(d,t).interval))return{ok:false,code:'TASK_NON_PERIODIC',message:'Не задана плановая периодичность'};const item=index?.get(String(t.id));if(item){const missing=(item.steps||[]).filter(x=>!x.ok).map(x=>x.label);if(item.status!=='ready'||missing.length)return{ok:false,code:'TASK_NOT_READY',message:missing.length?'Не завершено: '+missing.join(', '):item.next?.reason||'Инженерная готовность не подтверждена'}}return{ok:true,code:'READY',message:''}}
+
  function maps(d){return {
    tasks:new Map((d.tasks||[]).map(x=>[String(x.id),x])),
    lps:new Map((d.lubricationPoints||[]).map(x=>[x.id,x])),
@@ -17,12 +23,12 @@
  function taskContext(d,t,m=maps(d)){
    const lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},line=m.lines.get(eq.lineId)||{},area=m.areas.get(eq.areaId)||{};
    const legacy=(global.state?.points||[]).find(p=>String(p.taskId||p.id)===String(t.id))||{};
-   return {task:t,lp,eq,node,line:{name:line.name||legacy.line||'',...line},area:{name:area.name||legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope||'',...area},lineId:eq.lineId||`legacy-line:${clean(legacy.line)||'none'}`,areaId:eq.areaId||`legacy-area:${clean(legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope)||'none'}`,interval:clean(t.schedule?.legacyText)||clean(legacy.interval)||'Без периодичности'};
+   return {task:t,lp,eq,node,line:{name:line.name||legacy.line||'',...line},area:{name:area.name||legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope||'',...area},lineId:eq.lineId||`legacy-line:${clean(legacy.line)||'none'}`,areaId:eq.areaId||`legacy-area:${clean(legacy.area||(global.SCOPE_LABELS?.[legacy.scope])||legacy.scope)||'none'}`,interval:intervalForTask(t)==='Без периодичности'?clean(legacy.interval)||'Без периодичности':intervalForTask(t)};
  }
  function groupKey(c){return [c.lineId,c.areaId,c.interval].join('|')}
  function eligibleGroups(d){
-   const groups=new Map(),m=maps(d);
-   (d.tasks||[]).filter(approved).forEach(t=>{const c=taskContext(d,t,m),key=groupKey(c);if(!groups.has(key))groups.set(key,{key,lineId:c.lineId,areaId:c.areaId,interval:c.interval,contexts:[]});groups.get(key).contexts.push(c)});
+   const groups=new Map(),m=maps(d),readiness=readinessIndex(d);
+   (d.tasks||[]).filter(t=>routeEligibility(t,d,readiness).ok).forEach(t=>{const c=taskContext(d,t,m),key=groupKey(c);if(!groups.has(key))groups.set(key,{key,lineId:c.lineId,areaId:c.areaId,interval:c.interval,contexts:[]});groups.get(key).contexts.push(c)});
    return groups;
  }
  function nextRouteId(routes){let n=1;const used=new Set((routes||[]).map(r=>r.id));while(used.has(`М-${String(n).padStart(3,'0')}`))n++;return `М-${String(n).padStart(3,'0')}`}
@@ -31,18 +37,19 @@
  function syncRoutes(d=database()){
    if(!d)return {database:null,created:0,updated:0,removed:0,routes:[]};
    d.routes=(d.routes||[]).map(normalizeRoute);
-   const groups=eligibleGroups(d),byKey=new Map(d.routes.filter(r=>r.source==='auto').map(r=>[[r.lineId,r.areaId,r.interval].join('|'),r]));let created=0,updated=0;
+   const groups=eligibleGroups(d),byKey=new Map(d.routes.filter(r=>r.source==='auto'&&r.status!=='archived').map(r=>[[r.lineId,r.areaId,r.interval].join('|'),r]));let created=0,updated=0;
+   const assignedManual=new Set(d.routes.filter(r=>r.source!=='auto'&&r.status==='active').flatMap(r=>r.taskIds||[]).map(String));
    for(const [key,g] of groups){
      let r=byKey.get(key);
      if(!r){r=normalizeRoute({id:nextRouteId(d.routes),lineId:g.lineId,areaId:g.areaId,interval:g.interval,source:'auto'});d.routes.push(r);byKey.set(key,r);created++}
-     const eligible=g.contexts.map(c=>String(c.task.id)),eligibleSet=new Set(eligible),excluded=new Set((r.excludedTaskIds||[]).filter(id=>eligibleSet.has(String(id))));
+     const eligible=g.contexts.map(c=>String(c.task.id)).filter(id=>!assignedManual.has(id)),eligibleSet=new Set(eligible),excluded=new Set((r.excludedTaskIds||[]).filter(id=>eligibleSet.has(String(id))));
      const kept=(r.taskIds||[]).filter(id=>eligibleSet.has(String(id))&&!excluded.has(String(id))),seen=new Set(kept);
      const appended=eligible.filter(id=>!seen.has(id)&&!excluded.has(id));const next=[...kept,...appended];
      if(JSON.stringify(next)!==JSON.stringify(r.taskIds)||r.lineId!==g.lineId||r.areaId!==g.areaId){r.taskIds=next;r.lineId=g.lineId;r.areaId=g.areaId;r.lineName=g.contexts[0]?.line?.name||r.lineName||'';r.areaName=g.contexts[0]?.area?.name||r.areaName||'';r.updatedAt=now();updated++}
    }
    // Keep manually configured routes, but remove task references that are no longer approved.
    const approvedIds=new Set((d.tasks||[]).filter(approved).map(t=>String(t.id)));
-   d.routes.forEach(r=>{r.taskIds=(r.taskIds||[]).filter(id=>approvedIds.has(String(id)));r.excludedTaskIds=(r.excludedTaskIds||[]).filter(id=>approvedIds.has(String(id)))});
+   d.routes.filter(r=>r.status!=='archived').forEach(r=>{r.taskIds=(r.taskIds||[]).filter(id=>approvedIds.has(String(id)));r.excludedTaskIds=(r.excludedTaskIds||[]).filter(id=>approvedIds.has(String(id)))});
    return {database:d,created,updated,removed:0,routes:d.routes};
  }
  function legacyPointMap(d){const legacy=global.LubricaCore?.Database?.toLegacy?.(d)?.points||global.state?.points||[];return new Map(legacy.map(p=>[String(global.taskKey?global.taskKey(p):(p.taskId||p.id)),p]))}
@@ -199,7 +206,7 @@
  }
 
  function routeCreationOptions(d=database()){
-   const m=maps(d||{}),intervals=[...new Set((d?.tasks||[]).filter(approved).map(t=>clean(t.schedule?.legacyText)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+   const m=maps(d||{}),intervals=[...new Set((d?.tasks||[]).filter(approved).map(intervalForTask).filter(isPeriodic))].sort((a,b)=>a.localeCompare(b,'ru'));
    return {lines:[...(d?.lines||[])].map(x=>({id:x.id,name:x.name||x.id})),areas:[...(d?.areas||[])].map(x=>({id:x.id,lineId:x.lineId||'',name:x.name||x.id})),intervals,routes:(d?.routes||[]).map(normalizeRoute).filter(r=>r.status!=='archived')};
  }
  function suggestRouteName({lineId='',areaId='',interval=''}={},d=database()){
@@ -265,6 +272,6 @@
    const recommended=candidatePointVariants(routeId,d).filter(x=>x.recommended&&x.inCurrentCount===0).length;if(recommended)warnings.push({code:'NEW_MATCHING_POINTS',message:`Найдено новых подходящих точек: ${recommended}`});return {valid:errors.length===0,errors,warnings,recommendations:[],summary:{errorCount:errors.length,warningCount:warnings.length}};
  }
 
- window.LubricaRouteEngine=Object.freeze({routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,moveTask,excludeTask,restoreTask,taskContext,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute});
+ window.LubricaRouteEngine=Object.freeze({routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute});
  global.LubricaSystem?.registerModule?.('Маршруты','ok','Создание, ревизии и календарное планирование маршрутов');
 })(window);
