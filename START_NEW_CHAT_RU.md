@@ -1,5 +1,9 @@
 # ПРОДОЛЖЕНИЕ ПРОЕКТА LUBRICA — START HERE
 
+## 19.11.2026 — Stage R2: компактный обход маршрута
+
+В [черновом PR #23](https://github.com/shonentez-afk/LUBRICA/pull/23) реализован режим «Обход по точкам»: физическая точка с несколькими мероприятиями, интерактивный факт, пропуски с обязательной причиной, фильтры, переключение с подробной таблицей и сохранение штатной печати. Изолированный модуль `routes/route-compact-ui.js`, CSS `assets/route-compact.css`, тесты Node/Python/Chromium. Подробности в `project/ROUTE_WALKTHROUGH_STAGE_R2_IMPLEMENTATION_RU.md`. НЕ объединять с main до ручной Edge file:// проверки на копии JSON. Не создавать production routes до K3/M1.
+
 ## 19.11.2026 — Stage R1: исправление маршрутов без начала production R
 
 Ветка `feature/route-safety-ux-20261119`, [draft PR #23](https://github.com/shonentez-afk/LUBRICA/pull/23) на базе Stage 5D PR #22. Принятые конструкторы не менять. Доработаны QA-gate готовности к маршруту, уникальность плановых назначений, архив, календарь, безопасный план и чек-лист с пропусками. **Полная программа контрольных тестов и ручная Edge/file:// приёмка обязательны до merge. Production routes не создавать.** Подробности: [`project/ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md`](project/ROUTE_SAFETY_STAGE_R1_IMPLEMENTATION_RU.md).
