@@ -4,7 +4,7 @@ function routeDuration(min){const n=Math.max(0,Number(min)||0);return n>=60?`${M
 function routeMaterials(route){return [...new Set(route.points.map(p=>p.material).filter(Boolean))]}
 function routeTools(route){return [...new Set(route.points.map(toolFor).filter(Boolean))]}
 function routeRevisionBadge(route){const st=window.LubricaRouteEngine?.revisionState?.(route.id);return `<i class="route-revision-pill ${st?.changed?'changed':''}">Rev ${st?.revision||route.revision||1}${st?.changed?' · есть изменения':''}</i>`}
-function routeExecutionBadge(route){const E=window.LubricaChecklistEngine;if(!E)return'';const state=E.lifecycleState?.(route.id,route)||{};if(state.state==='in_progress')return `<i class="route-run-list-state in_progress">В работе · ${state.progress?.percent||0}%</i>`;if(state.state==='completed')return `<i class="route-run-list-state completed">Завершено · ${esc(state.last?.date||'')}</i>`;if(state.state==='cancelled')return `<i class="route-run-list-state cancelled">Отменено · ${esc(state.last?.date||'')}</i>`;return '<i class="route-run-list-state">Не начат</i>'}
+function routeExecutionBadge(route){const E=window.LubricaChecklistEngine;if(!E)return'';const state=E.lifecycleState?.(route.id,route)||{};if(state.state==='in_progress')return `<i class="route-run-list-state in_progress">Обработано · ${state.progress?.resolvedPercent??state.progress?.percent??0}%</i>`;if(state.state==='completed')return `<i class="route-run-list-state completed">Завершено · ${esc(state.last?.date||'')}</i>`;if(state.state==='cancelled')return `<i class="route-run-list-state cancelled">Отменено · ${esc(state.last?.date||'')}</i>`;return '<i class="route-run-list-state">Не начат</i>'}
 function checklistMarkup(route,selectedRunId='',displayMode='compact',visitFilter='all'){
   if(!route)return '<div class="route-empty"><b>Маршрут не выбран</b><span>Выберите маршрут слева.</span></div>';
   const E=window.LubricaChecklistEngine,activeRun=E?.latestRun?.(route.id,{includeCompleted:false})||null;
@@ -140,7 +140,38 @@ function bindChecklistExecution(view,route){
  const persistVisibleFields=()=>{const patch={};view.querySelectorAll('[data-run-meta]').forEach(el=>patch[el.dataset.runMeta]=el.value);const comments=view.querySelector('[data-run-comments]');if(comments)patch.comments=comments.value.trim();E.updateRun(run.id,patch);view.querySelectorAll('[data-task-observation]').forEach(el=>E.updateTask(run.id,el.dataset.taskObservation,{observations:el.value.trim(),deviationReason:el.value.trim()}));view.querySelectorAll('[data-task-actual-quantity]').forEach(el=>E.updateTask(run.id,el.dataset.taskActualQuantity,{actualQuantity:el.value.trim()}));view.querySelectorAll('[data-task-result]').forEach(el=>E.updateTask(run.id,el.dataset.taskResult,{resultStatus:el.value,done:el.value==='completed'}))};
  view.querySelectorAll('[data-run-meta]').forEach(el=>{const save=()=>E.updateRun(run.id,{[el.dataset.runMeta]:el.value});el.addEventListener('change',save);el.addEventListener('input',save)});
  view.querySelectorAll('[data-task-done]').forEach(el=>el.addEventListener('change',()=>{E.updateTask(run.id,el.dataset.taskDone,{done:el.checked});renderRoutes(view)}));
- view.querySelectorAll('[data-task-observation]').forEach(el=>{const save=()=>E.updateTask(run.id,el.dataset.taskObservation,{observations:el.value.trim()});el.addEventListener('change',save);el.addEventListener('input',save)});view.querySelectorAll('[data-task-result]').forEach(el=>{const save=()=>E.updateTask(run.id,el.dataset.taskResult,{resultStatus:el.value,done:el.value==='completed'});el.addEventListener('change',save)});view.querySelectorAll('[data-task-actual-quantity]').forEach(el=>{const save=()=>E.updateTask(run.id,el.dataset.taskActualQuantity,{actualQuantity:el.value.trim()});el.addEventListener('change',save);el.addEventListener('input',save)});
+ view.querySelectorAll('[data-task-observation]').forEach(el=>{
+  const save=()=>{
+   const id=el.dataset.taskObservation,record=E.getRun(run.id)?.taskResults?.[id]||{};
+   const deviation=['skipped','not_applicable'].includes(record.resultStatus);
+   const patch={observations:el.value.trim()};
+   if(deviation)patch.deviationReason=el.value.trim();
+   E.updateTask(run.id,id,patch);
+   if(el.closest('.route-visit-workspace')){
+    const label=el.closest('.route-visit-notes');
+    label?.classList.toggle('reason-required',deviation&&!el.value.trim());
+    const warning=label?.querySelector('.route-visit-warning');
+    if(warning)warning.hidden=!!el.value.trim();
+   }
+  };
+  el.addEventListener('change',save);el.addEventListener('input',save);
+ });
+ view.querySelectorAll('[data-task-result]').forEach(el=>{
+  const save=()=>{
+   const id=el.dataset.taskResult,state=el.value,compact=!!el.closest('.route-visit-workspace');
+   const scroll=view.querySelector('.route-preview-scroll'),oldTop=scroll?.scrollTop||0;
+   E.updateTask(run.id,id,{resultStatus:state,done:state==='completed'});
+   if(!compact)return;
+   if(['skipped','not_applicable'].includes(state)&&view.dataset.routeVisitFilter==='pending')view.dataset.routeVisitFilter='all';
+   renderRoutes(view);
+   const updatedScroll=view.querySelector('.route-preview-scroll');if(updatedScroll)updatedScroll.scrollTop=oldTop;
+   if(['skipped','not_applicable'].includes(state)){
+    const note=[...view.querySelectorAll('[data-task-observation]')].find(x=>x.dataset.taskObservation===id);
+    note?.focus({preventScroll:false});
+   }
+  };
+  el.addEventListener('change',save);
+ });view.querySelectorAll('[data-task-actual-quantity]').forEach(el=>{const save=()=>E.updateTask(run.id,el.dataset.taskActualQuantity,{actualQuantity:el.value.trim()});el.addEventListener('change',save);el.addEventListener('input',save)});
  const comments=view.querySelector('[data-run-comments]');if(comments){const save=()=>E.updateRun(run.id,{comments:comments.value.trim()});comments.addEventListener('change',save);comments.addEventListener('input',save)}
  view.querySelector('[data-cancel-run]')?.addEventListener('click',()=>openCancelRunDialog(view,route,run,persistVisibleFields));
  view.querySelector('[data-complete-run]')?.addEventListener('click',()=>openCompleteRunDialog(view,route,run,persistVisibleFields));
