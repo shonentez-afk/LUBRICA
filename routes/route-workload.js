@@ -218,6 +218,24 @@
   totals.unassignedMinutes=unassigned.reduce((n,x)=>n+(x.minutes||0),0);
   return{ok:true,...r,settings:cfg,capacityConfigured:!!cfg,days,weeks:weekGroups(days),unassigned,problems,totals};
  }
+ // One read-only labor aggregation for both calendars. The ordinary projection
+ // excludes first obligations reserved by a job; later cycles remain projections.
+ function calendarTotals(L,projection){
+  if(!L?.ok||!projection?.ok)return null;
+  const empty=()=>({forecastMinutes:0,plannedMinutes:0,closedMinutes:0,unknownJobs:0,unknownClosed:0,totalMinutes:0});
+  const days=new Map(L.days.map(b=>[b.date,{...empty(),forecast:[],jobs:[]}]));
+  const seen=new Set(),total=empty();
+  for(const b of L.days){const x=days.get(b.date);for(const row of [...b.slots.flatMap(s=>s.jobs),...b.unknownJobs,...b.unassigned]){
+   const id=String(row.item.id);if(seen.has(id)||!active(row.status))continue;seen.add(id);x.jobs.push(row);
+   const closed=['completed','partial'].includes(row.status),n=min(row.minutes);
+   if(n==null){x[closed?'unknownClosed':'unknownJobs']++;continue;}
+   x[closed?'closedMinutes':'plannedMinutes']+=n;
+  }}
+  for(const row of arr(projection.occurrences)){const x=days.get(row.date);if(!x)continue;x.forecast.push(row);const n=min(row.minutes);if(n==null)x.unknownJobs++;else x.forecastMinutes+=n;}
+  for(const x of days.values()){x.totalMinutes=x.forecastMinutes+x.plannedMinutes;for(const key of Object.keys(total))total[key]+=x[key];}
+  const weeks=new Map(L.weeks.map(w=>{const x=empty();for(const b of w.days){const day=days.get(b.date);for(const k of Object.keys(x))x[k]+=day[k];}return[w.startDate,x]}));
+  return{days,weeks,total,unknownForecast:arr(projection.unknown).length};
+ }
  function preview(options={},d=db()){
   const L=load(options,d);if(!L.ok)return L;
   if(!L.settings)return fail('CAPACITY_REQUIRED','Сначала сохраните доступное время и рабочие дни');
@@ -339,5 +357,5 @@
   const result=validateStart(item,date,shift,d);
   return result.ok?{ok:true,assignment:assignment(item),pprRequired:pprOnly(item,d),lineId:lineFor(item,d)}:result;
  }
- global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,pprSettings,saveSettings,saveRoutePpr,nextPprFromAnchor,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,previewPlan,applyPlan,move,validateStart,startPolicy,allowedWindow});
+ global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,pprSettings,saveSettings,saveRoutePpr,nextPprFromAnchor,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,calendarTotals,preview,apply,previewPlan,applyPlan,move,validateStart,startPolicy,allowedWindow});
 })(window);

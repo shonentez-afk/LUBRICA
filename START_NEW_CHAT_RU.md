@@ -1,6 +1,8 @@
 <!-- R8.2: 32/32 audit passed in CI f2a4155; Chromium passed. Full regression exposed native confirm and narrow PPR wording contract. Replaced native confirm with inline explicit confirmation; extended terminology audit only for the actual line PPR label. Full regression and ZIP passed ec32348; Chromium caught hidden attribute overridden by shared meta-card CSS. Scoped hidden rule added; browser test checks initial hidden state and cancellation. Check latest HEAD workflows before final acceptance. -->
 # LUBRICA — R8.2 core consolidation candidate (25.11.2026)
 
+Календари: единая агрегация calendarTotals из реального load и projectRange без зарезервированных первых сроков. Сумма к выполнению = открытые задания + прогноз; закрытые показываются отдельно по плановому нормативу, отменённые исключаются, неизвестная длительность не выдаётся за ноль. Итоги по дням, неделям и выбранному периоду. Добавлены тесты CAL1–CAL3 и браузерная проверка до/после фиксации. Не считать принятым до успешной CI.
+
 UX2: снятие незапущенных заданий непосредственно в редакторе маршрута (явное подтверждение, атомарная проверка всех ID, без изменения сроков), компактные строки точек, точный список подходящих свободных мероприятий вместо всех утверждённых. Синтетические тесты дополняют аудит; реальный JSON не включён в GitHub. Полная CI/Chromium — обязательный gate.
 
 UX hotfix по ручной проверке: компактная строка состояния, свёрнутые параметры и статус, единая прокрутка тела окна, объяснение блокировки и переход в календарь открытых заданий. Старые поля общего срока и наработки не создаются для типизированных маршрутов. Защита состава и архивации сохранена. Принимать после новой Chromium/регрессии.

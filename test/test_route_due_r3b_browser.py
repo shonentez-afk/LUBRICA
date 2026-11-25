@@ -106,9 +106,17 @@ def check(browser,width,height,label):
  plan.locator('[data-plan-end]').fill(today)
  plan.locator('[data-preview]').click()
  assert plan.locator('.route-plan-row.preview').count()==2
+ daily=plan.locator('[data-r8-live-day="'+today+'"] [data-day-total]')
+ total_before=int(plan.locator('[data-calendar-total]').get_attribute('data-calendar-total'))
+ assert total_before>0
+ assert int(daily.get_attribute('data-day-total'))==total_before
+ assert int(plan.locator('[data-calendar-forecast]').get_attribute('data-calendar-forecast'))==total_before
  page.screenshot(path=str(OUT/(label+'_plan_preview.png')))
  plan.locator('[data-commit]').click()
  assert page.evaluate('window.__db.routePlanItems.length')==2
+ assert int(plan.locator('[data-calendar-total]').get_attribute('data-calendar-total'))==total_before
+ assert int(plan.locator('[data-calendar-forecast]').get_attribute('data-calendar-forecast'))==0
+ assert int(plan.locator('[data-calendar-planned]').get_attribute('data-calendar-planned'))==total_before
  # Open the exact reserved job from the compact editor; no automatic deletion.
  plan.locator('[data-close]').last.click()
  select(cal)
