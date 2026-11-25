@@ -59,6 +59,13 @@ def check(browser,width,height,label):
  assert editor.locator('[name="status"]').count()==0
  assert editor.locator('[data-route-state]').is_visible()
  assert editor.locator('[data-route-activate]').is_disabled()
+ before_archive=page.evaluate('JSON.stringify(window.__db)')
+ editor.locator('[data-route-archive]').click()
+ assert editor.locator('[data-archive-review]').is_visible()
+ assert page.evaluate('JSON.stringify(window.__db)')==before_archive
+ editor.locator('[data-archive-back]').click()
+ assert not editor.locator('[data-archive-review]').is_visible()
+ assert page.evaluate('JSON.stringify(window.__db)')==before_archive
  first=page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).taskIds[0]',cal)
  editor.locator('[data-point-down]').first.click()
  assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).taskIds[0]',cal)!=first
@@ -160,6 +167,16 @@ def check(browser,width,height,label):
  assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.planningMode')=='calendar_runtime'
  assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.cycleDays')==14
  assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.nextHours===undefined')
+ # Explicit inline confirmation archives the selected route, preserving history.
+ select(cal)
+ page.locator('#editRoute').click()
+ editor.locator('[data-route-archive]').click()
+ assert editor.locator('[data-archive-review]').is_visible()
+ history_before=page.evaluate('JSON.stringify(window.__db.checklistRuns)')
+ editor.locator('[data-archive-confirm]').click()
+ assert not editor.is_visible()
+ assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',cal)=='archived'
+ assert page.evaluate('JSON.stringify(window.__db.checklistRuns)')==history_before
  assert not errors,errors
  page.close()
 with sync_playwright() as pw:
