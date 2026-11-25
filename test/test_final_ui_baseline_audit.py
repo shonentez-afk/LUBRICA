@@ -11,7 +11,8 @@ ids=re.findall(r'\bid="([^"]+)"',html)
 checks={
  "clean document title":"LUBRICA — Конструктор карты смазки" in html and "Stage 9.1.6 Route Point Queue" not in html,
  "no visible stage eyebrow":not re.search(r'<span class="eyebrow">[^<]*STAGE\s*9',html+ui+pui,re.I),
- "no visible PPR wording":"ППР" not in html+ui+pui and "PPR Calendar Planning" not in planning,
+ "PPR terminology only for actual line PPR and workload":"ППР" not in html and "ППР" not in ui.replace("Нагрузка, смены и ППР","") and "ППР" not in pui.replace("Нагрузка, смены и ППР","").replace(" · только ППР","") and "PPR Calendar Planning" not in planning,
+ "explicit line PPR workload entry":"data-rw-open>Нагрузка, смены и ППР" in pui and "План смазочных работ" in pui,
  "dashboard single navigation":'data-view="dashboard"' in html and 'id="managementDashboard">Дашборд' not in ui,
  "dashboard main view":'id="managementDashboardView"' in html and "renderManagementDashboard" in ui,
  "no duplicate static ids":all(v==1 for v in collections.Counter(ids).values()),
