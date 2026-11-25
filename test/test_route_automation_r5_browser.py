@@ -44,33 +44,38 @@ def check(browser,width,height,label):
  page.evaluate('() => renderRoutes(document.getElementById("routes"))')
  today=page.evaluate('LubricaRouteDue.today()')
  tomorrow=page.evaluate('LubricaRoutePlanning.addInterval(LubricaRouteDue.today(),{kind:"days",value:1})')
+ # Shared company settings, separate from route selection.
+ page.locator('#routeSettings').click()
+ plan=page.locator('#routePlanningDialog')
+ for box in plan.locator('[data-rw-weekday]').all():box.check()
+ plan.locator('[data-rw-capacity="1"]').fill('45');plan.locator('[data-rw-capacity="2"]').fill('45')
+ plan.locator('[data-rw-ppr-line="L1"]').fill(today)
+ plan.locator('[data-rw-save-settings]').click()
+ assert page.evaluate('window.__writes')==1
+ plan.locator('[data-rw-close]').last.click()
  page.locator('#autoCreateRoute').click()
  dlg=page.locator('#routeExecutionDialog')
  assert dlg.locator('.r5-shell').is_visible()
  def f(key):return dlg.locator('[data-r5="'+key+'"]')
  def section(label):return dlg.locator('.r5-section>summary').filter(has_text=label)
  f('line').select_option('L1');f('area').select_option('A1')
- assert f('create-mode').input_value()=='single'
- f('route-service').select_option('bearing:regrease')
- assert '1 неделя (7 дней)' in f('cadence').locator('option').all_text_contents()[1]
- assert f('cadence').locator('optgroup[label="Кратные недели"]').count()==1
- assert f('cadence').locator('optgroup[label="Другие технические интервалы"]').count()==1
- f('create-mode').select_option('bulk')
- assert not f('service').is_visible() and not f('early').is_visible() and not f('plan').is_visible()
+ assert dlg.locator('[data-r8-row]').count()==2
+ weekly=dlg.locator('[data-r8-schedule="days:7"]')
+ assert '1 неделя (7 дней)' in weekly.inner_text()
+ assert dlg.locator('[data-r8-schedule="runtime_hours:500"]').count()==1
+ f('preview').click()
+ assert not f('apply').is_enabled()
+ dlg.locator('[data-r8-select-all]').click()
  f('preview').click()
  assert f('apply').is_enabled(),f('report').inner_text()
- assert '2. Результат проверки' in f('report').inner_text()
  assert 'Новых маршрутов' in f('report').inner_text()
- assert not dlg.locator('.r5-forecast-row').count()
- assert page.evaluate('window.__writes')==0
+ assert page.evaluate('window.__writes')==1
  page.screenshot(path=str(OUT/(label+'_simple_preview.png')))
+ weekly.locator('[data-r8-date]').fill(tomorrow)
  f('advanced').click()
- assert not f('apply').is_enabled()
  f('service').select_option('bearing:regrease')
- f('initial-date').fill(tomorrow)
  section('3. Общий порядок').click()
- f('order').select_option('EC3');f('up').click();f('up').click()
- f('apply-order').check()
+ f('order').select_option('EC3');f('up').click();f('up').click();f('apply-order').check()
  section('4. Условия').click()
  f('policy-enabled').check()
  f('access').select_option('ppr');f('early').fill('1')
@@ -78,7 +83,6 @@ def check(browser,width,height,label):
  f('preview').click()
  assert not f('apply').is_enabled()
  assert 'Укажите основание' in f('report').inner_text()
- assert dlg.locator('.r5-summary').count()==0
  f('early-reason').fill('Утверждённое окно')
  f('preview').click()
  assert 'Выбрать подходящие' in f('report').inner_text()
@@ -86,43 +90,40 @@ def check(browser,width,height,label):
  f('select-all').click()
  assert not dlg.locator('[data-r5-task="H1"]').is_checked()
  assert dlg.locator('[data-r5-task="C1"]').is_checked()
- assert page.evaluate('window.__writes')==0
- # Hidden advanced fields never affect the basic preview.
+ # Optional engineering settings cannot affect a basic preview.
  dlg.locator('[data-r5-task="H1"]').check()
- f('advanced').click()
- f('preview').click()
+ f('advanced').click();f('preview').click()
  assert f('apply').is_enabled(),f('report').inner_text()
  f('advanced').click()
- assert not f('apply').is_enabled()
- f('service').select_option('bearing:regrease')
- f('initial-date').fill(tomorrow)
- f('select-none').click()
+ f('service').select_option('bearing:regrease');f('select-none').click()
  dlg.locator('[data-r5-task="C1"]').check()
  f('timing').check();f('service-minutes').fill('20');f('transition').fill('2');f('split').check();f('balance').check()
- section('5. Рабочие дни').click()
- f('workload').check()
- for i in range(1,8):f('weekday-'+str(i)).check()
- f('minutes-1').fill('45');f('minutes-2').fill('45');f('ppr-0').fill(today)
- page.screenshot(path=str(OUT/(label+'_configuration.png')))
- f('plan').check();f('allocate').check();f('start').fill(today);f('end').fill(tomorrow);f('forecast-weeks').select_option('4')
  f('preview').click()
  assert f('apply').is_enabled(),f('report').inner_text()
- assert page.evaluate('window.__writes')==0
- assert dlg.locator('.r5-forecast-row').count()==4
- assert 'Новых заданий' in f('report').inner_text()
- page.screenshot(path=str(OUT/(label+'_preview.png')))
+ assert page.evaluate('window.__writes')==1
+ page.screenshot(path=str(OUT/(label+'_configuration.png')))
  f('apply').click()
  assert not dlg.is_visible()
- assert page.evaluate('window.__writes')==1
+ assert page.evaluate('window.__writes')==2
  assert page.evaluate('window.__db.routes.length')==2
+ assert page.evaluate('window.__db.routePlanItems.length')==0
+ assert page.evaluate('window.__db.routes.find(x=>x.scheduleKey==="days:7").taskIds[0]')=='C3'
+ page.locator('#routePlanning').click()
+ plan.locator('[data-plan-start]').fill(today);plan.locator('[data-plan-end]').fill(tomorrow)
+ assert plan.locator('[data-r8-live-day]').count()==2
+ assert plan.locator('.r8-projected-label').count()>0
+ plan.locator('[data-rw-open]').click()
+ plan.locator('[data-r8-plan-preview]').click()
+ assert 'Новых ближайших заданий: 3' in plan.locator('.rw-preview').inner_text()
+ assert page.evaluate('window.__writes')==2
+ page.screenshot(path=str(OUT/(label+'_preview.png')))
+ plan.locator('[data-rw-apply]').click()
+ assert page.evaluate('window.__writes')==3
  assert page.evaluate('window.__db.routePlanItems.length')==3
  assert page.evaluate('window.__db.routePlanItems.every(x=>x.taskIds.length===1&&x.plannedMinutes===30)')
- assert page.evaluate('window.__db.routes.find(x=>x.scheduleKey==="days:7").taskIds[0]')=='C3'
  assert page.evaluate('window.__db.routePlanItems.find(x=>x.taskIds[0]==="C1").workAssignment.date')==today
  assert page.evaluate('window.__db.routePlanItems.find(x=>x.taskIds[0]==="C1").plannedDate')==tomorrow
- page.locator('#routePlanning').click()
- plan=page.locator('#routePlanningDialog')
- plan.locator('[data-plan-start]').fill(today);plan.locator('[data-plan-end]').fill(tomorrow);plan.locator('[data-preview]').click()
+ plan.locator('[data-rw-back]').click()
  planId=page.evaluate('window.__db.routePlanItems.find(x=>x.taskIds[0]==="C1").id')
  plan.locator('[data-plan-id="'+planId+'"]').click()
  assert page.locator('.route-visit-task').count()==1
@@ -140,7 +141,7 @@ def check(browser,width,height,label):
  assert page.evaluate('window.__db.tasks.find(t=>t.id==="C1").routeDue.nextDate')==page.evaluate('LubricaRoutePlanning.addInterval(LubricaRouteDue.today(),{kind:"days",value:7})')
  assert page.locator('#syncRoutes').count()==0
  page.locator('#autoCreateRoute').click()
- f('create-mode').select_option('bulk')
+ dlg.locator('[data-r8-select-all]').click()
  f('preview').click()
  assert '2. Результат проверки' in f('report').inner_text()
  assert not f('apply').is_enabled(),f('report').inner_text()

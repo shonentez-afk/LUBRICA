@@ -6,7 +6,7 @@
  const E=()=>global.LubricaRouteEngine,A=()=>global.LubricaRouteAutoGrouping,D=()=>global.LubricaRouteDue,W=()=>global.LubricaRouteWorkload,P=()=>global.LubricaRoutePlanning;
  const db=()=>global.LubricaCore?.State?.getDatabase?.(),fail=(code,message)=>({ok:false,code,message,reason:message});
  const scope=(x,o={})=>(!o.lineId||String(x?.lineId)===String(o.lineId))&&(!o.areaId||String(x?.areaId)===String(o.areaId));
- const groupScope=(x,o={})=>scope(x,o)&&(!o.groupKey||A().routeKey(x)===o.groupKey);
+ const groupScope=(x,o={})=>scope(x,o)&&(!o.groupKey||A().routeKey(x)===o.groupKey)&&(!Array.isArray(o.groupKeys)||o.groupKeys.includes(A().routeKey(x)));
  const integer=(v,min,max)=>str(v)!==''&&Number.isInteger(Number(v))&&Number(v)>=min&&Number(v)<=max;
  const number=(v,min,max)=>str(v)!==''&&Number.isFinite(Number(v))&&Number(v)>=min&&Number(v)<=max;
  const add=(date,n)=>P().addInterval(date,{kind:'days',value:n});
@@ -174,7 +174,7 @@
    const t=ix.get(id).task;if(D().parseBasis(t,d,ix).ok)continue;
    if(!usable(id)){issues.push({taskId:id,message:'Срок защищён назначением или ручным маршрутом'});continue}
    let b=o.recoverHistory?historyFor(t,d,ix):null,source=b?'Подтверждённый факт '+b.lastRunId:'';
-   const s=A().scheduleFor(t),key=D().signature(t,d,ix),initial=o.initial||{};
+   const s=A().scheduleFor(t),key=D().signature(t,d,ix),initial=o.batchByKey?.get(valid.get(id)?.key)?.initial||o.initial||{};
    if(!b&&s.kind!=='runtime_hours'&&str(initial.date)){
     const date=D().day(initial.date);if(!date||initial.mode==='last'&&date>D().today())return fail('INITIAL_DATE','Некорректная исходная дата');
     b={key,nextDate:initial.mode==='last'?P().addInterval(date,s):date};source=initial.mode==='last'?'Введённая дата последнего обслуживания':'Введённый следующий срок';
@@ -211,34 +211,60 @@
  }
  // Forecast only. A projection repeats the current obligation on an assumed
  // successful future cadence; it NEVER creates plan items or facts.
- function forecast({weeks=12,startDate=D().today(),lineId='',areaId='',groupKey=''}={},d=db()){
-  if(![4,12,26,52].includes(Number(weeks))||!D().day(startDate))return fail('FORECAST_RANGE','Выберите 4, 12, 26 или 52 недели');
-  const start=W().rangeFor('week',startDate).startDate,end=add(start,Number(weeks)*7-1),rows=Array.from({length:Number(weeks)},(_,i)=>({startDate:add(start,i*7),endDate:add(start,i*7+6),minutes:0,tasks:0,runtimeTasks:0,pprConflicts:0,capacity:null}));
-  const cfg=W().settings(d),shared=E().validationContext?.(d),ix=shared?.contexts||E().contextIndex(d),unknown=[],seen=new Set(),jobs=new Map();
-  for(const r of E().routeEntries(d,{preview:false}).filter(r=>r.status==='active'&&D().typed(r)&&groupScope(r,{lineId,areaId,groupKey}))){
-   if(!E().validateRoute(r.id,d,shared).valid){unknown.push({routeId:r.id,message:'Маршрут не готов'});continue}
+ // Shared read-only daily projection for the calendar and weekly workload.
+ // Pending obligations are displayed by the plan, never counted a second time.
+ function projectRange({startDate,endDate,lineId='',areaId='',groupKey='',groupKeys=null,includeReserved=false}={},d=db()){
+  if(!d||!D().day(startDate)||!D().day(endDate)||startDate>endDate)return fail('FORECAST_RANGE','Некорректный период прогноза');
+  const start=[startDate,D().today()].sort().at(-1),end=endDate,shared=E().validationContext?.(d),ix=shared?.contexts||E().contextIndex(d),unknown=[],seen=new Set(),jobs=new Map(),cfg=W().settings(d);
+  const pending=new Map();for(const item of arr(d.routePlanItems).filter(x=>['planned','in_progress'].includes(x.status)))for(const id of arr(item.taskIds))pending.set(String(id),item);
+  const pprRoutes=new Set(W().pprSettings(d).pprRouteIds),pprPhases=new Map(W().pprSettings(d).ppr.map(p=>[p.lineId,p.anchorDate]));
+  const routes=E().routeEntries(d,{preview:false}).filter(r=>r.status!=='archived'&&D().typed(r)&&groupScope(r,{lineId,areaId,groupKey,groupKeys}));
+  for(const r of routes){
+   if(r.status!=='active'||!E().validateRoute(r.id,d,shared).valid){unknown.push({routeId:r.id,name:r.name,message:r.status==='draft'?'Черновик: настройте сроки и активируйте маршрут':'Маршрут не готов'});continue}
    for(const id of ids(r.taskIds)){
-    if(seen.has(id)){unknown.push({taskId:id,message:'Дублирующее назначение'});continue}seen.add(id);
+    if(seen.has(id)){unknown.push({taskId:id,routeId:r.id,message:'Дублирующее назначение'});continue}seen.add(id);
     const t=ix.get(id)?.task,b=t&&D().dueFor(t,d,ix);
-    if(!b?.ok||!b.dueDate){unknown.push({taskId:id,message:b?.message||'Нет прогноза наработки'});continue}
-    let due=b.dueDate<start?start:b.dueDate,n=0;const base=due,step=b.kind==='runtime_hours'&&b.hoursPerDay>0?Math.max(1,Math.ceil(b.interval/b.hoursPerDay)):0;
-    while(due&&due<=end&&n<400){
-     const week=rows.find(w=>due>=w.startDate&&due<=w.endDate);
-     if(week){const ppr=t?.routePolicy?.access==='ppr'||W().requiresPpr(r.id,d),earliest=b.kind==='runtime_hours'?due:earlyDate(t,d,due),k=JSON.stringify([r.id,due,!!ppr]);
-      if(!jobs.has(k))jobs.set(k,{r,due,week,ids:[],ppr,earliest});
-      const job=jobs.get(k);job.ids.push(id);if(earliest>job.earliest)job.earliest=earliest;week.tasks++;if(b.kind==='runtime_hours')week.runtimeTasks++;
+    if(!b?.ok||!b.dueDate){unknown.push({taskId:id,routeId:r.id,message:b?.message||'Нет прогноза наработки'});continue}
+    const runtime=b.kind==='runtime_hours',ppr=t?.routePolicy?.access==='ppr'||pprRoutes.has(String(r.id)),anchor=pprPhases.get(String(r.lineId)),p=policy(t,d,ix);
+    const earlyDays=!runtime&&p.earlyReason&&integer(p.earlyDays,1,Math.min(90,b.kind==='days'?b.interval-1:28*b.interval-1))?p.earlyDays:0;
+    const existing=pending.get(id),reservedTask=!!existing||A().runningTask(d,id),step=runtime&&b.hoursPerDay>0?Math.max(1,Math.ceil(b.interval/b.hoursPerDay)):0;
+    let due=b.dueDate,display=[due,start].sort().at(-1),n=0,phase={cycleAnchor:t.routeDue?.cycleAnchor||b.dueDate,cycleTarget:t.routeDue?.cycleTarget||b.dueDate};
+    while(display<=end&&n<400){
+     if(n>0||!reservedTask||includeReserved){
+      const earliest=[add(due,-earlyDays),start].sort().at(-1);
+      const suggested=ppr&&anchor?W().nextPprFromAnchor(anchor,earliest):'';
+      const pprConflict=ppr&&(!suggested||suggested>due||cfg&&!cfg.weekdays.includes(new Date(suggested+'T00:00:00Z').getUTCDay()||7));
+      const cycleTarget=r.cycleMode==='fixed_weekly'&&!runtime?phase.cycleTarget:'',cycleConflict=!!cycleTarget&&cycleTarget>due;
+      const k=JSON.stringify([r.id,display,due,ppr,n===0,cycleTarget]);
+      if(!jobs.has(k))jobs.set(k,{r,date:display,due,entries:[],ppr,pprConflict:false,suggested,repeat:n>0,runtime,cycleTarget,cycleConflict,overdue:due<D().today()});
+      const job=jobs.get(k);job.entries.push({taskId:id});job.pprConflict||=pprConflict;if(suggested>job.suggested)job.suggested=suggested;
      }
-     n++;if(b.kind==='runtime_hours'){if(!step){unknown.push({taskId:id,message:'Нет наработки для прогноза последующих циклов'});break}due=add(base,n*step)}else due=P().addInterval(base,{kind:b.kind,value:b.interval*n});
+     n++;
+     // For a pending job forecast subsequent cycles after its proposed execution,
+     // but leave its first obligation visible only as the actual plan item.
+     const assumed=n===1&&existing?[display,W().effectiveDate(existing)].sort().at(-1):display;
+     if(runtime){if(!step)break;due=add(assumed,step)}
+     else {const next=D().calendarStep(assumed,{...b,dueDate:due},r,phase);due=next.nextDate;phase={...phase,...next}}
+     if(!due||due<=display)break;display=due;
     }
    }
   }
+  const occurrences=[];
   for(const j of jobs.values()){
-   const chunks=partition(j.r,[{date:j.due,entries:j.ids.map(taskId=>({taskId}))}],d,ix);
-   j.week.minutes+=chunks.reduce((n,c)=>n+duration(j.r,c.taskIds,d,ix),0);
-   if(j.ppr){let fits=false;for(let x=j.earliest;x&&x<=j.due;x=add(x,1)){if(W().pprOn(j.r.lineId,x,d)&&(!cfg||cfg.weekdays.includes(new Date(x+'T00:00:00Z').getUTCDay()||7))){fits=true;break}}if(!fits)j.week.pprConflicts++}
+   const chunks=partition(j.r,[{date:j.date,entries:j.entries}],d,ix);
+   for(const c of chunks)occurrences.push({routeId:j.r.id,routeName:j.r.name||j.r.code||j.r.id,lineId:j.r.lineId,date:j.date,technicalDate:j.due,taskIds:c.taskIds,minutes:duration(j.r,c.taskIds,d,ix),ppr:j.ppr,pprConflict:j.pprConflict,suggestedPpr:j.suggested,repeat:j.repeat,runtime:j.runtime,cycleTarget:j.cycleTarget,cycleConflict:j.cycleConflict,overdue:j.overdue});
   }
-  for(const row of rows){if(cfg)row.capacity=cfg.weekdays.length*cfg.shifts.reduce((s,x)=>s+x.minutes,0);row.overloadMinutes=row.capacity==null?null:Math.max(0,row.minutes-row.capacity)}
-  return{ok:true,startDate:start,endDate:end,weeks:rows,unknown,projected:true};
+  occurrences.sort((a,b)=>a.date.localeCompare(b.date)||a.routeName.localeCompare(b.routeName,'ru'));
+  return{ok:true,startDate,endDate,occurrences,unknown,projected:true};
+ }
+ function forecast({weeks=12,startDate=D().today(),lineId='',areaId='',groupKey='',groupKeys=null}={},d=db()){
+  if(![4,12,26,52].includes(Number(weeks))||!D().day(startDate))return fail('FORECAST_RANGE','Выберите 4, 12, 26 или 52 недели');
+  const start=W().rangeFor('week',startDate).startDate,end=add(start,Number(weeks)*7-1),rows=Array.from({length:Number(weeks)},(_,i)=>({startDate:add(start,i*7),endDate:add(start,i*7+6),minutes:0,tasks:0,runtimeTasks:0,pprConflicts:0,capacity:null}));
+  const p=projectRange({startDate:start,endDate:end,lineId,areaId,groupKey,groupKeys,includeReserved:true},d);if(!p.ok)return p;
+  const cfg=W().settings(d);
+  for(const x of p.occurrences){const row=rows.find(w=>x.date>=w.startDate&&x.date<=w.endDate);if(!row)continue;row.minutes+=x.minutes;row.tasks+=x.taskIds.length;if(x.runtime)row.runtimeTasks+=x.taskIds.length;if(x.pprConflict)row.pprConflicts++}
+  for(const row of rows){if(cfg)row.capacity=cfg.weekdays.length*cfg.shifts.reduce((n,x)=>n+x.minutes,0);row.overloadMinutes=row.capacity==null?null:Math.max(0,row.minutes-row.capacity)}
+  return{...p,weeks:rows};
  }
  // Compare the next obligation and one hypothetical later cycle with the PPR phase.
  function pprSummary(route,d,anchor,firstPpr){
@@ -256,11 +282,51 @@
   }
   return{anchor,firstPpr,dates:[...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date)||Number(a.projected)-Number(b.projected)),unknown:unknown.length,capacityConfigured:!!W().settings(d)};
  }
+ // R8: one selection table, one transactional reconcile for all checked groups.
+ function candidates(o={},d=db()){
+  if(!d)return fail('DATABASE_MISSING','База недоступна');
+  const report=reconcile(d,{lineId:o.lineId||'',areaId:o.areaId||'',activateReady:true});
+  if(!report.ok)return report;
+  const routes=new Map(arr(d.routes).map(r=>[String(r.id),r])),phases=new Map(W().pprSettings(d).ppr.map(x=>[x.lineId,x.anchorDate]));
+  return {...report,groups:report.groups.map(g=>{
+   const r=routes.get(String(g.routeId)),anchor=phases.get(String(g.lineId))||'',m=/^days:(\d+)$/.exec(g.scheduleKey),weeks=m&&Number(m[1])%7===0?Number(m[1])/7:0;
+   return {...g,weeks,locked:!!r&&locked(d,r)||g.action==='blocked',routeMode:r&&W().requiresPpr(r.id,d)?'ppr':'normal',cycleMode:r?.cycleMode==='fixed_weekly'?'fixed_weekly':'actual',pprAnchor:anchor,nextPpr:anchor?W().nextPprFromAnchor(anchor,D().today()):''};
+  })};
+ }
+ function prepareBatch(o,work,info){
+  if(!Array.isArray(o.batch)||!o.batch.length)return fail('GROUP_SCOPE','Выберите хотя бы один маршрут');
+  if(o.groupKey||o.pprMode||o.groupKeys)return fail('GROUP_SCOPE','Выберите только один способ задания охвата');
+  const known=new Map([...info.valid.values()].map(g=>[g.key,g]));
+  for(const r of arr(work.routes))if(r.status!=='archived'&&D().typed(r)&&!known.has(A().routeKey(r)))known.set(A().routeKey(r),r);
+  const existing=A().ownership(work),map=new Map(),phases=new Map(W().pprSettings(work).ppr.map(x=>[x.lineId,x.anchorDate]));
+  for(const row of o.batch){
+   const key=str(row?.key),g=known.get(key),rs=existing.byGroup.get(key)||[];
+   if(!g||map.has(key)||!scope(g,o))return fail('GROUP_SCOPE','Неверный, повторный или устаревший маршрут в выборе');
+   if(rs.length>1||rs.some(r=>r.source!=='auto'||!D().typed(r)))return fail('GROUP_SCOPE','Ручной или неоднозначный маршрут защищён');
+   const r=rs[0],mode=str(row.pprMode),cycle=str(row.cycleMode),savedMode=r&&W().requiresPpr(r.id,work)?'ppr':'normal',savedCycle=r?.cycleMode==='fixed_weekly'?'fixed_weekly':'actual';
+   if(mode&&!['normal','ppr'].includes(mode)||cycle&&!['actual','fixed_weekly'].includes(cycle))return fail('CYCLE_INVALID','Некорректный режим маршрута');
+   const m=/^days:(\d+)$/.exec(g.scheduleKey),weekly=!!m&&Number(m[1])>0&&Number(m[1])%7===0;
+   if(cycle==='fixed_weekly'&&!weekly)return fail('CYCLE_INVALID','Фиксированный недельный цикл возможен только для целого числа недель');
+   if(r&&locked(work,r))return fail('ROUTE_LOCKED','Сначала завершите или снимите открытое задание '+(r.name||r.id));
+   let initial={...(o.initial||{}),...(row.initial||{})};
+   if(initial.mode&&!['next','last'].includes(initial.mode))return fail('INITIAL_DATE','Некорректное основание даты');
+   if(str(initial.date)&&(!D().day(initial.date)||initial.mode==='last'&&initial.date>D().today()))return fail('INITIAL_DATE','Некорректная исходная дата');
+   if(g.scheduleKey.startsWith('runtime_hours:'))initial.date='';
+   const effectiveMode=mode||savedMode,anchor=phases.get(String(g.lineId))||'';
+   if(effectiveMode==='ppr'&&!anchor)return fail('PPR_ANCHOR_REQUIRED','Сначала задайте дату отсчёта ППР линии в настройках предприятия');
+   if(effectiveMode==='ppr'&&!initial.date&&initial.mode!=='last'&&!g.scheduleKey.startsWith('runtime_hours:'))initial={...initial,mode:'next',date:W().nextPprFromAnchor(anchor,D().today())};
+   map.set(key,{key,g,initial,mode,cycle,anchor});
+  }
+  return{ok:true,map,options:{...o,groupKeys:[...map.keys()],batchByKey:map}};
+ }
  function simulate(o={},d=db()){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   let work=copy(d);
   if(o.workloadSettings){const res=W().saveSettings(o.workloadSettings,work,{persist:false});if(!res.ok)return res;work=res.database||work}
   const info=eligible(work);if(!info.ok)return fail('QA_MISSING','Инженерный контроль недоступен');
+  const batch=o.batch!==undefined?prepareBatch(o,work,info):null;
+  if(batch&&!batch.ok)return batch;
+  if(batch)o=batch.options;
   if(o.groupKey&&![...info.valid.values(),...arr(work.routes).filter(r=>r.status!=='archived')].some(g=>groupScope(g,o)))return fail('GROUP_SCOPE','Выберите актуальный маршрут в выбранном участке');
    const group=o.groupKey&&[...info.valid.values(),...arr(work.routes).filter(r=>r.status!=='archived')].find(g=>groupScope(g,o)),pprMode=str(o.pprMode);
    let anchor='',firstPpr='';
@@ -282,9 +348,10 @@
    const init=o.initial||{};
    const useFirst=pprMode==='ppr'&&o.initialFromPpr===true&&!str(init.date)&&init.mode!=='last'&&!group.scheduleKey.startsWith('runtime_hours:');
    const prep=setup(work,useFirst?{...o,initial:{...init,mode:'next',date:firstPpr}}:o,info);if(!prep.ok)return prep;
-  const options={lineId:o.lineId||'',areaId:o.areaId||'',groupKey:o.groupKey||'',applyOrder:o.applyOrder===true,activateReady:o.activateReady===true};
+  const options={lineId:o.lineId||'',areaId:o.areaId||'',groupKey:o.groupKey||'',...(batch?{groupKeys:o.groupKeys}:{}),applyOrder:o.applyOrder===true,activateReady:o.activateReady===true};
   const report=reconcile(work,options);
   if(!report.ok)return report;
+  if(batch&&report.groups.some(g=>g.action==='blocked'))return {...fail('GROUP_BLOCKED','Выбранные группы требуют уточнения. Снимите выбор защищённых маршрутов или устраните конфликт состава.'),report};
   const result=E().applyAutoGrouping(options,report.token,work,{persist:false});
   if(!result.ok)return fail('RECONCILE_FAILED',result.reason||'Проверка состава не пройдена');
   let next=result.database||work,plan=null,allocation=null,preparation=[],ppr=null;
@@ -297,6 +364,31 @@
      if(pprMode==='ppr')ppr=pprSummary(route,next,anchor,firstPpr);
     }
    }
+  const batchSchedules=[];
+  if(batch){
+   for(const row of batch.map.values()){
+    let route=arr(next.routes).find(r=>r.status!=='archived'&&r.source==='auto'&&D().typed(r)&&A().routeKey(r)===row.key);
+    if(!route)continue; // groups excluded or archived by the canonical reconciliation
+    const existingMode=W().requiresPpr(route.id,next)?'ppr':'normal';
+    if(row.mode&&row.mode!==existingMode){
+     const saved=W().saveRoutePpr(route.id,row.mode,row.anchor,next,{persist:false});if(!saved.ok)return saved;
+     next=saved.database||next;if(saved.changed)prep.changes.push({taskId:route.id,action:'ppr',detail:row.mode==='ppr'?'Только ППР своей линии':'Обычный график маршрута',value:row.anchor});
+     route=arr(next.routes).find(r=>r.id===route.id);
+    }
+    if(row.cycle&&row.cycle!==(route.cycleMode||'actual')){
+     if(locked(next,route))return fail('ROUTE_LOCKED','Открытые задания защищают цикл маршрута');
+     route.cycleMode=row.cycle;
+     // A new explicitly selected fixed cycle starts from each existing next date.
+     for(const t of arr(next.tasks).filter(t=>arr(route.taskIds).includes(String(t.id))&&t.routeDue?.nextDate)){
+      if(row.cycle==='fixed_weekly'){t.routeDue.cycleAnchor=t.routeDue.nextDate;t.routeDue.cycleTarget=t.routeDue.nextDate;}
+      else {delete t.routeDue.cycleAnchor;delete t.routeDue.cycleTarget;}
+     }
+     E().ensureRouteRevision(route.id,next,{note:'Изменён режим недельного цикла',reason:'route_cycle'});prep.changes.push({taskId:route.id,action:'cycle',detail:row.cycle==='fixed_weekly'?'Фиксированный недельный цикл':'От фактического выполнения',value:''});
+    }
+    const pprOnly=W().requiresPpr(route.id,next),phase=row.anchor;
+    if(pprOnly)batchSchedules.push({routeId:route.id,name:route.name,cycleMode:route.cycleMode||'actual',...pprSummary(route,next,phase,W().nextPprFromAnchor(phase,D().today()))});
+   }
+  }
   const selected=arr(next.routes).filter(r=>r.source==='auto'&&D().typed(r)&&r.status==='active'&&groupScope(r,o)).map(r=>r.id);
   if(o.plan){
    const rg=W().range(o.startDate,o.endDate);if(!rg.ok)return rg;
@@ -312,7 +404,7 @@
     const a=W().apply(wo,allocation.token,next,{persist:false});if(!a.ok)return a;next=a.database||next;
    }
   }
-  return{ok:true,report,prep,ppr,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId,groupKey:o.groupKey},next),database:next};
+  return{ok:true,report,prep,ppr,batchSchedules,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId,groupKey:o.groupKey,groupKeys:o.groupKeys},next),database:next};
  }
  function preview(o={},d=db()){
   const result=simulate(o,d);if(!result.ok)return result;
@@ -324,5 +416,5 @@
   if(JSON.stringify(result.database)!==JSON.stringify(d)){global.LubricaCore.State.setDatabase(result.database);global.LubricaApp?.refreshFromCore?.()}
   const {database,...rest}=result;return rest;
  }
- global.LubricaRouteAutomation=Object.freeze({eligible,setupAllowed,config,equipmentOrder,policy,taskPpr,taskMinutes,duration,earlyDate,allowedEarliest,reconcile,historyFor,partition,forecast,preview,apply});
+ global.LubricaRouteAutomation=Object.freeze({eligible,candidates,setupAllowed,config,equipmentOrder,policy,taskPpr,taskMinutes,duration,earlyDate,allowedEarliest,reconcile,historyFor,partition,projectRange,forecast,preview,apply});
 })(window);

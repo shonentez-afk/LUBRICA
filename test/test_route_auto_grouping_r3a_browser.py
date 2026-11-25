@@ -44,9 +44,9 @@ def check(browser,width,height,label):
  assert dlg.is_visible()
  f=lambda n:dlg.locator('[data-r5="'+n+'"]')
  assert page.locator('#syncRoutes').count()==0
- f('create-mode').select_option('bulk')
  f('line').select_option('L1')
  f('area').select_option('A1')
+ dlg.locator('[data-r8-select-all]').click()
  f('preview').click()
  assert '2 точек' in f('report').inner_text()
  assert 'Новых маршрутов' in f('report').inner_text()
@@ -60,8 +60,8 @@ def check(browser,width,height,label):
  assert page.evaluate('window.__db.routes.find(r=>r.serviceKey==="bearing:regrease").taskIds.join(",")')=='T1,T2'
  assert page.locator('.route-list-item').count()==2
  page.locator('#autoCreateRoute').click()
- f('create-mode').select_option('bulk')
  f('area').select_option('A1')
+ dlg.locator('[data-r8-select-all]').click()
  f('preview').click()
  assert f('apply').is_disabled()
  assert page.evaluate('window.__writes')==1

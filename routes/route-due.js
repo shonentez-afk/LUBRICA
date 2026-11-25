@@ -67,7 +67,7 @@
     
     
    }else{
-    b.nextDate=day(row.nextDate);
+    b.nextDate=day(row.nextDate);if(r.cycleMode==='fixed_weekly'){b.cycleAnchor=b.nextDate===old.nextDate?day(t.routeDue?.cycleAnchor)||b.nextDate:b.nextDate;b.cycleTarget=b.nextDate===old.nextDate?day(t.routeDue?.cycleTarget)||b.nextDate:b.nextDate;}
     
    }
    const result=writeBasis(t,b,work,ix);if(!result.ok)return result;
@@ -159,6 +159,17 @@
   }
   return missing;
  }
+ // A fixed week phase never extends the technical maximum from actual work.
+ function calendarStep(actual,entry,route,basis={}){
+  const cap=global.LubricaRoutePlanning.addInterval(actual,{kind:entry.kind,value:entry.interval});
+  const anchor=day(basis.cycleAnchor)||day(entry.dueDate);
+  if(route?.cycleMode!=='fixed_weekly'||entry.kind!=='days'||!Number.isInteger(entry.interval)||entry.interval<7||entry.interval%7||!anchor||!day(actual)||!cap)return {nextDate:cap};
+  const reference=[actual,day(basis.cycleTarget)||day(entry.dueDate)].sort().at(-1);
+  const delta=Math.round((Date.parse(reference+'T00:00:00Z')-Date.parse(anchor+'T00:00:00Z'))/86400000);
+  const next=advance(anchor,(Math.floor(delta/entry.interval)+1)*entry.interval);
+  return {nextDate:next<cap?next:cap,cycleAnchor:anchor,cycleTarget:next};
+ }
+ function nextCalendarDate(actual,entry,route,basis={}){return calendarStep(actual,entry,route,basis).nextDate}
  function advanceCompleted(run,d){
   if(!run?.dueEntries?.length)return;
   const ix=engine().contextIndex(d);
@@ -167,9 +178,9 @@
    if(!t||!r?.done||r.resultStatus!=='completed')continue;
    const b=t.routeDue;
    if(e.kind==='runtime_hours'){const h=num(r.runtimeMeterHours);b.nextHours=h+e.interval;b.readingHours=h;b.readingDate=run.date}
-   else b.nextDate=global.LubricaRoutePlanning.addInterval(run.date,{kind:e.kind,value:e.interval});
+   else {const route=arr(d.routes).find(r=>String(r.id)===String(run.routeId));Object.assign(b,calendarStep(run.date,e,route,b));}
    b.lastRunId=run.id;b.lastServiceDate=run.date;
   }
  }
- global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,writeBasis,validateRouteBasis,configure,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,advanceCompleted});
+ global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,writeBasis,validateRouteBasis,configure,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,calendarStep,nextCalendarDate,advanceCompleted});
 })(window);

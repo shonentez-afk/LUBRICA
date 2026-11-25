@@ -12,7 +12,7 @@ checks={
  'planning scripts':'route-planning.js' in html and 'route-planning-ui.js' in html,
  'explicit no guessing':'Система не назначает эту дату автоматически' in pui,
  'existing events contract':'существующие мероприятия карточек точек' in pui,
- 'preview and commit':'Сформировать предварительный план' in pui and 'Зафиксировать план' in pui and 'ничего не записывает' in pui,
+ 'preview and commit':'Обновить расчёт' in pui and 'Зафиксировать ближайшие задания' in pui and 'ничего не записывает' in pui,
  'status calendar':'Просрочено' in pui and 'В работе' in pui and 'Выполнено' in pui,
  'open planned route':'data-open-route' in pui and 'plannedItemId' in ui,
  'run linkage':'planItemId' in ui,

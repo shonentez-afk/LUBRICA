@@ -25,7 +25,7 @@
   d.setUTCMonth(d.getUTCMonth()+1);d.setUTCDate(0);
   return{startDate,endDate:d.toISOString().slice(0,10)};
  }
- function normalizeSettings(v){
+ function normalizeSettings(v,{allowUnconfigured=false}={}){
   const days=arr(v?.weekdays).map(Number),weekdays=[...new Set(days)].sort((a,b)=>a-b),shifts=[];
   if(!weekdays.length||days.some(n=>!Number.isInteger(n)||n<1||n>7))return fail('WORKDAYS_REQUIRED','Выберите рабочие дни');
   const seen=new Set();
@@ -35,7 +35,7 @@
    if(!/^[1-3]$/.test(id)||seen.has(id)||!Number.isInteger(workers)||workers<1||workers>100||!Number.isInteger(minutesPerWorker)||minutesPerWorker<1||minutesPerWorker>(legacy?10080:1440))return fail('CAPACITY_INVALID','Укажите 1–100 смазчиков и целое доступное время одного смазчика (до 1440 мин в смену)');
    seen.add(id);shifts.push({id,workers,minutesPerWorker,minutes:workers*minutesPerWorker,...(legacy?{legacyAggregate:true}:{})});
   }
-  if(!shifts.length)return fail('CAPACITY_REQUIRED','Задайте доступные минуты хотя бы одной смены');
+  if(!shifts.length&&!allowUnconfigured)return fail('CAPACITY_REQUIRED','Задайте доступные минуты хотя бы одной смены');
   shifts.sort((a,b)=>Number(a.id)-Number(b.id));
   const ppr=[],lineSeen=new Set();
   for(const x of arr(v?.ppr)){
@@ -118,15 +118,15 @@
   if(persist)global.LubricaCore.State.setDatabase(w);
   return{ok:true,changed:true,database:w};
  }
- function saveSettings(input,d=db(),{persist=true}={}){
+ function saveSettings(input,d=db(),{persist=true,allowUnconfigured=false}={}){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
-  const v=normalizeSettings(input);if(!v.ok)return v;
+  const v=normalizeSettings(input,{allowUnconfigured});if(!v.ok)return v;
   const lines=new Set(arr(d.lines).map(x=>String(x.id))),routes=new Map(arr(d.routes).map(x=>[String(x.id),x]));
   if(v.settings.ppr.some(x=>!lines.has(x.lineId))||v.settings.pprRouteIds.some(id=>!routes.has(id)))return fail('PPR_SCOPE_INVALID','Линия или маршрут больше не существует');
   if(v.settings.pprRouteIds.some(id=>!v.settings.ppr.some(p=>p.lineId===String(routes.get(id).lineId))))return fail('PPR_ANCHOR_REQUIRED','Укажите дату отсчёта ППР для всех линий маршрутов «только ППР»');
   const guard=pprModeGuard(d,v.settings.pprRouteIds);if(!guard.ok)return guard;
   const previous=pprSettings(d);for(const run of arr(d.checklistRuns).filter(x=>x.status==='in_progress')){const r=routes.get(String(run.routeId)),line=String(r?.lineId||run.workAssignment?.lineId||'');if(!line||!(run.workAssignment?.pprRequired||previous.pprRouteIds.includes(String(run.routeId))))continue;if(previous.ppr.find(x=>x.lineId===line)?.anchorDate!==v.settings.ppr.find(x=>x.lineId===line)?.anchorDate)return fail('PPR_ROUTE_LOCKED','Нельзя изменить график ППР линии во время выполнения маршрута')}
-  if(JSON.stringify(settings(d))===JSON.stringify(v.settings))return{ok:true,changed:false,settings:v.settings,database:d};
+  if(JSON.stringify(d.routeWorkload)===JSON.stringify(v.settings))return{ok:true,changed:false,settings:v.settings,database:d};
   const w=clone(d);w.routeWorkload=v.settings;if(persist)global.LubricaCore.State.setDatabase(w);
   return{ok:true,changed:true,settings:v.settings,database:w};
  }
@@ -175,7 +175,7 @@
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   const cfg=settings(d),all=states(d),dates=new Map(),unassigned=[],problems=[];
   for(const date of r.dates){
-   const working=!!cfg?.weekdays.includes(weekday(date));
+   const working=cfg?cfg.weekdays.includes(weekday(date)):null;
    dates.set(date,{date,working,pprLines:pprLines(date,d),pprConflicts:[],slots:(cfg?.shifts||[]).map(s=>({date,shiftId:s.id,capacity:working?s.minutes:0,workers:s.workers,minutesPerWorker:s.minutesPerWorker,legacyAggregate:!!s.legacyAggregate,minutes:0,jobs:[],proposedMinutes:[],proposedJobs:[]})),unknownMinutes:0,unknownJobs:[],unassigned:[]});
   }
   const report=(row,code,message)=>problems.push({id:row.item.id,code,message,date:row.date});
@@ -213,7 +213,7 @@
    totals.capacity+=b.capacity;totals.assignedMinutes+=b.assignedMinutes;totals.unknownMinutes+=b.unknownMinutes;totals.unknownJobs+=b.unknownJobs.length;totals.pprConflicts+=b.pprConflicts.length;totals.overloadMinutes+=b.overloadMinutes;if(b.overloadMinutes)totals.overloadedDays++;
   }
   totals.unassignedMinutes=unassigned.reduce((n,x)=>n+(x.minutes||0),0);
-  return{ok:true,...r,settings:cfg,days,weeks:weekGroups(days),unassigned,problems,totals};
+  return{ok:true,...r,settings:cfg,capacityConfigured:!!cfg,days,weeks:weekGroups(days),unassigned,problems,totals};
  }
  function preview(options={},d=db()){
   const L=load(options,d);if(!L.ok)return L;
@@ -250,6 +250,31 @@
   const fingerprint=states(d).map(x=>[x.item.id,x.status,x.fixed,x.item.plannedDate,x.minutes,x.a,x.run?.date,x.run?.shift,technicalDate(x.item),lineFor(x.item,d),pprOnly(x.item,d),earliestDate(x.item,d)]);
   const token=JSON.stringify([L.settings,L.startDate,L.endDate,allowDelay,reason,current,fingerprint,proposals,remaining]);
   return{ok:true,proposals,remaining,token,summary:{assigned:proposals.length,delayed:proposals.filter(x=>x.delayDays>0).length,minutes:proposals.reduce((n,x)=>n+x.minutes,0),unassigned:remaining.length}};
+ }
+ // Prepare the nearest real obligations and propose staffing in one transaction.
+ // Repeated forecasts are not accepted by the work-order engine.
+ function planProposal(options={},d=db()){
+  if(!d)return fail('DATABASE_MISSING','База недоступна');
+  if(!settings(d))return fail('CAPACITY_REQUIRED','Сначала сохраните рабочие дни и доступное время');
+  const P=global.LubricaRoutePlanning,E=global.LubricaRouteEngine,D=global.LubricaRouteDue,R=global.LubricaRoutePreparation;
+  const opts={startDate:options.startDate,endDate:options.endDate},p=P.commit(opts,d,{persist:false});if(!p.ok)return {...p,message:p.reason};
+  const work=p.database,oldIds=new Set(arr(d.routePlanItems).map(x=>x.id)),routes=new Map(E.routeEntries(work,{preview:false}).map(r=>[r.id,r])),shared=E.validationContext?.(work);
+  for(const item of arr(work.routePlanItems).filter(x=>!oldIds.has(x.id)&&x.planningBasis==='task_due')){
+   const r=routes.get(item.routeId),selected=r&&D.selectRoute(r,item,work),prep=selected&&R?.build(selected,work,shared);
+   if(!prep?.ready)return fail('PREPARATION_BLOCKED','Не готово по материалам и нормам: '+item.routeName);
+  }
+  const a=preview(options,work);if(!a.ok)return a;
+  return{ok:true,created:p.created,proposals:a.proposals,remaining:a.remaining,summary:a.summary,database:work,allocationToken:a.token,token:JSON.stringify([today(),options,d])};
+ }
+ function previewPlan(options={},d=db()){
+  const x=planProposal(options,d);if(!x.ok)return x;const{database,allocationToken,...out}=x;return out;
+ }
+ function applyPlan(options={},token='',d=db()){
+  if(!token||token!==JSON.stringify([today(),options,d]))return fail('STALE_PREVIEW','Данные изменились. Проверьте распределение повторно');
+  const x=planProposal(options,d);if(!x.ok)return x;
+  const a=apply(options,x.allocationToken,x.database,{persist:false});if(!a.ok)return a;
+  if(x.created||a.updated)global.LubricaCore.State.setDatabase(a.database);
+  return{ok:true,created:x.created,updated:a.updated};
  }
  function writeAssignment(item,to,reason){
   const old=assignment(item),at=new Date().toISOString();
@@ -314,5 +339,5 @@
   const result=validateStart(item,date,shift,d);
   return result.ok?{ok:true,assignment:assignment(item),pprRequired:pprOnly(item,d),lineId:lineFor(item,d)}:result;
  }
- global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,pprSettings,saveSettings,saveRoutePpr,nextPprFromAnchor,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,move,validateStart,startPolicy});
+ global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,pprSettings,saveSettings,saveRoutePpr,nextPprFromAnchor,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,previewPlan,applyPlan,move,validateStart,startPolicy});
 })(window);

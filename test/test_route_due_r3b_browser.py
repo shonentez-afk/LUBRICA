@@ -44,7 +44,7 @@ def check(browser,width,height,label):
  tomorrow=page.evaluate('LubricaRoutePlanning.addInterval(LubricaRouteDue.today(),{kind:"days",value:1})')
  page.locator('#autoCreateRoute').click()
  dialog=page.locator('#routeExecutionDialog')
- dialog.locator('[data-r5="create-mode"]').select_option('bulk')
+ dialog.locator('[data-r8-select-all]').click()
  dialog.locator('[data-r5="preview"]').click()
  dialog.locator('[data-r5="apply"]').click()
  assert page.evaluate('window.__db.routes.length')==2
