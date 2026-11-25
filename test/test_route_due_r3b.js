@@ -55,7 +55,7 @@ assert.equal(d.routePlanItems.find(x=>x.id===cp.id).status,'in_progress');assert
 C.updateTask(cRun.id,'C1',{done:true,actualQuantity:'10 г'});C.updateTask(cRun.id,'C2',{done:false,resultStatus:'skipped',deviationReason:'Нет доступа'});
 let done=C.completeRun(cRun.id,entry(cr));assert(done);assert.equal(t('C1').routeDue.nextDate,P.addInterval(today,{kind:'days',value:14}));assert.equal(t('C2').routeDue.nextDate,today,'skip retains due');assert.equal(t('C3').routeDue.nextDate,tomorrow,'future task untouched');
 assert.equal(F.analyzeRun(done,entry(cr)).tasks.total,2);assert.equal(F.analyzeRun(done,entry(cr)).tasks.skipped,1);
-assert.equal(d.routePlanItems.find(x=>x.id===cp.id).status,'completed');
+assert.equal(d.routePlanItems.find(x=>x.id===cp.id).status,'partial');
 assert.deepEqual(P.preview({startDate:today,endDate:today},d).items.find(x=>x.routeId===cr).taskIds,['C2'],'skipped task reappears without duplicate completed tasks');
 assert.equal(C.createRun(hr,{route:entry(hr),date:today,performer:'А',shift:'1',planItemId:hp.id}),null,'forecast and stale reading cannot start');
 config(hr,{H2:{nextHours:1000,readingHours:1001,readingDate:today,hoursPerDay:10}});
