@@ -81,7 +81,8 @@ def check(browser,width,height,label):
  assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',cal)=='draft'
  page.screenshot(path=str(OUT/(label+'_r82_settings.png')))
  editor.locator('[data-close-route]').last.click()
- page.locator('#routeDue').click()
+ page.locator('#editRoute').click()
+ editor.locator('[data-open-schedule]').click()
  dialog.locator('[data-r81-individual] > summary').click()
  assert dialog.locator('[data-due-task]').count()==2
  dialog.locator('[data-due-bulk]').fill(today)
@@ -90,10 +91,11 @@ def check(browser,width,height,label):
  page.screenshot(path=str(OUT/(label+'_calendar_setup.png')))
  dialog.locator('[data-due-activate]').click()
  assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',cal)=='active'
- assert page.locator('#routeDue').count()==1
+ assert page.locator('#routeDue').count()==0
  # Runtime due date must not be fabricated. A reading and threshold are explicit.
  select(runtime)
- page.locator('#routeDue').click()
+ page.locator('#editRoute').click()
+ editor.locator('[data-open-schedule]').click()
  dialog.locator('[data-r81-individual] > summary').click()
  for name,value in [('nextHours','1000'),('readingHours','1001'),('readingDate',today),('hoursPerDay','0')]:
   dialog.locator('[data-due-field="'+name+'"]').fill(value)
@@ -138,6 +140,13 @@ def check(browser,width,height,label):
  assert plan.is_visible()
  # Open the calendar job, not all points of the template.
  cid=page.evaluate('(id)=>window.__db.routePlanItems.find(p=>p.routeId===id).id',cal)
+ assert page.locator('#prepareRoute').count()==0
+ plan.locator('[data-prepare-job="'+cid+'"]').click()
+ assert dialog.locator('.route-preparation-status').is_visible()
+ assert cid in dialog.locator('.dialog-copy').inner_text()
+ assert dialog.locator('[data-prep-start]').is_enabled()
+ dialog.locator('[data-prep-back]').click()
+ assert plan.is_visible()
  plan.locator('[data-plan-id="'+cid+'"]').click()
  assert page.locator('.route-visit-card').count()==1
  assert page.locator('.route-visit-task').count()==1
@@ -186,7 +195,8 @@ def check(browser,width,height,label):
  assert page.evaluate('window.__db.routePlanItems.every(p=>p.status==="completed")')
  # R8.1: explicitly convert an existing meter route to safe calendar planning.
  select(runtime)
- page.locator('#routeDue').click()
+ page.locator('#editRoute').click()
+ editor.locator('[data-open-schedule]').click()
  assert not dialog.locator('[data-r81-individual]').evaluate('(x)=>x.open')
  dialog.locator('[data-r81-method]').select_option('calendar_runtime')
  dialog.locator('[data-r81-date]').fill(today)
