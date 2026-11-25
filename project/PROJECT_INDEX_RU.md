@@ -76,3 +76,7 @@
 ## Stage R2 — компактное выполнение маршрута (19.11.2026)
 
 [ROUTE_WALKTHROUGH_STAGE_R2_IMPLEMENTATION_RU.md](ROUTE_WALKTHROUGH_STAGE_R2_IMPLEMENTATION_RU.md) — подробности безопасного экранного обхода, фильтра физических точек, факта и печати. Реализация в draft PR #23; ручная Edge/file:// приёмка ещё обязательна.
+
+## R3A — автоматическое формирование маршрутов (25.11.2026)
+
+[ROUTE_AUTO_GROUPING_R3A_IMPLEMENTATION_RU.md](ROUTE_AUTO_GROUPING_R3A_IMPLEMENTATION_RU.md) — только участок + вид обслуживания + интервал; без деления по машинам, безопасные черновики, проверка актуальности и исключений. R3B — независимые сроки мероприятий; production не запускать.
