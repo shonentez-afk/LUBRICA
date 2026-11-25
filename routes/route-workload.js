@@ -115,6 +115,7 @@
   if(mode==='ppr')pprRouteIds.push(id);
   const guard=pprModeGuard(d,pprRouteIds);if(!guard.ok)return guard;
   w.routeWorkload={...raw,ppr:addPhase?[...rawPhase,{lineId,anchorDate:given,intervalDays:14}]:rawPhase,pprRouteIds:pprRouteIds.sort()};
+  if(persist&&r.status==='active'&&global.LubricaRouteDue?.typed(r)){const issue=global.LubricaRouteDue.activationIssues(r,w).find(x=>['PPR_CYCLE','PPR_ANCHOR_REQUIRED'].includes(x.code));if(issue)return fail(issue.code,issue.message)}
   if(persist)global.LubricaCore.State.setDatabase(w);
   return{ok:true,changed:true,database:w};
  }
@@ -266,7 +267,7 @@
    if(!prep?.ready)return fail('PREPARATION_BLOCKED','Не готово по материалам и нормам: '+item.routeName);
   }
   const a=preview(options,work);if(!a.ok)return a;
-  return{ok:true,created:p.created,proposals:a.proposals,remaining:a.remaining,summary:a.summary,database:work,allocationToken:a.token,token:JSON.stringify([today(),options,d])};
+  return{ok:true,created:p.created,proposals:a.proposals,remaining:a.remaining,warnings:p.preview.warnings,summary:a.summary,database:work,allocationToken:a.token,token:JSON.stringify([today(),options,d])};
  }
  function previewPlan(options={},d=db()){
   const x=planProposal(options,d);if(!x.ok)return x;const{database,allocationToken,...out}=x;return out;
@@ -341,5 +342,5 @@
   const result=validateStart(item,date,shift,d);
   return result.ok?{ok:true,assignment:assignment(item),pprRequired:pprOnly(item,d),lineId:lineFor(item,d)}:result;
  }
- global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,pprSettings,saveSettings,saveRoutePpr,nextPprFromAnchor,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,previewPlan,applyPlan,move,validateStart,startPolicy});
+ global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,pprSettings,saveSettings,saveRoutePpr,nextPprFromAnchor,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,previewPlan,applyPlan,move,validateStart,startPolicy,allowedWindow});
 })(window);

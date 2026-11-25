@@ -64,7 +64,9 @@
   const ts=new Map(arr(d?.tasks).map(t=>[String(t.id),t]));
   const allowed=entries.map(e=>{
    const t=ts.get(String(e.taskId)),recorded=D().day(e.earliestDate);
-   if(!t||!recorded||e.kind==='runtime_hours'||e.key!==D().signature(t,d))return base;
+   if(!t||e.key!==D().signature(t,d))return base;
+   if(e.kind==='runtime_hours'){const b=D().parseBasis(t,d);return b.ok&&b.kind==='runtime_hours'&&b.nextHours===e.nextHours&&b.meterKey===e.meterKey&&b.readingHours>=b.nextHours?b.readingDate:base;}
+   if(!recorded)return base;
    const due=D().day(e.dueDate),current=earlyDate(t,d,due);
    return due&&recorded===current&&recorded<due?recorded:base;
   }).sort().at(-1);
@@ -130,7 +132,7 @@
  function historyFor(t,d,ix){
   const id=String(t.id),key=D().signature(t,d,ix),s=A().scheduleFor(t);
   if(!key||!s.ok)return null;
-  const runs=arr(d.checklistRuns).filter(r=>r.status==='completed'&&D().day(r.date)&&r.date<=D().today()&&arr(r.dueEntries).some(e=>String(e.taskId)===id&&e.key===key)).sort((a,b)=>b.date.localeCompare(a.date)||str(b.completedAt).localeCompare(str(a.completedAt)));
+  const runs=arr(d.checklistRuns).filter(r=>['completed','partial'].includes(r.status)&&D().day(r.date)&&r.date<=D().today()&&arr(r.dueEntries).some(e=>String(e.taskId)===id&&e.key===key)).sort((a,b)=>b.date.localeCompare(a.date)||str(b.completedAt).localeCompare(str(a.completedAt)));
   for(const r of runs){
    const x=r.executionFact?.tasks?.[id]||r.taskResults?.[id];if(!x?.done||x.resultStatus!=='completed')continue;
    if(s.kind==='runtime_hours'){const entry=arr(r.dueEntries).find(e=>String(e.taskId)===id&&e.key===key);if(entry?.planningMode==='calendar_runtime'){const days=Number(entry.interval),rate=Number(entry.maxHoursPerDay);if(Number.isInteger(days)&&days>0&&rate>0&&rate<=24&&days*rate<=s.value)return{key,planningMode:'calendar_runtime',calendarConfirmed:true,cycleDays:days,maxHoursPerDay:rate,nextDate:add(r.date,days),lastRunId:r.id,lastServiceDate:r.date}}if(!number(x.runtimeMeterHours,0,1e12))continue;const h=Number(x.runtimeMeterHours);return{key,nextHours:h+s.value,readingHours:h,readingDate:r.date,hoursPerDay:0,lastRunId:r.id,lastServiceDate:r.date}}
@@ -252,10 +254,11 @@
      n++;
      // For a pending job forecast subsequent cycles after its proposed execution,
      // but leave its first obligation visible only as the actual plan item.
-     const assumed=n===1&&existing?[display,W().effectiveDate(existing)].sort().at(-1):display;
+     const assigned=n===1&&existing&&W().assignment(existing),assignedDate=assigned&&W().effectiveDate(existing);
+     const assumed=assignedDate&&assignedDate>=W().earliestDate(existing,d)&&W().allowedWindow(existing,assignedDate,d)?[assignedDate,start].sort().at(-1):display;
      if(runtime){if(!step)break;due=add(assumed,step)}
      else {const next=D().calendarStep(assumed,{...b,dueDate:due},r,phase);due=next.nextDate;phase={...phase,...next}}
-     if(!due||due<=display)break;display=due;
+     if(!due||due<=assumed)break;display=due;
     }
    }
   }
@@ -404,7 +407,7 @@
   const selected=arr(next.routes).filter(r=>r.source==='auto'&&D().typed(r)&&r.status==='active'&&groupScope(r,o)).map(r=>r.id);
   if(o.plan){
    const rg=W().range(o.startDate,o.endDate);if(!rg.ok)return rg;
-   const po={startDate:rg.startDate,endDate:rg.endDate,routeIds:selected};
+   const po={startDate:rg.startDate,endDate:rg.endDate,routeIds:selected,skipBlocked:true};
    plan=P().commit(po,next,{persist:false});if(!plan.ok)return{...fail('PLAN_BLOCKED',plan.reason),report,prep,plan:plan.preview};
    next=plan.database||next;
    const routes=new Map(E().routeEntries(next,{preview:false}).map(r=>[r.id,r])),previous=new Set(arr(d.routePlanItems).map(x=>x.id)),shared=E().validationContext?.(next);
