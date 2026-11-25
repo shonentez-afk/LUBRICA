@@ -67,6 +67,7 @@
    '<div class="route-visit-task-inputs">'+
     '<label>Результат'+statusSelect(id,state,editable)+'</label>'+
     '<label>Фактическое количество<input data-task-actual-quantity="'+esc(id)+'" value="'+esc(r.actualQuantity||'')+'"'+(editable?'':' disabled')+' placeholder="Укажите факт"></label>'+
+    (task.dueEntry?.kind==='runtime_hours'?'<label class="route-meter-fact">Моточасы при обслуживании<input type="number" min="0" step="any" data-task-meter="'+esc(id)+'" value="'+esc(r.runtimeMeterHours??'')+'"'+(editable?'':' disabled')+'><small>Порог '+esc(task.dueEntry.nextHours)+' ч. Факт обязателен для выполненного мероприятия.</small></label>':'')+
     '<label class="route-visit-notes'+(reasonMissing?' reason-required':'')+'">'+(deviation?'Причина отклонения *':'Наблюдения / выявленные дефекты')+
      '<textarea data-task-observation="'+esc(id)+'"'+(editable?'':' disabled')+' placeholder="'+(deviation?'Обязательно укажите причину':'При необходимости добавьте замечания')+'">'+esc(r.observations||r.deviationReason||'')+'</textarea>'+
      (reasonMissing?'<small class="route-visit-warning">Для завершения маршрута необходимо указать причину.</small>':'')+'</label>'+
