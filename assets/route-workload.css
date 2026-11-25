@@ -79,3 +79,14 @@
 
 /* R8: unknown capacity, forecast and actual work have distinct states */
 .r8-settings-only .rw-toolbar,.r8-settings-only .rw-cadences,.r8-settings-only .rw-summary,.r8-settings-only .rw-controls,.r8-settings-only .rw-queue,.r8-settings-only .rw-body>section,.r8-settings-only .rw-preview,.r8-settings-only .rw-manual{display:none!important}.rw-day.unknown-capacity{background:#fafafa}.r8-forecast-day{border-left:3px solid #7eab93;margin:5px 0;padding:5px;background:#edf6f0}.r8-forecast-item{margin-top:5px;overflow-wrap:anywhere}.r8-forecast-item b,.r8-day-details b{font-size:11px;display:block}.r8-forecast-item small,.r8-day-details small{font-size:10px;display:block}.r8-forecast-item.conflict{border-left:2px solid #b87731;padding-left:5px}.r8-live{margin:10px 0;border:1px solid var(--line);border-radius:9px;padding:10px}.r8-live-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}.r8-live-head small{font-size:11px;color:var(--muted)}.r8-live-scroll{overflow-x:auto}.r8-live-grid{display:grid;grid-template-columns:repeat(7,minmax(76px,1fr));gap:4px;align-items:start;min-width:560px}.r8-week-label{font-size:11px;color:var(--muted);text-align:center}.r8-live-day{border:1px solid var(--line);border-radius:6px;background:#f8faf9;min-height:55px;padding:5px;min-width:0}.r8-live-day.ppr{background:#edf4fa;border-color:#b4c9db}.r8-live-day summary{list-style:none;cursor:pointer;display:grid;gap:2px}.r8-live-day summary b{font-size:12px}.r8-live-day summary small{font-size:10px;overflow-wrap:anywhere}.r8-ppr-label{color:#28679e}.r8-projected-label,.r8-done-label{color:#286a4b}.r8-day-details{margin-top:5px;border-top:1px solid var(--line);padding-top:4px;overflow-wrap:anywhere}.r8-unknown{margin-top:8px;font-size:11px;max-height:220px;overflow:auto}.r8-unknown summary{font-weight:700;cursor:pointer}
+
+/* Live calendar adds a variable-height section; scroll the workspace rather than
+   compressing the committed work list to zero height. Keep the lists usable on tablets. */
+.route-planning-workspace:has(.r8-live){overflow:auto;align-content:start;}
+.route-planning-workspace:has(.r8-live)>*{flex-shrink:0}
+.route-planning-workspace:has(.r8-live) .route-planning-layout{flex:0 0 auto;min-height:320px;overflow:visible;align-items:stretch}
+.route-planning-workspace:has(.r8-live) .route-planning-layout>section{min-height:320px;max-height:460px}
+.route-planning-workspace:has(.r8-live) .route-planning-preview-list,.route-planning-workspace:has(.r8-live) .route-planning-calendar-list{flex:1 1 auto;min-height:0;overflow:auto}
+.route-planning-workspace:has(.r8-live) .route-planning-controls{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.route-planning-workspace:has(.r8-live) .route-planning-controls .btn{white-space:normal;min-width:0}
+@media(max-width:900px){.route-planning-workspace:has(.r8-live) .route-planning-controls{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
