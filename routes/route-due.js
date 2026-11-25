@@ -86,21 +86,22 @@
    if(!due.ok){warnings.push({code:due.code,taskId:id,routeId:route.id,message:id+': '+due.message});continue}
    if(reserved(d,id))continue;
    if(!due.dueDate){warnings.push({code:'TASK_METER_WAITING',taskId:id,routeId:route.id,message:id+': ещё '+due.remainingHours+' ч; нет прогноза, ожидаются показания счётчика'});continue}
-   if(due.dueDate>end)continue;
+   const earliest=global.LubricaRouteAutomation?.earlyDate(t,d,due.dueDate)||due.dueDate;
+   if(due.dueDate>end&&earliest>end)continue;
    const date=due.dueDate<start?start:due.dueDate;
    if(!group.has(date))group.set(date,[]);
-   group.get(date).push({taskId:id,key:due.key,kind:due.kind,basis:due.basis,dueDate:due.dueDate,nextHours:due.nextHours??null,interval:due.interval,forecast:due.basis==='meter_forecast'});
+   group.get(date).push({taskId:id,key:due.key,kind:due.kind,basis:due.basis,dueDate:due.dueDate,...(earliest<due.dueDate?{earliestDate:earliest}:{}),nextHours:due.nextHours??null,interval:due.interval,forecast:due.basis==='meter_forecast'});
   }
-  return{groups:[...group].sort((a,b)=>a[0].localeCompare(b[0])).map(([date,entries])=>({date,entries,taskIds:entries.map(x=>x.taskId)})),warnings};
+  const groups=[...group].sort((a,b)=>a[0].localeCompare(b[0])).map(([date,entries])=>({date,entries,taskIds:entries.map(x=>x.taskId)}));return{groups:global.LubricaRouteAutomation?.partition(route,groups,d,ix)||groups,warnings};
  }
- function selectRoute(route,item){
+ function selectRoute(route,item,d=db()){
   const ids=arr(item?.taskIds).map(String),pts=new Map(arr(route?.points).map(p=>[String(p.taskId||p.id),p]));
   if(!ids.length||new Set(ids).size!==ids.length||ids.some(id=>!pts.has(id)))return null;
   const points=ids.map(id=>pts.get(id));
-  return{...route,taskIds:ids,points,estimatedMinutes:(Number(route.fixedMinutes)||0)+ids.length*(Number(route.estimatedMinutesPerTask)||5),physicalPointCount:new Set(points.map(p=>p.lubricationPointId||p.pointDisplayId||p.id)).size,plannedItemId:item.id||''};
+  return{...route,taskIds:ids,points,estimatedMinutes:global.LubricaRouteAutomation?.duration(route,ids,d)??((Number(route.fixedMinutes)||0)+ids.length*(Number(route.estimatedMinutesPerTask)||5)),physicalPointCount:new Set(points.map(p=>p.lubricationPointId||p.pointDisplayId||p.id)).size,plannedItemId:item.id||''};
  }
  function snapshot(route,item,d){
-  const selected=selectRoute(route,item),model=selected&&global.LubricaChecklistEngine?.model?.(selected,d);
+  const selected=selectRoute(route,item,d),model=selected&&global.LubricaChecklistEngine?.model?.(selected,d);
   if(!model||model.taskCount!==item.taskIds.length)return null;
   return model;
  }
@@ -110,9 +111,10 @@
   if(String(item.routeId)!==String(route.id))return fail('PLAN_ROUTE_MISMATCH','Задание относится к другому маршруту');
   const E=engine(),validation=E.validateRoute(route.id,d);
   if(!validation.valid)return fail('ROUTE_NOT_READY','Маршрут изменился или не готов');
-  const selected=selectRoute(route,item),model=snapshot(route,item,d);
+  const selected=selectRoute(route,item,d),model=snapshot(route,item,d);
   if(!selected||!model||!item.checklistSnapshot||JSON.stringify(model)!==JSON.stringify(item.checklistSnapshot))return fail('PLAN_CHANGED','Состав, нормы или параметры задания изменились. Снимите незапущенное задание и сформируйте повторно');
-  if(checkDate&&(!day(date)||date>today()||date<item.plannedDate))return fail('PLAN_DATE','Дата выполнения должна быть фактической и не раньше плановой');
+  const early=!!(global.LubricaRouteAutomation&&item.workAssignment?.date===date&&date>=global.LubricaRouteAutomation.allowedEarliest(item,d));
+  if(checkDate&&(!day(date)||date>today()||date<item.plannedDate&&!early))return fail('PLAN_DATE','Дата должна быть фактической и не раньше плановой или согласованного окна');
   const ix=E.contextIndex(d),entries=arr(item.dueEntries),byId=new Map(entries.map(e=>[String(e.taskId),e]));
   if(entries.length!==selected.taskIds.length||byId.size!==entries.length)return fail('PLAN_INVALID','Не подтверждены основания сроков задания');
   const startEntries=[];
@@ -125,7 +127,8 @@
     startEntries.push({...e,readingHours:b.readingHours,readingDate:b.readingDate});
    }else{
     if(e.dueDate!==b.nextDate)return fail('TASK_BASIS_CHANGED',id+': изменился следующий срок');
-    if(checkDate&&date<b.nextDate)return fail('TASK_NOT_DUE',id+': срок ещё не наступил');
+    const allowed=global.LubricaRouteAutomation?.earlyDate(t,d,b.nextDate)||b.nextDate;if(e.earliestDate&&e.earliestDate!==allowed)return fail('TASK_BASIS_CHANGED',id+': согласованное окно изменилось');
+    if(checkDate&&date<b.nextDate&&(!early||!e.earliestDate||date<e.earliestDate))return fail('TASK_NOT_DUE',id+': срок ещё не наступил');
     startEntries.push({...e});
    }
   }
@@ -143,7 +146,7 @@
    if(e.kind==='runtime_hours'){
     const h=num(r.runtimeMeterHours);
     if(h==null||h<e.nextHours||h<e.readingHours||h<b.readingHours)missing.push(id+': укажите фактические моточасы на момент обслуживания (не менее '+Math.max(e.nextHours,e.readingHours,b.readingHours)+' ч)');
-   }else if(!day(run.date)||run.date<e.dueDate||run.date>today())missing.push(id+': некорректная фактическая дата');
+   }else if(!day(run.date)||run.date<(e.earliestDate&&run.workAssignment?.date===run.date?e.earliestDate:e.dueDate)||run.date>today())missing.push(id+': некорректная фактическая дата');
   }
   return missing;
  }

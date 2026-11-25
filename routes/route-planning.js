@@ -45,10 +45,10 @@
  function planStore(d){d.routePlanItems=Array.isArray(d.routePlanItems)?d.routePlanItems:[];return d.routePlanItems}
  function nextPlanId(d){let n=planStore(d).length+1,id='';do{id=`PPR-${String(n++).padStart(6,'0')}`}while(planStore(d).some(x=>x.id===id));return id}
  function anchorForRoute(route,d){const last=lastCompletedDate(route.id,d);if(last)return{date:addInterval(last,parseInterval(route.interval)),source:'last_completed',lastCompleted:last};const anchor=isoDate(route.planningAnchorDate);if(anchor)return{date:anchor,source:'route_anchor',lastCompleted:''};return{date:'',source:'missing',lastCompleted:''}}
- function preview({startDate,endDate,includeDraft=false}={},d=db()){
+ function preview({startDate,endDate,includeDraft=false,routeIds=null}={},d=db()){
   if(!d)return{items:[],warnings:[{code:'DATABASE_MISSING',message:'База данных недоступна'}],summary:{routes:0,items:0,minutes:0}};
   const start=isoDate(startDate)||today(),end=isoDate(endDate)||start;if(end<start)return{items:[],warnings:[{code:'INVALID_RANGE',message:'Дата окончания раньше даты начала'}],summary:{routes:0,items:0,minutes:0}};
-  const routes=(global.LubricaRouteEngine?.routeEntries?.(d,{includeArchived:false,preview:false})||[]).filter(r=>r.status==='active'||(includeDraft&&r.status==='draft'));const rejected=new Set();
+  const routes=(global.LubricaRouteEngine?.routeEntries?.(d,{includeArchived:false,preview:false})||[]).filter(r=>(r.status==='active'||(includeDraft&&r.status==='draft'))&&(!Array.isArray(routeIds)||routeIds.includes(r.id)));const rejected=new Set();
   const items=[],warnings=[];
   const pushItem=(route,due,revision,taskIds,extra={})=>items.push({planKey:`${route.id}|${due}`,routeId:route.id,routeCode:route.code||route.id,routeName:route.name||route.id,lineId:route.lineId||'',areaId:route.areaId||'',line:route.line,area:route.area,interval:route.interval,plannedDate:due,plannedMinutes:Number(route.estimatedMinutes)||0,routeRevision:Number(revision?.revision)||Number(route.revision)||1,routeRevisionId:revision?.id||'',taskIds:clone(taskIds),anchorSource:extra.anchorSource||'',lastCompletedDate:extra.lastCompletedDate||'',planningBasis:extra.planningBasis||'calendar',runtimeIntervalHours:extra.runtimeIntervalHours||null,runtimePlanningHoursPerDay:extra.runtimePlanningHoursPerDay||null,runtimeForecast:extra.runtimeForecast===true});
   for(const route of routes){
@@ -58,7 +58,7 @@
     if(route.status!=='active')continue;
     const D=global.LubricaRouteDue,report=D.preview(route,d,start,end),revision=currentRevision(route.id,d);
     warnings.push(...report.warnings);
-    for(const g of report.groups){const selected=D.selectRoute(route,g);if(!selected){warnings.push({code:'TASK_DUE_MISSING',routeId:route.id,message:'Не удалось получить физические точки планового задания'});continue}pushItem(selected,g.date,revision,g.taskIds,{planningBasis:'task_due',runtimeForecast:g.entries.some(x=>x.forecast)});const item=items[items.length-1];item.dueEntries=clone(g.entries);item.serviceKey=route.serviceKey;item.planKey=route.id+'|'+g.date+'|task_due|'+JSON.stringify(g.entries.map(x=>[x.taskId,x.dueDate,x.nextHours]));}
+    for(const g of report.groups){const selected=D.selectRoute(route,g,d);if(!selected){warnings.push({code:'TASK_DUE_MISSING',routeId:route.id,message:'Не удалось получить физические точки планового задания'});continue}pushItem(selected,g.date,revision,g.taskIds,{planningBasis:'task_due',runtimeForecast:g.entries.some(x=>x.forecast)});const item=items[items.length-1];item.dueEntries=clone(g.entries);if(g.access)item.access=g.access;const earliest=g.entries.map(x=>x.earliestDate||g.date).sort().at(-1);if(earliest<g.date)item.earliestDate=earliest;item.serviceKey=route.serviceKey;item.planKey=route.id+'|'+g.date+'|task_due|'+JSON.stringify(g.entries.map(x=>[x.taskId,x.dueDate,x.nextHours]));}
     continue;
    }
    if(route.intervalMode==='mixed'){warnings.push({code:'MIXED_INTERVAL',routeId:route.id,message:`${route.code||route.id}: смешанная периодичность — календарная дата должна задаваться вручную`});continue}
@@ -88,8 +88,8 @@
   items.sort((a,b)=>a.plannedDate.localeCompare(b.plannedDate)||a.routeName.localeCompare(b.routeName,'ru'));
   return{items,warnings,summary:{skippedRoutes:rejected.size,skippedRouteIds:[...rejected],routes:new Set(items.map(x=>x.routeId)).size,items:items.length,minutes:items.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0),warningCount:warnings.length,startDate:start,endDate:end}}
  }
- function commit(options={},d=db()){
-  if(!d)return{ok:false,reason:'База данных недоступна'};const result=preview({...options,includeDraft:false},d);if(result.warnings.some(x=>['INVALID_RANGE','ROUTE_NOT_READY','MIXED_INTERVAL','ANCHOR_MISSING','INTERVAL_UNSUPPORTED','RUNTIME_ANCHOR_MISSING','TASK_DUE_MISSING','TASK_METER_MISSING'].includes(x.code)))return{ok:false,reason:'Сначала исправьте настройки и ошибки маршрутов',preview:result};const hasTyped=result.items.some(x=>x.planningBasis==='task_due');const work=hasTyped?clone(d):d,store=planStore(work),existing=new Set(store.filter(x=>x.planningBasis==='task_due'?['planned','in_progress'].includes(x.status):x.status!=='cancelled').map(x=>x.planKey||`${x.routeId}|${x.plannedDate}`));let created=0;const routes=hasTyped?new Map((global.LubricaRouteEngine?.routeEntries?.(work,{preview:false})||[]).map(r=>[r.id,r])):null;
+ function commit(options={},d=db(),{persist=true}={}){
+  if(!d)return{ok:false,reason:'База данных недоступна'};const result=preview({...options,includeDraft:false},d);if(result.warnings.some(x=>['INVALID_RANGE','ROUTE_NOT_READY','MIXED_INTERVAL','ANCHOR_MISSING','INTERVAL_UNSUPPORTED','RUNTIME_ANCHOR_MISSING','TASK_DUE_MISSING','TASK_METER_MISSING'].includes(x.code)))return{ok:false,reason:'Сначала исправьте настройки и ошибки маршрутов',preview:result};const hasTyped=result.items.some(x=>x.planningBasis==='task_due');const work=hasTyped||!persist?clone(d):d,store=planStore(work),existing=new Set(store.filter(x=>x.planningBasis==='task_due'?['planned','in_progress'].includes(x.status):x.status!=='cancelled').map(x=>x.planKey||`${x.routeId}|${x.plannedDate}`));let created=0;const routes=hasTyped?new Map((global.LubricaRouteEngine?.routeEntries?.(work,{preview:false})||[]).map(r=>[r.id,r])):null;
   for(const item of result.items){if(existing.has(item.planKey))continue;
    const revResult=global.LubricaRouteEngine?.ensureRouteRevision?.(item.routeId,work,{note:'Автофиксация перед планированием смазочных работ',reason:'planning'}),rev=revResult?.revision||currentRevision(item.routeId,work);
    const frozen={...item,routeRevision:Number(rev?.revision)||item.routeRevision||1,routeRevisionId:rev?.id||item.routeRevisionId||'',taskIds:clone(item.planningBasis==='task_due'?item.taskIds:(rev?.snapshot?.taskIds||item.taskIds||[]))};
@@ -100,7 +100,7 @@
    }
    store.push({...frozen,id:nextPlanId(work),status:'planned',runId:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});existing.add(item.planKey);created++
   }
-  if(created||!hasTyped)global.LubricaCore?.State?.setDatabase?.(work);global.LubricaApp?.showToast?.(`План смазочных работ обновлён · добавлено ${created}`);return{ok:true,created,preview:result}
+  if(persist&&(created||!hasTyped)){global.LubricaCore?.State?.setDatabase?.(work);global.LubricaApp?.showToast?.(`План смазочных работ обновлён · добавлено ${created}`)}return{ok:true,created,preview:result,database:work}
  }
  function syncFromRuns(d=db()){
   if(!d)return[];const runs=new Map((d.checklistRuns||[]).map(r=>[String(r.id),r]));for(const item of planStore(d)){if(!item.runId)continue;const run=runs.get(String(item.runId));if(!run)continue;item.status=run.status==='completed'?'completed':run.status==='cancelled'?'cancelled':run.status==='in_progress'?'in_progress':item.status;item.updatedAt=new Date().toISOString();if(run.completedAt)item.completedAt=run.completedAt;if(run.cancelledAt)item.cancelledAt=run.cancelledAt}return planStore(d)
@@ -111,7 +111,7 @@
   return planStore(d).map(x=>{
    const workDate=W?.effectiveDate(x)||x.plannedDate,technicalDueDate=W?.technicalDate(x)||x.plannedDate;
    return {...x,workDate,technicalDueDate,displayStatus:x.status==='planned'&&technicalDueDate<td?'overdue':x.status,revisionOutdated:(global.LubricaRouteEngine?.routeRevisions?.(x.routeId,d)?.[0]?.id||'')!==clean(x.routeRevisionId)};
-  }).filter(x=>(!start||x.workDate>=start)&&(!end||x.workDate<=end)&&(status==='all'||status==='overdue'?(status!=='overdue'||x.displayStatus==='overdue'):x.status===status)).sort((a,b)=>a.workDate.localeCompare(b.workDate)||a.routeName.localeCompare(b.routeName,'ru'))
+  }).filter(x=>(!start||x.workDate>=start)&&(!end||x.workDate<=end||x.status==='planned'&&!x.workAssignment&&x.planningBasis==='task_due'&&W?.earliestDate?.(x,d)<=end)&&(status==='all'||status==='overdue'?(status!=='overdue'||x.displayStatus==='overdue'):x.status===status)).sort((a,b)=>a.workDate.localeCompare(b.workDate)||a.routeName.localeCompare(b.routeName,'ru'))
  }
  function remove(planId,d=db()){if(!d)return{ok:false,reason:'База данных недоступна'};const x=planStore(d).find(i=>i.id===planId);if(!x)return{ok:false,reason:'Плановое задание не найдено'};if(x.status!=='planned'||x.runId||(d.checklistRuns||[]).some(r=>String(r.plannedItemId)===String(planId)))return{ok:false,reason:'Удалять можно только незапущенное плановое задание'};d.routePlanItems=d.routePlanItems.filter(i=>i.id!==planId);global.LubricaCore?.State?.setDatabase?.(d);return{ok:true}}
  function linkRun(planId,runId,d=db()){const x=planStore(d).find(i=>i.id===planId);if(!x)return null;x.runId=runId;x.status='in_progress';x.startedAt=new Date().toISOString();x.updatedAt=x.startedAt;global.LubricaCore?.State?.setDatabase?.(d);return x}

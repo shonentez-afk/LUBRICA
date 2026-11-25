@@ -337,7 +337,12 @@ function renderManagementDashboard(view){
  draw();
 }
 window.renderManagementDashboard=renderManagementDashboard;
-function openAutoGroupingDialog(view){
+function openAutoGroupingDialog(view,{quick=false}={}){
+ if(!quick&&window.LubricaRouteAutomationUI&&window.LubricaRouteAutomation){
+  const dlg=routeExecutionDialog();
+  window.LubricaRouteAutomationUI.open(view,dlg,{onQuick:()=>openAutoGroupingDialog(view,{quick:true}),onApplied:()=>{view.dataset.routeStatusFilter='working';delete view.dataset.checklistRun;delete view.dataset.plannedItemId;renderRoutes(view)}});
+  return;
+ }
  const E=window.LubricaRouteEngine,dlg=routeExecutionDialog(),d=window.LubricaCore?.State?.getDatabase?.();
  if(!E?.previewAutoGrouping||!dlg||!d){window.LubricaApp?.showToast?.('Автоматическое формирование недоступно','warn');return}
  const opt=E.routeCreationOptions(d),lines=opt.lines||[],areas=opt.areas||[];

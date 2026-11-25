@@ -81,12 +81,12 @@
      const points=(r.taskIds||[]).map(id=>pmap.get(String(id))).filter(Boolean);
      const excludedPoints=(r.excludedTaskIds||[]).map(id=>pmap.get(String(id))).filter(Boolean);
      const allEligible=typed(r)?(typedEligible.get(routeKey(r))||[]):(eligible.get([r.lineId,r.areaId,r.interval].join('|'))?.contexts||[]);
-     const pointGroups=pointGroupsForRoute(r.id,d),physicalPointCount=new Set(pointGroups.map(g=>String(g.pointId))).size;return {...r,key:routeKey(r),line:line.name||r.lineName||String(r.lineId||'').replace(/^legacy-line:/,'')||'Без линии',area:area.name||r.areaName||String(r.areaId||'').replace(/^legacy-area:/,'')||(r.source==='manual'||r.source==='copy'?'Все участки':'Без участка'),points,pointGroups,pointCount:pointGroups.length,physicalPointCount,excludedPoints,eligibleCount:allEligible.length,excludedCount:(r.excludedTaskIds||[]).length,estimatedMinutes:(Number(r.fixedMinutes)||0)+points.length*(Number(r.estimatedMinutesPerTask)||5)};
+     const pointGroups=pointGroupsForRoute(r.id,d),physicalPointCount=new Set(pointGroups.map(g=>String(g.pointId))).size;return {...r,key:routeKey(r),line:line.name||r.lineName||String(r.lineId||'').replace(/^legacy-line:/,'')||'Без линии',area:area.name||r.areaName||String(r.areaId||'').replace(/^legacy-area:/,'')||(r.source==='manual'||r.source==='copy'?'Все участки':'Без участка'),points,pointGroups,pointCount:pointGroups.length,physicalPointCount,excludedPoints,eligibleCount:allEligible.length,excludedCount:(r.excludedTaskIds||[]).length,estimatedMinutes:typed(r)&&global.LubricaRouteAutomation?global.LubricaRouteAutomation.duration({...r,points},r.taskIds,d):(Number(r.fixedMinutes)||0)+points.length*(Number(r.estimatedMinutesPerTask)||5)};
    }).sort((a,b)=>(a.line+a.area+a.interval).localeCompare(b.line+b.area+b.interval,'ru'));
  }
 
  function revisionStore(d){d.routeRevisions=Array.isArray(d.routeRevisions)?d.routeRevisions:[];return d.routeRevisions}
- function revisionPayload(route){return {routeId:route.id,code:route.code||'',name:route.name||'',description:route.description||'',lineId:route.lineId||'',areaId:route.areaId||'',interval:route.interval||'',intervalMode:route.intervalMode||'fixed',routeType:route.routeType||'lubrication',...typedMeta(route),sequenceMode:route.sequenceMode||'manual',assignee:route.assignee||'Смазчик',estimatedMinutesPerTask:Number(route.estimatedMinutesPerTask)||5,fixedMinutes:Number(route.fixedMinutes)||0,planningAnchorDate:route.planningAnchorDate||'',runtimePlanningHoursPerDay:Number(route.runtimePlanningHoursPerDay)||0,status:route.status||'draft',source:route.source||'manual',taskIds:[...(route.taskIds||[])].map(String),excludedTaskIds:[...(route.excludedTaskIds||[])].map(String)}}
+ function revisionPayload(route){return {routeId:route.id,code:route.code||'',name:route.name||'',description:route.description||'',lineId:route.lineId||'',areaId:route.areaId||'',interval:route.interval||'',intervalMode:route.intervalMode||'fixed',routeType:route.routeType||'lubrication',...typedMeta(route),...(route.automationContent?{automationContent:route.automationContent}:{}),sequenceMode:route.sequenceMode||'manual',assignee:route.assignee||'Смазчик',estimatedMinutesPerTask:Number(route.estimatedMinutesPerTask)||5,fixedMinutes:Number(route.fixedMinutes)||0,planningAnchorDate:route.planningAnchorDate||'',runtimePlanningHoursPerDay:Number(route.runtimePlanningHoursPerDay)||0,status:route.status||'draft',source:route.source||'manual',taskIds:[...(route.taskIds||[])].map(String),excludedTaskIds:[...(route.excludedTaskIds||[])].map(String)}}
  function revisionSignature(payload){return JSON.stringify(payload)}
  function routeRevisions(routeId,d=database()){if(!d)return[];return revisionStore(d).filter(x=>String(x.routeId)===String(routeId)).sort((a,b)=>(Number(b.revision)||0)-(Number(a.revision)||0))}
  function ensureRouteRevision(routeId,d=database(),{note='',reason='auto'}={}){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};const payload=revisionPayload(r),list=routeRevisions(routeId,d),latest=list[0]||null,sig=revisionSignature(payload);if(latest&&latest.signature===sig){r.revision=Number(latest.revision)||1;return {ok:true,created:false,revision:latest}}const rev=(latest?Number(latest.revision)||0:0)+1,createdAt=now(),entry={id:`${r.id}-REV-${String(rev).padStart(3,'0')}`,routeId:r.id,revision:rev,createdAt,note:clean(note),reason,signature:sig,snapshot:clone(payload)};revisionStore(d).push(entry);r.revision=rev;r.revisionUpdatedAt=createdAt;return {ok:true,created:true,revision:entry}}
@@ -310,17 +310,17 @@
  function previewAutoGrouping(options={},d=database()){
    const A=global.LubricaRouteAutoGrouping;
    if(!d||!A)return{ok:false,reason:'Автогруппировка недоступна',groups:[],issues:[],token:''};
-   return A.preview(clone(d),options,window.LubricaRouteEngine);
+   return options.advanced&&global.LubricaRouteAutomation?global.LubricaRouteAutomation.reconcile(clone(d),options,window.LubricaRouteEngine):A.preview(clone(d),options,window.LubricaRouteEngine);
  }
- function applyAutoGrouping(options={},expectedToken='',d=database()){
+ function applyAutoGrouping(options={},expectedToken='',d=database(),{persist=true}={}){
    if(!d||!global.LubricaRouteAutoGrouping)return{ok:false,reason:'Автогруппировка недоступна'};
-   const work=clone(d),report=global.LubricaRouteAutoGrouping.preview(work,options,window.LubricaRouteEngine);
+   const work=clone(d),advanced=options.advanced===true&&!!global.LubricaRouteAutomation,report=advanced?global.LubricaRouteAutomation.reconcile(work,options,window.LubricaRouteEngine):global.LubricaRouteAutoGrouping.preview(work,options,window.LubricaRouteEngine);
    if(!report.ok)return report;
    if(!expectedToken||report.token!==expectedToken)return{ok:false,reason:'Данные изменились. Повторите предварительный просмотр.',preview:report};
-   const actions=report.groups.filter(g=>g.action==='create'||g.action==='update');
+   const actions=report.groups.filter(g=>g.action==='create'||g.action==='update'||advanced&&g.action==='archive');
    if(!actions.length)return{ok:true,created:0,updated:0,routeIds:[],preview:report,database:d};
    work.routes=Array.isArray(work.routes)?work.routes:[];
-   let created=0,updated=0;const routeIds=[];
+   let created=0,updated=0,archived=0;const routeIds=[];
    for(const g of actions){
      let r;
      if(g.action==='create'){
@@ -330,14 +330,16 @@
        work.routes.push(r);created++;
      }else{
        r=rawRoute(work,g.routeId);
-       if(!r||r.status!=='draft')return{ok:false,reason:'Маршрут больше не является свободным черновиком'};
+       if(!r||(!advanced&&r.status!=='draft')||(advanced&&(r.source!=='auto'||!typed(r)||!['draft','active'].includes(r.status)||typedLocked(work,r))))return{ok:false,reason:'Маршрут защищён открытым заданием или недоступен'};
+       if(g.action==='archive'){r.status='archived';r.updatedAt=now();archived++;routeIds.push(r.id);continue}
        r.taskIds=[...g.taskIds];r.updatedAt=now();updated++;
      }
+     if(advanced){r.status=g.nextStatus;r.automationContent=g.contentSig}
      routeIds.push(r.id);
    }
-   for(const id of routeIds){const check=validateRoute(id,work);if(!check.valid)return{ok:false,reason:'Проверка нового маршрута не пройдена',report:check,routeId:id};ensureRouteRevision(id,work,{note:'Подтверждённое формирование по участку, виду обслуживания и периодичности',reason:'auto_group_r3a'})}
-   save(work,'Автомаршруты: создано '+created+', дополнено '+updated+' (черновики)');
-   return{ok:true,created,updated,routeIds,preview:report,database:work};
+   for(const id of routeIds){const raw=rawRoute(work,id),check=raw.status==='archived'?{valid:true}:validateRoute(id,work);if(!check.valid)return{ok:false,reason:'Проверка нового маршрута не пройдена',report:check,routeId:id};ensureRouteRevision(id,work,{note:'Подтверждённое формирование по участку, виду обслуживания и периодичности',reason:advanced?'auto_reconcile_r5':'auto_group_r3a'})}
+   if(persist)save(work,'Автомаршруты: создано '+created+', изменено '+updated+', архивировано '+archived);
+   return{ok:true,created,updated,archived,routeIds,preview:report,database:work};
  }
 
  window.LubricaRouteEngine=Object.freeze({contextIndex,previewAutoGrouping,applyAutoGrouping,routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute});

@@ -83,15 +83,15 @@
   return [...groups.values()].sort((a,b)=>(a.weeks||Infinity)-(b.weeks||Infinity));
  }
  function settings(d=db()){const s=normalizeSettings(d?.routeWorkload);return s.ok?s.settings:null}
- function saveSettings(input,d=db()){
+ function saveSettings(input,d=db(),{persist=true}={}){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   const v=normalizeSettings(input);if(!v.ok)return v;
   const lines=new Set(arr(d.lines).map(x=>String(x.id))),routes=new Map(arr(d.routes).map(x=>[String(x.id),x]));
   if(v.settings.ppr.some(x=>!lines.has(x.lineId))||v.settings.pprRouteIds.some(id=>!routes.has(id)))return fail('PPR_SCOPE_INVALID','Линия или маршрут больше не существует');
   if(v.settings.pprRouteIds.some(id=>!v.settings.ppr.some(p=>p.lineId===String(routes.get(id).lineId))))return fail('PPR_ANCHOR_REQUIRED','Укажите дату отсчёта ППР для всех линий маршрутов «только ППР»');
-  if(JSON.stringify(settings(d))===JSON.stringify(v.settings))return{ok:true,changed:false,settings:v.settings};
-  const w=clone(d);w.routeWorkload=v.settings;global.LubricaCore.State.setDatabase(w);
-  return{ok:true,changed:true,settings:v.settings};
+  if(JSON.stringify(settings(d))===JSON.stringify(v.settings))return{ok:true,changed:false,settings:v.settings,database:d};
+  const w=clone(d);w.routeWorkload=v.settings;if(persist)global.LubricaCore.State.setDatabase(w);
+  return{ok:true,changed:true,settings:v.settings,database:w};
  }
  function assignment(item){
   const a=item?.workAssignment;
@@ -101,7 +101,7 @@
  // PPR is a line-specific 14-day phase, NOT a lubrication interval or fact.
  const lineFor=(item,d)=>str(item?.lineId||arr(d?.routes).find(r=>String(r.id)===String(item?.routeId))?.lineId);
  function requiresPpr(routeId,d=db()){return !!settings(d)?.pprRouteIds.includes(String(routeId))}
- function pprOnly(item,d=db()){return requiresPpr(item?.routeId,d)}
+ function pprOnly(item,d=db()){return requiresPpr(item?.routeId,d)||item?.access==='ppr'||arr(item?.taskIds).some(id=>global.LubricaRouteAutomation?.taskPpr(id,d))}
  function pprOn(lineId,date,d=db()){
   const a=settings(d)?.ppr.find(x=>x.lineId===String(lineId)),s=day(date);
   return !!(a&&s&&distance(a.anchorDate,s)%14===0);
@@ -115,6 +115,14 @@
  function pprLines(date,d=db()){return arr(settings(d)?.ppr).filter(x=>pprOn(x.lineId,date,d)).map(x=>({id:x.lineId,name:arr(d?.lines).find(l=>String(l.id)===x.lineId)?.name||x.lineId}))}
  function allowedWindow(item,date,d=db()){return !pprOnly(item,d)||pprOn(lineFor(item,d),date,d)}
 
+ function earliestDate(item,d){return global.LubricaRouteAutomation?.allowedEarliest(item,d)||day(item?.plannedDate)}
+ // Same-route jobs are kept sequential: the existing checklist engine has one active run per route.
+ function fitJob(slot,rows,item,minutes){
+  const all=[...rows,{item,minutes}];if(!fits(slot,all.map(x=>x.minutes)))return false;
+  if(slot.legacyAggregate)return true;
+  const groups=new Map();for(const x of all)if(x.item?.planningBasis==='task_due'){const k=String(x.item.routeId);groups.set(k,(groups.get(k)||0)+x.minutes)}
+  return [...groups.values()].every(n=>n<=slot.minutesPerWorker);
+ }
  function technicalDate(item){
   const dates=arr(item?.dueEntries).map(x=>day(x.dueDate)).filter(Boolean).sort();
   return dates[0]||day(item?.plannedDate);
@@ -135,7 +143,7 @@
   const cfg=settings(d),all=states(d),dates=new Map(),unassigned=[],problems=[];
   for(const date of r.dates){
    const working=!!cfg?.weekdays.includes(weekday(date));
-   dates.set(date,{date,working,pprLines:pprLines(date,d),pprConflicts:[],slots:(cfg?.shifts||[]).map(s=>({date,shiftId:s.id,capacity:working?s.minutes:0,workers:s.workers,minutesPerWorker:s.minutesPerWorker,legacyAggregate:!!s.legacyAggregate,minutes:0,jobs:[],proposedMinutes:[]})),unknownMinutes:0,unknownJobs:[],unassigned:[]});
+   dates.set(date,{date,working,pprLines:pprLines(date,d),pprConflicts:[],slots:(cfg?.shifts||[]).map(s=>({date,shiftId:s.id,capacity:working?s.minutes:0,workers:s.workers,minutesPerWorker:s.minutesPerWorker,legacyAggregate:!!s.legacyAggregate,minutes:0,jobs:[],proposedMinutes:[],proposedJobs:[]})),unknownMinutes:0,unknownJobs:[],unassigned:[]});
   }
   const report=(row,code,message)=>problems.push({id:row.item.id,code,message,date:row.date});
   for(const row of all){
@@ -147,7 +155,7 @@
    if(!a&&fixed&&row.run){date=day(row.run.date)||date;shiftId=str(row.run.shift)}
    const bucket=dates.get(date);
    if(!a&&!fixed){
-    if(base<=r.endDate){unassigned.push(row);if(bucket)bucket.unassigned.push(row);if(minutes==null)report(row,'JOB_MINUTES_INVALID','Не задана положительная длительность задания')}
+    if(earliestDate(item,d)<=r.endDate){unassigned.push(row);if(bucket)bucket.unassigned.push(row);if(minutes==null)report(row,'JOB_MINUTES_INVALID','Не задана положительная длительность задания')}
     continue;
    }
    if(!bucket)continue;
@@ -167,7 +175,7 @@
    b.unassignedMinutes=b.unassigned.reduce((n,x)=>n+(x.minutes||0),0);
    b.overloadMinutes=b.slots.reduce((n,s)=>n+Math.max(0,s.minutes-s.capacity),0);
    b.staffConflicts=0;
-   for(const s of b.slots){s.overloadMinutes=Math.max(0,s.minutes-s.capacity);s.staffConflict=!s.legacyAggregate&&!s.overloadMinutes&&!fits(s,s.jobs.map(x=>x.minutes));if(s.staffConflict)b.staffConflicts++;s.remaining=Math.max(0,s.capacity-s.minutes);totals.lateJobs+=s.jobs.filter(x=>s.date>technicalDate(x.item)).length}
+   for(const s of b.slots){s.overloadMinutes=Math.max(0,s.minutes-s.capacity);s.staffConflict=!s.legacyAggregate&&!s.overloadMinutes&&!fits(s,s.jobs.map(x=>x.minutes))||!s.legacyAggregate&&!s.overloadMinutes&&s.jobs.length>0&&!fitJob(s,s.jobs.slice(0,-1),s.jobs.at(-1).item,s.jobs.at(-1).minutes);if(s.staffConflict)b.staffConflicts++;s.remaining=Math.max(0,s.capacity-s.minutes);totals.lateJobs+=s.jobs.filter(x=>s.date>technicalDate(x.item)).length}
    totals.staffConflicts+=b.staffConflicts;
    totals.capacity+=b.capacity;totals.assignedMinutes+=b.assignedMinutes;totals.unknownMinutes+=b.unknownMinutes;totals.unknownJobs+=b.unknownJobs.length;totals.pprConflicts+=b.pprConflicts.length;totals.overloadMinutes+=b.overloadMinutes;if(b.overloadMinutes)totals.overloadedDays++;
   }
@@ -181,29 +189,32 @@
   const allowDelay=options.allowDelay===true,reason=str(options.reason);
   if(allowDelay&&!reason)return fail('DELAY_REASON_REQUIRED','Укажите причину разрешённого переноса');
   const proposals=[],remaining=[],current=today();
-  const ordered=L.unassigned.slice().sort((a,b)=>technicalDate(a.item).localeCompare(technicalDate(b.item))||String(a.item.id).localeCompare(String(b.item.id),'ru',{numeric:true}));
+  const ordered=L.unassigned.filter(x=>!Array.isArray(options.routeIds)||options.routeIds.includes(x.item.routeId)).sort((a,b)=>technicalDate(a.item).localeCompare(technicalDate(b.item))||String(a.item.id).localeCompare(String(b.item.id),'ru',{numeric:true}));
   // Allocate against all fixed assignments. Do not assume an unknown shift is free.
   for(const row of ordered){
-   const item=row.item,base=day(item.plannedDate),earliest=[base,L.startDate,current].sort().at(-1);
+   const item=row.item,base=day(item.plannedDate),earliest=[earliestDate(item,d),L.startDate,current].sort().at(-1);
    const latest=allowDelay?L.endDate:base;
-   let slot=null;
+   let slot=null;const candidates=[];
    if(row.minutes!=null&&earliest<=latest){
     for(const b of L.days){
      if(b.date<earliest||b.date>latest||!b.working||b.unknownJobs.length||!allowedWindow(item,b.date,d))continue;
-     slot=b.slots.find(s=>fits(s,[...s.jobs.map(x=>x.minutes),...s.proposedMinutes,row.minutes]));
-     if(slot)break;
+     for(const s of b.slots)if(fitJob(s,[...s.jobs,...s.proposedJobs],item,row.minutes))candidates.push(s);
     }
+    const balance=global.LubricaRouteAutomation?.config(d).balance===true;
+    const weekLoad=s=>{const w=L.weeks.find(w=>s.date>=w.startDate&&s.date<=w.endDate);return w&&w.capacity?w.days.reduce((n,b)=>n+b.slots.reduce((m,x)=>m+x.minutes,0),0)/w.capacity:1};
+    candidates.sort((a,b)=>Number(a.date>base)-Number(b.date>base)||(a.date>base&&b.date>base?a.date.localeCompare(b.date):0)||(balance?weekLoad(a)-weekLoad(b)||a.minutes/a.capacity-b.minutes/b.capacity:0)||(a.date<=base&&b.date<=base?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||Number(a.shiftId)-Number(b.shiftId));
+    slot=candidates[0]||null;
    }
    if(!slot){
     const next=pprOnly(item,d)?nextPpr(lineFor(item,d),earliest,d):'';
     const why=row.minutes==null?'Не подтверждена длительность':pprOnly(item,d)&&!next?'Не задана дата ППР линии':pprOnly(item,d)&&next>latest?'Ближайший ППР '+next+' вне допустимого срока; требуется согласованный перенос':earliest>latest?'Нужен разрешённый перенос':row.minutes>Math.max(...L.settings.shifts.map(s=>s.legacyAggregate?s.minutes:s.minutesPerWorker))?'Задание длиннее доступного времени одного смазчика; требуется отдельное решение':pprOnly(item,d)?'Нет свободной смены на ППР своей линии':'Нет свободной смены в разрешённом диапазоне';
     remaining.push({id:item.id,routeName:item.routeName||item.routeId,plannedDate:base,minutes:row.minutes,nextPpr:next,reason:why});continue
    }
-   slot.minutes+=row.minutes;slot.proposedMinutes.push(row.minutes);
+   slot.minutes+=row.minutes;slot.proposedMinutes.push(row.minutes);slot.proposedJobs.push({item,minutes:row.minutes});
    const delayed=slot.date>base;
-   proposals.push({id:item.id,routeName:item.routeName||item.routeId,plannedDate:base,technicalDate:technicalDate(item),date:slot.date,shiftId:slot.shiftId,minutes:row.minutes,delayDays:distance(base,slot.date),reason:delayed?reason:'Распределение в исходный день',pprOnly:pprOnly(item,d)});
+   proposals.push({id:item.id,routeName:item.routeName||item.routeId,plannedDate:base,technicalDate:technicalDate(item),date:slot.date,shiftId:slot.shiftId,minutes:row.minutes,delayDays:distance(base,slot.date),reason:delayed?reason:slot.date<base?'Досрочное обслуживание в согласованном окне':'Распределение в исходный день',pprOnly:pprOnly(item,d)});
   }
-  const fingerprint=states(d).map(x=>[x.item.id,x.status,x.fixed,x.item.plannedDate,x.minutes,x.a,x.run?.date,x.run?.shift,technicalDate(x.item),lineFor(x.item,d),pprOnly(x.item,d)]);
+  const fingerprint=states(d).map(x=>[x.item.id,x.status,x.fixed,x.item.plannedDate,x.minutes,x.a,x.run?.date,x.run?.shift,technicalDate(x.item),lineFor(x.item,d),pprOnly(x.item,d),earliestDate(x.item,d)]);
   const token=JSON.stringify([L.settings,L.startDate,L.endDate,allowDelay,reason,current,fingerprint,proposals,remaining]);
   return{ok:true,proposals,remaining,token,summary:{assigned:proposals.length,delayed:proposals.filter(x=>x.delayDays>0).length,minutes:proposals.reduce((n,x)=>n+x.minutes,0),unassigned:remaining.length}};
  }
@@ -216,13 +227,13 @@
   item.updatedAt=at;
   return true;
  }
- function apply(options={},token='',d=db()){
+ function apply(options={},token='',d=db(),{persist=true}={}){
   const p=preview(options,d);if(!p.ok)return p;
   if(!token||p.token!==token)return fail('STALE_PREVIEW','План или настройки изменились. Повторите предварительный просмотр');
-  if(!p.proposals.length)return{ok:true,updated:0};
+  if(!p.proposals.length)return{ok:true,updated:0,database:d};
   const work=clone(d),map=new Map(arr(work.routePlanItems).map(x=>[String(x.id),x]));
   for(const x of p.proposals)writeAssignment(map.get(String(x.id)),x,x.reason);
-  global.LubricaCore.State.setDatabase(work);return{ok:true,updated:p.proposals.length};
+  if(persist)global.LubricaCore.State.setDatabase(work);return{ok:true,updated:p.proposals.length,database:work};
  }
  function move(id,{date='',shiftId='',reason='',clear=false}={},d=db()){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
@@ -231,7 +242,7 @@
   reason=str(reason);date=day(date);shiftId=str(shiftId);
   if(clear&&!row.a)return{ok:true,updated:0};
   if(!clear){
-   if(!date||date<today()||date<day(row.item.plannedDate))return fail('WORK_DATE_INVALID','Дата не может быть в прошлом или раньше исходного планового дня');
+   if(!date||date<today()||date<earliestDate(row.item,d))return fail('WORK_DATE_INVALID','Дата в прошлом или раньше согласованного окна');
    if(!row.minutes)return fail('JOB_MINUTES_INVALID','Не подтверждена длительность задания');
    if(!allowedWindow(row.item,date,d))return fail('PPR_CONFLICT','Выберите дату ППР своей линии: '+(nextPpr(lineFor(row.item,d),date,d)||'дата не задана'));
    if(row.a?.date===date&&row.a?.shiftId===shiftId)return{ok:true,updated:0};
@@ -240,10 +251,10 @@
    if(!slot||!b.working)return fail('SHIFT_UNAVAILABLE','Смена не работает в выбранный день');
    if(slot.legacyAggregate)return fail('STAFF_CONFIRMATION_REQUIRED','Сначала подтвердите число смазчиков и доступное время одного человека в смене');
    if(b.unknownJobs.length)return fail('LOAD_UNKNOWN','В этот день есть работы с неопределённой сменой или длительностью');
-   const occupied=slot.jobs.filter(x=>String(x.item.id)!==String(id)).map(x=>x.minutes);
-   if(!fits(slot,[...occupied,row.minutes]))return fail('SHIFT_OVERLOADED','Недостаточно свободного времени одного смазчика или всей смены');
+   const occupied=slot.jobs.filter(x=>String(x.item.id)!==String(id));
+   if(!fitJob(slot,occupied,row.item,row.minutes))return fail('SHIFT_OVERLOADED','Недостаточно свободного времени одного смазчика или всей смены');
   }
-  if((clear||row.a||date>row.item.plannedDate)&&!reason)return fail('REASON_REQUIRED','Укажите причину переноса или снятия назначения');
+  if((clear||row.a||date!==row.item.plannedDate)&&!reason)return fail('REASON_REQUIRED','Укажите причину переноса или снятия назначения');
   const w=clone(d),item=w.routePlanItems.find(x=>String(x.id)===String(id));
   const updated=writeAssignment(item,clear?null:{date,shiftId},reason||'Назначение в исходный день');
   if(updated)global.LubricaCore.State.setDatabase(w);
@@ -251,6 +262,7 @@
  }
  function validateStart(item,date,shift,d=db()){
   const a=assignment(item);if(!a)return pprOnly(item,d)?fail('PPR_ASSIGNMENT_REQUIRED','Для работ только в ППР сначала назначьте задание на ППР своей линии'):{ok:true};
+  if(a.date<earliestDate(item,d))return fail('WORK_DATE_INVALID','Дата вне согласованного окна');
   if(!allowedWindow(item,a.date,d))return fail('PPR_CONFLICT','Назначенная дата не является ППР своей линии. Перенесите задание');
   if(item.status!=='planned'||item.runId)return fail('JOB_LOCKED','Задание уже запущено или закрыто');
   if(day(date)!==a.date||a.date>today()||str(shift)!==a.shiftId)return fail('WORK_SLOT_MISMATCH','Назначено на '+a.date+', смена '+a.shiftId+'. При изменении рабочего дня/смены сначала перенесите задание в плане');
@@ -263,11 +275,11 @@
  function startPolicy(routeId,planId,date,shift,d=db()){
   const rows=arr(d?.routePlanItems).filter(x=>String(x.routeId)===String(routeId)),item=rows.find(x=>String(x.id)===String(planId));
   if(!item){
-   if(requiresPpr(routeId,d)||rows.some(x=>x.status==='planned'&&assignment(x)))return fail('WORK_PLAN_REQUIRED','Откройте назначенное задание из плана смазочных работ');
+   if(requiresPpr(routeId,d)||arr(arr(d.routes).find(r=>String(r.id)===String(routeId))?.taskIds).some(id=>global.LubricaRouteAutomation?.taskPpr(id,d))||rows.some(x=>x.status==='planned'&&assignment(x)))return fail('WORK_PLAN_REQUIRED','Откройте назначенное задание из плана смазочных работ');
    return{ok:true};
   }
   const result=validateStart(item,date,shift,d);
   return result.ok?{ok:true,assignment:assignment(item),pprRequired:pprOnly(item,d),lineId:lineFor(item,d)}:result;
  }
- global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,saveSettings,assignment,effectiveDate,technicalDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,move,validateStart,startPolicy});
+ global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,saveSettings,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,move,validateStart,startPolicy});
 })(window);

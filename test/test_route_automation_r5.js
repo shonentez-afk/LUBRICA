@@ -1,0 +1,90 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+global.window=global;global.state={points:[]};global.SCOPE_LABELS={};
+global.LubricaSystem={registerModule(){}};
+let d={lines:[{id:'L',name:'Линия'}],areas:[{id:'A',lineId:'L',name:'Участок'}],equipment:[],nodes:[],lubricationPoints:[],tasks:[],routes:[],routeRevisions:[],routePlanItems:[],checklistRuns:[],materials:[{id:'MAT',code:'GR-01',name:'Смазка'}],tools:[]};
+let writes=0;
+const clone=x=>JSON.parse(JSON.stringify(x));
+global.LubricaCore={State:{getDatabase:()=>d,setDatabase:v=>{d=v;writes++}},Database:{toLegacy:db=>({points:db.tasks.map(t=>{
+ const lp=db.lubricationPoints.find(p=>p.id===t.lubricationPointId),e=db.equipment.find(x=>x.id===lp.equipmentId);
+ return{id:t.id,taskId:t.id,lubricationPointId:lp.id,pointDisplayId:lp.id,pointName:lp.name,type:lp.category,position:e.externalCode,equipment:e.name,unit:'Опора',operation:t.operation,material:t.materialName,qty:t.quantity.approved,measure:t.quantity.unit,interval:t.schedule.legacyText};
+})})}};
+global.LubricaApp={refreshFromCore(){},showToast(){}};
+global.LubricaTaskReadiness={summarize:db=>({items:db.tasks.map(t=>({taskId:t.id,status:'ready',steps:[{ok:true}]}))})};
+global.LubricaProgramQA={audit:()=>({issues:[]})};
+for(const p of ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-due.js','routes/route-engine.js','routes/route-planning.js','checklist/checklist-engine.js','routes/route-preparation.js','routes/route-plan-fact.js','routes/route-workload.js','routes/route-automation.js'])vm.runInThisContext(fs.readFileSync(p,'utf8'),{filename:p});
+const E=LubricaRouteEngine,D=LubricaRouteDue,P=LubricaRoutePlanning,C=LubricaChecklistEngine,R=LubricaRoutePreparation,F=LubricaRoutePlanFact;
+const today=D.today(),yesterday=P.addInterval(today,{kind:'days',value:-1}),tomorrow=P.addInterval(today,{kind:'days',value:1}),later=P.addInterval(today,{kind:'days',value:20});
+function task(id,interval,qty){
+ const eq='E'+id,node='N'+id,lp='P'+id;
+ d.equipment.push({id:eq,lineId:'L',areaId:'A',name:'Машина '+id,externalCode:id,equipmentType:id==='C1'?'fan':'conveyor'});
+ d.nodes.push({id:node,equipmentId:eq,name:'Вал'});
+ d.lubricationPoints.push({id:lp,equipmentId:eq,nodeId:node,category:'bearing',name:'Опора '+id,targetMaterialId:'MAT',status:'confirmed'});
+ d.tasks.push({id,lubricationPointId:lp,activityType:'regrease',operation:'Досмазывание',schedule:{legacyText:interval},approvalStatus:'approved',materialMode:'explicit',materialId:'MAT',materialName:'Смазка',quantity:{approved:String(qty),unit:'г'}});
+}
+
+const M=LubricaRouteAutomation,W=LubricaRouteWorkload;
+const t=id=>d.tasks.find(x=>x.id===id),getRoute=kind=>d.routes.find(r=>r.scheduleKey===kind&&r.status!=='archived'),entry=id=>E.routeEntries(d,{preview:false}).find(r=>r.id===id);
+for(const id of ['C1','C2','C3','C4','C5'])task(id,'7 дней',10);
+task('M1','14 дней',20);task('H1','500 ч',5);task('H2','1000 ч',6);
+const scope={lineId:'L',areaId:'A',serviceKey:'bearing:regrease'},initial={mode:'next',date:tomorrow},cfg={weekdays:[1,2,3,4,5,6,7],shifts:[1,2,3].map(i=>({id:String(i),workers:1,minutesPerWorker:45})),ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[]};
+const order=d.equipment.map(x=>x.id).reverse(),options={...scope,initial,recoverHistory:true,activateReady:true,walkOrder:order,applyOrder:true,policy:{taskIds:['C1','C2'],access:'ppr',earlyDays:1,earlyReason:'Согласованное инженерное окно',minutes:20},timing:{minutes:20,transitionMinutes:2,splitLargeJobs:true,balance:true},workloadSettings:cfg,plan:true,allocate:true,startDate:today,endDate:later,forecastWeeks:4};
+const short=M.preview({...options,endDate:today},d);assert(short.ok,short.reason);assert.equal(short.plan.created,2,'an approved early window may open in the selected period although technical due is next week/day');assert.equal(short.allocation.summary.assigned,2);
+assert.equal(M.preview({...options,policy:{taskIds:['H1'],earlyDays:1,earlyReason:'Нельзя по часам'},plan:false,allocate:false},d).code,'EARLY_INVALID');
+let before=clone(d),p=M.preview(options,d);assert(p.ok,p.reason||p.message);assert.deepEqual(d,before,'preview is read-only');assert.equal(writes,0);
+assert.equal(p.report.summary.create,4);assert.equal(p.prep.changes.filter(x=>x.action==='basis').length,6);assert.equal(p.plan.created,6);
+assert.equal(p.preparation.length,6);assert.equal(p.allocation.summary.assigned,5); // 2 PPR early + 3 normal on due date; 14d job remains due-date capacity conflict
+assert.equal(p.allocation.proposals.filter(x=>x.date===today&&x.pprOnly).length,2);
+assert.equal(p.forecast.weeks.length,4);
+t('C1').quantity.approved='11';assert.equal(M.apply(options,p.token,d).code,'STALE_PREVIEW');t('C1').quantity.approved='10';
+const result=M.apply(options,p.token,d);assert(result.ok,result.reason);assert.equal(writes,1,'one database write');
+assert.deepEqual(d.routeAutomation.walkOrder.A,order);
+const cal=getRoute('days:7'),runtime=getRoute('runtime_hours:500');
+assert.deepEqual(cal.taskIds,['C5','C4','C3','C2','C1']);assert.equal(cal.status,'active');assert.equal(runtime.status,'draft');
+assert.equal(d.routePlanItems.length,6);assert.equal(new Set(d.routePlanItems.flatMap(x=>x.taskIds)).size,6);
+assert(d.routePlanItems.every(x=>x.taskIds.length===1&&x.plannedDate===tomorrow&&x.plannedMinutes===30),'split exact physical points, no technical date change');
+assert.equal(t('C1').routeDue.nextDate,tomorrow);
+const c1=d.routePlanItems.find(x=>x.taskIds[0]==='C1');
+assert.equal(c1.access,'ppr');assert.equal(c1.dueEntries[0].earliestDate,today);assert.equal(c1.workAssignment.date,today);
+assert.equal(W.pprOnly(d.routePlanItems.find(x=>x.taskIds[0]==='C3'),d),false);
+assert.equal(D.checkStart(entry(cal.id),{...c1,workAssignment:null},d,today).ok,false,'cannot run early without assigned window');
+assert.equal(C.createRun(cal.id,{date:today,performer:'А',shift:'9',planItemId:c1.id}),null,'wrong shift blocked');
+const run=C.createRun(cal.id,{date:today,performer:'А',shift:c1.workAssignment.shiftId,planItemId:c1.id});
+assert(run,'approved early PPR job may start');assert.deepEqual(run.routeTaskIds,['C1']);C.updateTask(run.id,'C1',{done:true,actualQuantity:'10 г'});
+assert(C.completeRun(run.id,entry(cal.id)),'early completion uses authorized window');
+assert.equal(t('C1').routeDue.nextDate,P.addInterval(today,{kind:'days',value:7}));
+const fact=clone(d.checklistRuns.find(x=>x.id===run.id));
+task('C6','7 дней',10);
+p=M.preview({...scope,initial,activateReady:true,forecastWeeks:4},d);assert(p.ok,p.reason);assert(p.report.groups.some(g=>g.routeId===cal.id&&g.action==='blocked'));assert.equal(p.report.groups.find(g=>g.routeId===cal.id).taskIds.includes('C6'),false);
+// Release only unstarted jobs. Completed fact and archive stay frozen.
+for(const id of d.routePlanItems.filter(x=>x.status==='planned').map(x=>x.id))assert(P.remove(id,d).ok);
+delete t('C1').routeDue;t('C3').schedule.legacyText='14 дней';t('C4').approvalStatus='review';
+task('MAN1','500 ч',7);const manualTask='MAN1';
+d.routes.push({id:'MAN',source:'manual',status:'active',lineId:'L',areaId:'A',name:'Ручной',interval:'500 ч',taskIds:[manualTask],excludedTaskIds:[]});
+const manual=clone(d.routes.at(-1));
+const update={...scope,recoverHistory:true,initial,activateReady:true,forecastWeeks:4};
+p=M.preview(update,d);assert(p.ok,p.reason);const change=p.report.groups.find(g=>g.routeId===cal.id);assert(change.removeTaskIds.includes('C3')&&change.removeTaskIds.includes('C4')&&change.addTaskIds.includes('C6'));
+assert(p.prep.changes.some(x=>x.taskId==='C1'&&x.detail.includes(run.id)));
+assert(M.apply(update,p.token,d).ok);
+assert.deepEqual(d.routes.find(r=>r.id==='MAN'),manual);assert.deepEqual(d.checklistRuns.find(x=>x.id===run.id),fact);
+assert(getRoute('days:14').taskIds.includes('C3'));assert(!getRoute('days:7').taskIds.includes('C3'));assert(!getRoute('days:7').taskIds.includes('C4'));assert(getRoute('days:7').taskIds.includes('C6'));
+assert(E.routeRevisions(cal.id,d).length>=2);
+assert.equal(t('C1').routeDue.nextDate,P.addInterval(today,{kind:'days',value:7}));
+assert.equal(t('C4').approvalStatus,'review','reconcile never deletes physical tasks or changes QA');
+// A shared counter is used only for the selected equipment, not for the entire route.
+const meter={...scope,initial:{equipmentId:'EH1',lastHours:'500',readingHours:'1000',readingDate:today,hoursPerDay:'10',confirmMeter:true},activateReady:true,forecastWeeks:4};
+p=M.preview(meter,d);assert(p.ok,p.reason);assert(p.prep.changes.some(x=>x.taskId==='H1'));assert(!p.prep.changes.some(x=>x.taskId==='H2'));
+assert(M.apply(meter,p.token,d).ok);assert.equal(t('H1').routeDue.nextHours,1000);assert.equal(t('H2').routeDue,undefined);
+assert.equal(getRoute('runtime_hours:500').status,'active');
+before=clone(d);
+for(const n of [4,12,26,52]){const forecast=M.forecast({weeks:n,startDate:today},d);assert(forecast.ok);assert.equal(forecast.weeks.length,n);assert(forecast.weeks.some(w=>w.runtimeTasks>0))}
+assert.deepEqual(d,before,'projection is not a plan');
+const obsolete=getRoute('runtime_hours:1000');t('H2').approvalStatus='review';
+const archive=M.preview({...scope,activateReady:true,forecastWeeks:4},d);assert(archive.ok,archive.reason);
+assert(archive.report.groups.some(g=>g.routeId===obsolete.id&&g.action==='archive'));
+assert(M.apply({...scope,activateReady:true,forecastWeeks:4},archive.token,d).ok);
+assert.equal(d.routes.find(r=>r.id===obsolete.id).status,'archived');
+assert.deepEqual(d.routes.find(r=>r.id===obsolete.id).taskIds,['H2'],'archived membership preserved');
+assert.deepEqual(d.checklistRuns.find(x=>x.id===run.id),fact);
+assert(d.tasks.some(t=>t.id==='H2'),'no physical task deleted');
+console.log('R5 AUTOMATION PASS — transactional master, confirmed history, active revision, walk order, operation duration, physical job split, task PPR, approved early window, staffing allocation and 52-week forecast');

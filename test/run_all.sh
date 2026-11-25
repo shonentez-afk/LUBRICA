@@ -120,4 +120,5 @@ echo '[ROUTE EXECUTION STAGE R2]'; node test/test_route_execution_compact_r2.js;
 echo '[ROUTE AUTO GROUPING R3A]'; node test/test_route_auto_grouping_r3a.js
 echo '[ROUTE INDIVIDUAL DUE R3B]'; node test/test_route_due_r3b.js
 echo '[ROUTE WORKLOAD AND PPR R4]'; node test/test_route_workload_r4.js
+echo '[ROUTE AUTOMATION R5]'; node test/test_route_automation_r5.js
 echo 'ALL INTEGRATION TESTS PASS'
