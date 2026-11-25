@@ -48,7 +48,12 @@ assert.equal(new Set(d.routes.flatMap(x=>x.taskIds)).size,d.routes.flatMap(x=>x.
 reset();apply({...one(),initial:undefined});d.routes[0].taskIds=d.routes[0].taskIds.filter(id=>id!=='C1');d.routes[0].excludedTaskIds=['C1'];
 const bulk={lineId:'L',areaId:'A',initial:{mode:'next',date:tomorrow},activateReady:true,forecast:false};
 const excluded=M.preview(bulk,d);assert(excluded.ok,excluded.reason);assert(!excluded.prep.changes.some(x=>x.taskId==='C1'));assert(excluded.report.issues.some(x=>x.taskId==='C1'&&x.code==='MANUALLY_EXCLUDED'));assert(M.apply(bulk,excluded.token,d).ok);assert.equal(t('C1').routeDue,undefined);
-reset();apply({...one(),pprMode:'ppr',pprAnchorDate:today,initial:{mode:'next',date:today}});const pr=d.routes[0];
+// R8.2: seven-day work cannot be restricted to a fourteen-day shutdown phase.
+reset();const incompatible={...one(),pprMode:'ppr',pprAnchorDate:today,initial:{mode:'next',date:today}},beforePpr=clone(d);
+const rejected=M.preview(incompatible,d);assert(!rejected.ok,'7-day route must not run only every 14 days');assert.equal(rejected.code,'PPR_CYCLE');assert.deepEqual(d,beforePpr);assert.equal(writes,0);
+// Exercise all existing PPR-lock tests on the compatible 14-day group instead.
+const compatible={...incompatible,groupKey:[...M.eligible(d).valid.values()].find(g=>g.scheduleKey==='days:14').key};
+apply(compatible);const pr=d.routes[0];assert.equal(pr.scheduleKey,'days:14');
 d.routePlanItems.push({id:'JOB',routeId:pr.id,status:'planned',taskIds:[pr.taskIds[0]],plannedDate:today});
 assert.equal(W.saveRoutePpr(pr.id,'normal','',d,{persist:false}).code,'PPR_ROUTE_LOCKED');
 assert.equal(W.saveSettings({...cfg,pprRouteIds:[]},d,{persist:false}).code,'PPR_ROUTE_LOCKED');
