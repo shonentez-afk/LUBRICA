@@ -22,7 +22,7 @@
   for(const [id,c] of ix){
    const g=ready.has(id)?E().routeEligibility(c.task,d,ready,c):fail('QA_MISSING','Отсутствует запись инженерного контроля');
    const desc=g.ok?A().describe(c):g;
-   if(desc.ok)valid.set(id,desc);else issues.push({taskId:id,code:desc.code,message:desc.message});
+   if(desc.ok)valid.set(id,desc);else{const item=ready.get(id);issues.push({taskId:id,code:desc.code,message:desc.message,missingSteps:arr(item?.steps).filter(x=>!x.ok).map(x=>x.label),warningCodes:arr(item?.warningCodes),next:item?.next?{label:item.next.label,hint:item.next.hint,reason:item.next.reason}:null})}
   }
   return{ok:true,ix,valid,issues};
  }
@@ -322,6 +322,36 @@
   }
   return{ok:true,map,options:{...o,groupKeys:[...map.keys()],batchByKey:map}};
  }
+ // Presentation-only assessment derived from the actual simulated final membership.
+ // QA issues cover the selected area; not every issue belongs to a checked group.
+ function resultDiagnostics(report,prep,before,after,o={}){
+  const ix=E().contextIndex(after),old=A().ownership(before),now=A().ownership(after),byTask=new Map(),general=[],scoped=!!o.groupKey||Array.isArray(o.groupKeys);
+  const identity=c=>({equipment:[c?.eq?.externalCode,c?.eq?.name].filter(Boolean).join(' · '),location:[c?.line?.name,c?.area?.name,c?.node?.name,c?.lp?.name].filter(Boolean).join(' / '),operation:str(c?.task?.operation||c?.task?.activityType),interval:str(c?.interval)});
+  const refs=rs=>rs.map(r=>({id:r.id,name:r.name||r.code||r.id,status:r.status}));
+  const instructions={
+   QUANTITY_SOURCE_MISSING:'Не подтверждён источник нормы количества смазки.',
+   INTERVAL_SOURCE_MISSING:'Не подтверждён источник периодичности обслуживания.'
+  };
+  for(const issue of [...arr(report.issues),...arr(prep.issues)]){
+   if(!issue.taskId){general.push(issue);continue}
+   const id=String(issue.taskId),c=ix.get(id),existing=byTask.get(id);
+   if(existing){existing.reasons.push(issue);continue}
+   const group=A().describe(c),was=old.owners.get(id)||[],will=now.owners.get(id)||[],inScope=!scoped||group.ok&&groupScope(group,o)||was.some(r=>groupScope(r,o));
+   const newly=will.some(r=>!was.some(x=>String(x.id)===String(r.id)));
+   let outcome=will.length?(newly?'included':'retained'):was.length?'removed':scoped&&group.ok&&!inScope?'outside':'excluded';
+   byTask.set(id,{taskId:id,...identity(c),outcome,scope:!scoped||inScope?'selected':group.ok?'outside':'unknown',routes:refs(will),previousRoutes:refs(was),reasons:[issue]});
+  }
+  const rows=[...byTask.values()].map(x=>{
+   const codes=[...new Set(x.reasons.flatMap(r=>arr(r.warningCodes)))],reasons=[...new Set(x.reasons.flatMap(r=>[r.message||r.reason,...arr(r.warningCodes).map(k=>instructions[k]),r.next?.reason]).filter(Boolean))];
+   const actions=[...new Set(x.reasons.map(r=>[r.next?.label,r.next?.hint].filter(Boolean).join('. ')).filter(Boolean))];
+   return{...x,reasons,codes,actions};
+  });
+  const missing=[];
+  for(const r of now.routes.filter(r=>r.source==='auto'&&D().typed(r)&&groupScope(r,o)))for(const id of arr(r.taskIds)){
+   const c=ix.get(String(id)),basis=c&&D().parseBasis(c.task,after,ix);if(!basis?.ok)missing.push({taskId:String(id),...identity(c),routeName:r.name||r.code||r.id,routeStatus:r.status,reason:basis?.message||'Не найдено мероприятие'});
+  }
+  return{rows,missing,general};
+ }
  function simulate(o={},d=db()){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   let work=copy(d);
@@ -411,7 +441,7 @@
     const a=W().apply(wo,allocation.token,next,{persist:false});if(!a.ok)return a;next=a.database||next;
    }
   }
-  return{ok:true,report,prep,ppr,batchSchedules,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId,groupKey:o.groupKey,groupKeys:o.groupKeys},next),database:next};
+  return{ok:true,report,prep,diagnostics:resultDiagnostics(report,prep,d,next,o),ppr,batchSchedules,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId,groupKey:o.groupKey,groupKeys:o.groupKeys},next),database:next};
  }
  function preview(o={},d=db()){
   const result=simulate(o,d);if(!result.ok)return result;

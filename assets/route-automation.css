@@ -131,3 +131,10 @@
 .route-archive-preview .r82-archive-delete-review [data-delete-archive-error]:empty{display:none}
 .route-archive-preview .route-archive-actions{display:flex;flex-wrap:wrap;gap:8px}
 .route-archive-preview #deleteArchivedRoute:not(:disabled){color:#a23232}
+
+/* Explain route membership and engineering gates with readable physical context. */
+.r82-issue-card{display:flex;flex-direction:column;gap:4px;padding:9px 10px;margin:5px 0;background:#f5f7f7;border:1px solid var(--line,#d4dce0);border-radius:6px;font-size:12px;overflow-wrap:anywhere}
+.r82-issue-card small{display:block;color:var(--muted,#62717a);line-height:1.35}
+.r82-issue-card .r82-issue-status{font-weight:700;color:#34546b}
+.r82-issue-card[data-outcome="excluded"] .r82-issue-status,.r82-issue-card[data-outcome="removed"] .r82-issue-status{color:#a23c25}
+.r82-issue-card strong{font-size:12px}

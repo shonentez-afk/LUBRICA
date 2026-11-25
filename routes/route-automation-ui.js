@@ -113,6 +113,19 @@
   }
   const detailList=(heading,items,fn)=>items.length?'<details class="r5-result-detail"><summary>'+heading+' · '+items.length+'</summary><div class="r5-scroll">'+items.map(fn).join('')+'</div></details>':'';
   const item=(title,sub,more='')=>'<div class="r5-item"><div><b>'+esc(title)+'</b><small>'+esc(sub)+'</small></div>'+(more?'<strong>'+esc(more)+'</strong>':'')+'</div>';
+  function diagnosticItem(x){
+   const name=[x.equipment,x.operation,x.interval].filter(Boolean).join(' · ')||x.taskId;
+   const labels={excluded:'Не войдёт в маршрут',removed:'Будет исключено из текущего состава',retained:'Останется в существующем маршруте',included:'Будет включено',outside:'Не входит в выбранную группу'};
+   const status=labels[x.outcome]||'Требуется проверка';
+   const where=x.routes.length?'Маршрут: '+x.routes.map(r=>r.name+' ('+(r.status==='draft'?'черновик':'активный')+')').join('; '):x.previousRoutes.length?'Прежний маршрут: '+x.previousRoutes.map(r=>r.name).join('; '):'Маршрут после сохранения: не назначен';
+   return '<article class="r82-issue-card" data-r82-issue="'+esc(x.taskId)+'" data-outcome="'+esc(x.outcome)+'"><div class="r82-issue-status">'+esc(status)+'</div><b>'+esc(name)+'</b><small>'+esc([x.location,x.taskId].filter(Boolean).join(' · '))+'</small><small>'+esc(where)+'</small>'+(x.scope==='outside'?'<small>Замечание относится к другой группе обслуживания выбранного участка.</small>':x.scope==='unknown'?'<small>Группа маршрута не определена.</small>':'')+'<div><strong>Причина:</strong> '+esc(x.reasons.join(' · '))+'</div>'+(x.actions.length?'<div><strong>Что сделать:</strong> '+esc(x.actions.join(' · '))+'</div>':'')+'</article>';
+  }
+  function diagnosticResult(res){
+   const d=res.diagnostics||{},rows=arr(d.rows),missing=arr(d.missing),general=arr(d.general);
+   const groups=[['Не войдут в маршрут',rows.filter(x=>['excluded','removed'].includes(x.outcome))],['Останутся в существующих маршрутах',rows.filter(x=>x.outcome==='retained')],['Войдут в маршрут с замечаниями',rows.filter(x=>x.outcome==='included')],['Другие группы выбранного участка',rows.filter(x=>x.outcome==='outside')]];
+   const sections=groups.filter(([,xs])=>xs.length).map(([title,xs])=>'<details class="r5-result-detail r82-issue-section" '+(title==='Не войдут в маршрут'?'open':'')+'><summary>'+title+' · '+xs.length+'</summary><div class="r5-scroll">'+xs.map(diagnosticItem).join('')+'</div></details>').join('');
+   return sections+(missing.length?'<details class="r5-result-detail r82-issue-section"><summary>В составе маршрутов, но требуют настройки сроков · '+missing.length+'</summary><p class="r5-note">Эти мероприятия включены в состав. Без подтверждённого срока по ним нельзя сформировать новое задание.</p><div class="r5-scroll">'+missing.map(x=>'<article class="r82-issue-card" data-r82-missing-due="'+esc(x.taskId)+'"><b>'+esc([x.equipment,x.operation,x.interval].filter(Boolean).join(' · '))+'</b><small>'+esc([x.location,x.taskId].filter(Boolean).join(' · '))+'</small><small>'+esc(x.routeName+' · '+(x.routeStatus==='draft'?'черновик':'активный'))+'</small><div>'+esc(x.reason)+'</div><small>Настройте сроки в карточке маршрута.</small></article>').join('')+'</div></details>':'')+detailList('Общие замечания',general,x=>item(x.routeId||x.code||'Проверка',x.message||x.reason));
+  }
   function pprResult(p){
    if(!p)return'';
    const rows=arr(p.dates),issues=rows.filter(x=>x.conflict);
@@ -128,14 +141,14 @@
    const plans=res.plan?.preview||res.plan||{};
    const allocation=res.allocation;
    if(!advanced){
-    const draft=actionGroups.filter(x=>['create','update'].includes(x.action)&&x.nextStatus==='draft').length,issues=[...arr(g.issues),...arr(prep.issues)],changed=(sum.create||0)+(sum.update||0)+(sum.archive||0),bases=arr(prep.changes).filter(x=>x.action==='basis'),pprChanges=arr(prep.changes).filter(x=>x.action==='ppr'||x.action==='cycle');
-    const counts=[[sum.create,'Новых маршрутов'],[sum.update,'Обновить'],[sum.archive,'В архив'],[draft,'Из них без сроков'],[sum.blocked,'Защищено'],[issues.length,'Замечаний'],[bases.length,'Сроков заполнено'],[pprChanges.length,'Режим / цикл']].filter(([v])=>v>0);
+    const draft=actionGroups.filter(x=>['create','update'].includes(x.action)&&x.nextStatus==='draft').length,diagnostics=res.diagnostics||{},excluded=arr(diagnostics.rows).filter(x=>['excluded','removed'].includes(x.outcome)).length,other=arr(diagnostics.rows).filter(x=>!['excluded','removed'].includes(x.outcome)).length,changed=(sum.create||0)+(sum.update||0)+(sum.archive||0),bases=arr(prep.changes).filter(x=>x.action==='basis'),pprChanges=arr(prep.changes).filter(x=>x.action==='ppr'||x.action==='cycle');
+    const counts=[[sum.create,'Новых маршрутов'],[sum.update,'Обновить'],[sum.archive,'В архив'],[draft,'Из них без сроков'],[sum.blocked,'Защищено'],[excluded,'Не войдут в маршрут'],[other+arr(diagnostics.general).length,'Другие замечания'],[arr(diagnostics.missing).length,'В составе без срока'],[bases.length,'Сроков заполнено'],[pprChanges.length,'Режим / цикл']].filter(([v])=>v>0);
     el('report').innerHTML='<section class="r5-results"><h3>2. Результат проверки</h3><p class="r5-note">'+(changed||bases.length||pprChanges.length?'Проверьте изменения и сохраните маршруты.':'Новых изменений нет.')+'</p>'+
      (counts.length?'<div class="r5-summary r5-summary-simple">'+counts.map(([v,t])=>stats(v,t)).join('')+'</div>':'')+
      (draft?'<p class="r5-note">Маршруты без подтверждённых сроков будут черновиками. Настроить сроки можно позже.</p>':'')+
      (actionGroups.length?'<details class="r5-result-detail" open><summary>Что изменится · '+actionGroups.length+'</summary><div class="r5-scroll">'+actionGroups.map(x=>item(x.name,[x.pointCount+' точек',x.taskIds.length+' мероприятий',x.addTaskIds?.length?'Добавить '+x.addTaskIds.length:'',x.removeTaskIds?.length?'Убрать '+x.removeTaskIds.length:'',x.reason||'',['create','update'].includes(x.action)?(x.nextStatus==='active'?'Готов к планированию':'Черновик'):''].filter(Boolean).join(' · '),label[x.action])).join('')+'</div></details>':'')+
      detailList('Точный состав изменений',actionGroups.filter(x=>x.addTaskIds?.length||x.removeTaskIds?.length),x=>item(x.name,[x.addTaskIds?.length?'Добавить '+x.addTaskIds.join(', '):'',x.removeTaskIds?.length?'Убрать '+x.removeTaskIds.join(', '):''].filter(Boolean).join(' · ')))+
-     detailList('Что требует внимания',issues,x=>item(x.taskId||x.routeId||'Проверка',x.message||x.reason))+
+     diagnosticResult(res)+
      detailList('Даты и основания сроков',bases,x=>item(x.taskId,x.detail,x.value==null?'':String(x.value)))+pprResult(res.ppr)+arr(res.batchSchedules).map(x=>'<h4>'+esc(x.name)+'</h4>'+pprResult(x)).join('')+
      '<p class="r5-note">Это предварительный просмотр. Ручные и открытые задания защищены; точки смазки не удаляются.</p></section>';
     el('apply').disabled=!(changed||bases.length||pprChanges.length);return;
@@ -144,7 +157,7 @@
     '<div class="r5-summary">'+stats(sum.create,'Создать')+stats(sum.update,'Изменить')+stats(sum.archive,'Архивировать')+stats(sum.blocked,'Конфликты')+stats(arr(prep.changes).filter(x=>x.action==='basis').length,'Сроков заполнено')+stats(res.plan?.created,'Новых заданий')+'</div>'+
     detailList('Состав и изменения',actionGroups,x=>item(x.name,(x.addTaskIds?.length?'Добавить '+x.addTaskIds.join(', ')+' · ':'')+(x.removeTaskIds?.length?'Убрать '+x.removeTaskIds.join(', ')+' · ':'')+(x.basisMissing?.length?'Нет сроков: '+x.basisMissing.length+' · ':'')+(x.reason||'')+(x.action==='create'||x.action==='update'?' · '+(x.nextStatus==='active'?'активный':'черновик'):''),label[x.action]))+
     detailList('Сроки и условия',arr(prep.changes),x=>item(x.taskId,x.detail,x.value==null?'':String(x.value)))+pprResult(res.ppr)+arr(res.batchSchedules).map(x=>'<h4>'+esc(x.name)+'</h4>'+pprResult(x)).join('')+
-    detailList('Исключения и замечания',[...arr(g.issues),...arr(prep.issues),...arr(plans.warnings)],x=>item(x.taskId||x.routeId||x.code||'Проверка',x.message||x.reason))+
+    diagnosticResult(res)+detailList('Замечания формирования заданий',arr(plans.warnings),x=>item(x.taskId||x.routeId||x.code||'Проверка',x.message||x.reason))+
     detailList('Предлагаемые задания',arr(plans.items),x=>item(x.routeName,x.plannedDate+' · '+x.taskIds.length+' меропр. · '+min(x.plannedMinutes)+(x.access==='ppr'?' · только ППР':'')+(x.runtimeForecast?' · прогноз':'')+(x.earliestDate?' · допустимо с '+x.earliestDate:'')))+
     detailList('Материалы и готовность подготовки',arr(res.preparation),x=>item(x.routeName,x.text,x.ready?'Готово':'Требует проверки'))+
     (allocation?.ok?'<p class="r5-note">Назначено: '+allocation.summary.assigned+' · позднее срока: '+allocation.summary.delayed+' · без назначения: '+allocation.summary.unassigned+'</p>'+detailList('Рабочие назначения',allocation.proposals,x=>item(x.routeName,'Техническая дата '+x.technicalDate+' · '+min(x.minutes)+' · '+x.reason,x.date+' / смена '+x.shiftId))+detailList('Не распределены',allocation.remaining,x=>item(x.routeName,x.reason,x.plannedDate)): '')+

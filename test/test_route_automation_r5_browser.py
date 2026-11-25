@@ -15,7 +15,7 @@ window.__db={lines:[{id:'L1',name:'Линия 1'}],areas:[{id:'A1',lineId:'L1',n
 window.LubricaCore={State:{getDatabase:()=>window.__db,setDatabase:d=>{window.__db=d;window.__writes++}},Database:{toLegacy:d=>({points:d.tasks.map(t=>{const lp=d.lubricationPoints.find(p=>p.id===t.lubricationPointId),e=d.equipment.find(e=>e.id===lp.equipmentId);return{id:t.id,taskId:t.id,lubricationPointId:lp.id,pointDisplayId:lp.id,position:e.externalCode,equipment:e.name,unit:'Опора',operation:t.operation,type:lp.category,interval:t.schedule.legacyText}})})}};
 window.LubricaApp={refreshFromCore(){},showToast(){}};
 window.LubricaProgramQA={audit:()=>({issues:[]})};
-window.LubricaTaskReadiness={summarize:d=>({items:d.tasks.map(t=>({taskId:t.id,status:'ready',steps:[{ok:true}]}))})};
+window.LubricaTaskReadiness={summarize:d=>({items:d.tasks.map(t=>({taskId:t.id,status:t.id==='BAD_SOURCE'?'attention':'ready',steps:[{label:'Источники',ok:t.id!=='BAD_SOURCE'}],warningCodes:t.id==='BAD_SOURCE'?['QUANTITY_SOURCE_MISSING']:[],next:{label:'Подтвердить источник',hint:'Проверьте обоснование нормы'}}))})};
 window.makeTask=(id,category,activity,operation,interval,type,areaId='A1',status='approved')=>{
  const d=window.__db,e='E'+id,n='N'+id,p='P'+id;
  d.equipment.push({id:e,name:type,equipmentType:type,lineId:'L1',areaId,externalCode:id});
@@ -28,6 +28,7 @@ makeTask('C1','bearing','regrease','Досмазывание','14 дней','К�
 makeTask('C2','bearing','regrease','Досмазывание','14 дней','Вентилятор');
 makeTask('C3','bearing','regrease','Досмазывание','14 дней','Двигатель');
 makeTask('H1','bearing','regrease','Досмазывание','500 ч','Пила');
+makeTask('BAD_SOURCE','bearing','regrease','Досмазывание','14 дней','Редуктор с неподтверждённой нормой');
 window.__db.materials.push({id:'MAT',name:'Смазка',code:'GR-01'});
 window.__db.tasks.forEach(t=>Object.assign(t,{materialMode:'explicit',materialId:'MAT',materialName:'Смазка',quantity:{approved:'10',unit:'г'}}));
 '''
@@ -69,6 +70,14 @@ def check(browser,width,height,label):
  f('preview').click()
  assert f('apply').is_enabled(),f('report').inner_text()
  assert 'Новых маршрутов' in f('report').inner_text()
+ issue=dlg.locator('[data-r82-issue="BAD_SOURCE"]')
+ assert issue.is_visible()
+ assert issue.get_attribute('data-outcome')=='excluded'
+ assert 'Не войдёт в маршрут' in issue.inner_text()
+ assert 'Редуктор с неподтверждённой нормой' in issue.inner_text()
+ assert 'Не подтверждён источник нормы количества' in issue.inner_text()
+ assert 'Что сделать' in issue.inner_text()
+ assert dlg.locator('[data-r82-missing-due]').count()==4
  assert page.evaluate('window.__writes')==1
  page.screenshot(path=str(OUT/(label+'_simple_preview.png')))
  weekly.locator('[data-r8-date]').fill(tomorrow)
@@ -106,6 +115,7 @@ def check(browser,width,height,label):
  assert not dlg.is_visible()
  assert page.evaluate('window.__writes')==2
  assert page.evaluate('window.__db.routes.length')==2
+ assert page.evaluate('window.__db.routes.every(r=>!r.taskIds.includes("BAD_SOURCE"))')
  assert page.evaluate('window.__db.routePlanItems.length')==0
  assert page.evaluate('window.__db.routes.find(x=>x.scheduleKey==="days:14").taskIds[0]')=='C3'
  page.locator('#routePlanning').click()
