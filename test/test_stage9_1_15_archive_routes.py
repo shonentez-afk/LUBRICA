@@ -12,6 +12,9 @@ checks={
     'restore_button_exists': 'Восстановить в черновик' in ui,
     'archived_not_executable': "if(selected?.status!=='archived')bindChecklistExecution" in ui,
     'archive_preview_exists': 'route-archive-preview' in ui and 'АРХИВНЫЙ МАРШРУТ' in ui,
+    'archive_delete_guard': 'routeDeletionAssessment' in eng and 'ROUTE_HISTORY' in eng and 'archivedOnly:true' in ui,
+    'archive_delete_confirmation': 'id="deleteArchivedRoute"' in ui and 'data-delete-archive-confirm' in ui and 'data-delete-archive-back' in ui,
+    'single_restore_action': 'restoreRouteTop' not in ui,
     'archive_css_exists': 'ROUTES — STAGE 9.1.15 ARCHIVE LIBRARY' in css,
 }
 failed=[k for k,v in checks.items() if not v]

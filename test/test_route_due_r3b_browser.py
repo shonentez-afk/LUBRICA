@@ -237,6 +237,10 @@ def check(browser,width,height,label):
  assert not editor.is_visible()
  assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',cal)=='archived'
  assert page.evaluate('JSON.stringify(window.__db.checklistRuns)')==history_before
+ assert page.locator('#deleteArchivedRoute').is_disabled()
+ assert page.locator('[data-delete-archive-review]').count()==0
+ assert page.locator('#restoreRoute').is_visible()
+ assert page.locator('#restoreRouteTop').count()==0
  # Reproduce the reported 20-point, 2250 h, PPR-only route on a short window.
  large=page.evaluate('''() => {
   const ids=Array.from({length:20},(_,i)=>'LONG'+String(i+1).padStart(2,'0'));
@@ -298,6 +302,20 @@ def check(browser,width,height,label):
  editor.locator('[data-archive-confirm]').click()
  assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',large)=='archived'
  assert not editor.is_visible()
+ assert page.locator('#deleteArchivedRoute').is_enabled()
+ assert not page.locator('[data-delete-archive-review]').is_visible()
+ before_delete=page.evaluate('JSON.stringify(window.__db)')
+ page.locator('#deleteArchivedRoute').click()
+ assert page.locator('[data-delete-archive-review]').is_visible()
+ page.locator('[data-delete-archive-back]').click()
+ assert not page.locator('[data-delete-archive-review]').is_visible()
+ assert page.evaluate('JSON.stringify(window.__db)')==before_delete
+ task_before=page.evaluate('JSON.stringify(window.__db.tasks)')
+ page.locator('#deleteArchivedRoute').click()
+ page.locator('[data-delete-archive-confirm]').click()
+ assert page.evaluate('(id)=>!window.__db.routes.some(r=>r.id===id)',large)
+ assert page.evaluate('JSON.stringify(window.__db.tasks)')==task_before
+ assert page.evaluate('(id)=>!LubricaRouteWorkload.requiresPpr(id,window.__db)',large)
  assert not errors,errors
  page.close()
 with sync_playwright() as pw:

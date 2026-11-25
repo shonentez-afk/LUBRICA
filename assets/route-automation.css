@@ -123,3 +123,11 @@
 #routeExecutionDialog .r82-access-setting{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:6px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
 #routeExecutionDialog .r82-access-setting small{grid-column:1/-1;color:var(--muted);line-height:1.35}
 @media(max-width:560px){#routeExecutionDialog .r82-access-setting{grid-template-columns:1fr}#routeExecutionDialog .r82-access-setting button{justify-self:start}}
+
+/* Archive: one lifecycle action group, explicit inline irreversible confirmation. */
+.route-archive-preview .r82-archive-delete-review[hidden]{display:none!important}
+.route-archive-preview .r82-archive-delete-review{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff9ed;color:#47372a}
+.route-archive-preview .r82-archive-delete-review p{margin:6px 0;font-size:12px}
+.route-archive-preview .r82-archive-delete-review [data-delete-archive-error]:empty{display:none}
+.route-archive-preview .route-archive-actions{display:flex;flex-wrap:wrap;gap:8px}
+.route-archive-preview #deleteArchivedRoute:not(:disabled){color:#a23232}

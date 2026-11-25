@@ -296,7 +296,24 @@
  function archiveRoute(routeId,d=database()){const r=rawRoute(d,routeId),gate=transitionCheck(r,'archived',d);if(!gate.ok)return false;ensureRouteRevision(routeId,d,{note:'Перед архивированием',reason:'archive'});r.status='archived';r.updatedAt=now();ensureRouteRevision(routeId,d,{reason:'archive'});save(d,'Маршрут архивирован');return true}
  function restoreRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(r?.status!=='archived')return{ok:false,reason:'Выберите архивный маршрут'};const gate=transitionCheck(r,'draft',d,{restore:true});if(!gate.ok)return gate;r.status='draft';r.updatedAt=now();ensureRouteRevision(routeId,d,{reason:'restore'});save(d,'Маршрут восстановлен из архива');return {ok:true,route:r}}
  function setRouteStatus(routeId,status,d=database()){const r=rawRoute(d,routeId),gate=transitionCheck(r,status,d);if(!gate.ok)return gate;r.status=status;r.updatedAt=now();ensureRouteRevision(routeId,d,{reason:'status'});save(d,status==='active'?'Маршрут активирован':status==='archived'?'Маршрут архивирован':'Маршрут переведён в черновик');return {ok:true,route:r}}
- function deleteRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return{ok:false,reason:'Маршрут не найден'};if((d.checklistRuns||[]).some(x=>x.routeId===routeId)||(d.routePlanItems||[]).some(x=>x.routeId===routeId))return{ok:false,reason:'Существуют выполнение или план; маршрут нужно архивировать'};if(r.source==='auto')return{ok:false,reason:'Автоматический маршрут нельзя удалить — его можно архивировать'};if(r.status==='active')return{ok:false,reason:'Активный маршрут сначала архивируйте'};ensureRouteRevision(routeId,d,{reason:'delete'});d.routes=d.routes.filter(x=>String(x.id)!==String(routeId));if(d.routeWorkload)d.routeWorkload={...d.routeWorkload,pprRouteIds:(d.routeWorkload.pprRouteIds||[]).filter(x=>String(x)!==String(routeId))};save(d,'Маршрут удалён');return{ok:true}}
+ function routeDeletionAssessment(routeId,d=database(),{archivedOnly=false}={}){
+  const r=rawRoute(d,routeId);if(!r)return{ok:false,code:'ROUTE_MISSING',reason:'Маршрут не найден'};
+  const id=String(r.id),runs=(d.checklistRuns||[]).filter(x=>String(x.routeId)===id),jobs=(d.routePlanItems||[]).filter(x=>String(x.routeId)===id);
+  if(runs.length||jobs.length)return{ok:false,code:'ROUTE_HISTORY',reason:'Удаление недоступно: есть история заданий или выполнений. Маршрут должен остаться в архиве.',runCount:runs.length,jobCount:jobs.length};
+  if(r.status!=='archived'&&(archivedOnly||r.status!=='draft'||r.source==='auto'))return{ok:false,code:'ARCHIVE_FIRST',reason:'Сначала архивируйте маршрут'};
+  return{ok:true,runCount:0,jobCount:0};
+ }
+ function deleteRoute(routeId,d=database(),options={}){
+  const gate=routeDeletionAssessment(routeId,d,options);if(!gate.ok)return gate;
+  const r=rawRoute(d,routeId),id=String(r.id),work=clone(d);
+  // Keep revision identity as a tombstone: a deleted ID must never be reused.
+  // The original maintenance cards, due bases and shared physical meters are not route-owned.
+  ensureRouteRevision(id,work,{reason:'delete'});work.routes=work.routes.filter(x=>String(x.id)!==id);
+  if(work.routeWorkload)work.routeWorkload={...work.routeWorkload,pprRouteIds:(work.routeWorkload.pprRouteIds||[]).filter(x=>String(x)!==id)};
+  // Preserve the existing API's in-place semantics for callers that supply a database.
+  d.routes=work.routes;d.routeRevisions=work.routeRevisions;if(work.routeWorkload)d.routeWorkload=work.routeWorkload;
+  save(d,'Маршрут удалён');return{ok:true};
+ }
  function candidatePointVariants(routeId,d=database(),options={}){
    const includeCurrent=!!options.includeCurrent;return pointTaskCandidates(routeId,d).flatMap(g=>{
      const byInterval=new Map();for(const t of g.tasks){if(!includeCurrent&&t.inCurrent)continue;const key=t.interval||'Без периодичности';if(!byInterval.has(key))byInterval.set(key,[]);byInterval.get(key).push(t)}
@@ -379,6 +396,6 @@
    return{ok:true,created,updated,archived,routeIds,preview:report,database:work};
  }
 
- window.LubricaRouteEngine=Object.freeze({contextIndex,previewAutoGrouping,applyAutoGrouping,routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,updateRouteSettings,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute,validationContext,transitionCheck,validTiming,routeAssessment});
+ window.LubricaRouteEngine=Object.freeze({contextIndex,previewAutoGrouping,applyAutoGrouping,routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,updateRouteSettings,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,routeDeletionAssessment,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute,validationContext,transitionCheck,validTiming,routeAssessment});
  global.LubricaSystem?.registerModule?.('Маршруты','ok','Создание, ревизии и календарное планирование маршрутов');
 })(window);
