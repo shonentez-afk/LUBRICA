@@ -1,0 +1,91 @@
+name: LUBRICA R8.2 complete interactive guide (real screenshots)
+on:
+  push:
+    branches:
+      - feature/route-safety-ux-20261119
+    paths:
+      - 'test/guide-r82/**'
+      - '.github/workflows/guide-r82.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: lubrica-guide-r82
+  cancel-in-progress: true
+jobs:
+  guide:
+    if: github.ref == 'refs/heads/feature/route-safety-ux-20261119'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependencies
+        run: |
+          python -m pip install --disable-pip-version-check playwright pillow openpyxl beautifulsoup4
+          python -m playwright install --with-deps chromium
+      - name: Capture full application (demo, materials, map, OEM and constructors)
+        id: capture_general
+        run: python test/guide-r82/capture_general.py
+      - name: Capture real route workflow and execution
+        if: always() && steps.capture_general.outcome != 'cancelled'
+        run: python test/guide-r82/capture_routes.py
+      - name: Install guide and verify image manifest
+        run: |
+          python test/guide-r82/promote.py
+          node --check ui/user-guide.js
+          node --check ui/checks-settings.js
+          python test/test_release_1_0_5_internal_guide.py
+          python test/test_stage9_8_2_settings_guide.py
+          python test/test_stage9_8_4_guide_labels.py
+          python test/test_stage9_8_5_detailed_guide.py
+          python test/test_stage9_8_6_illustrated_guide.py
+      - name: Browser navigation, search, image loading and lightbox
+        run: python test/guide-r82/check_guide_browser.py
+      - name: Full regression
+        run: bash test/run_all.sh
+      - name: Commit verified guide to feature branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/feature/route-safety-ux-20261119
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ui/user-guide.js ui/checks-settings.js assets/guide test/test_release_1_0_5_internal_guide.py test/test_stage9_8_2_settings_guide.py test/test_stage9_8_5_detailed_guide.py test/test_stage9_8_6_illustrated_guide.py
+          git diff --cached --name-only
+          git commit -m "R8.2: publish complete interactive guide and 38 verified real UI screenshots"
+          git push origin HEAD:refs/heads/feature/route-safety-ux-20261119
+          git rev-parse HEAD | tee test-artifacts/guide-r82/published-commit.txt
+      - name: Package verified preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/LUBRICA_R8_2_FULL_GUIDE"
+          mkdir -p "$STAGE"
+          rsync -a ./ "$STAGE/" --exclude '.git/' --exclude '.github/' --exclude 'test/' --exclude 'tests/' --exclude 'test-artifacts/' --exclude 'project/' --exclude 'acceptance/' --exclude 'releases/' --exclude 'START_NEW_CHAT_RU.md'
+          cd "$RUNNER_TEMP"
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_R8_2_FULL_GUIDE.zip" LUBRICA_R8_2_FULL_GUIDE
+          cd "$GITHUB_WORKSPACE"
+          unzip -tq LUBRICA_R8_2_FULL_GUIDE.zip
+          sha256sum LUBRICA_R8_2_FULL_GUIDE.zip > LUBRICA_R8_2_FULL_GUIDE.zip.sha256
+          sha256sum -c LUBRICA_R8_2_FULL_GUIDE.zip.sha256
+      - name: Verified ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_R8_2_FULL_GUIDE
+          path: |
+            LUBRICA_R8_2_FULL_GUIDE.zip
+            LUBRICA_R8_2_FULL_GUIDE.zip.sha256
+          if-no-files-found: error
+      - name: Capture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_R8_2_GUIDE_CAPTURE_EVIDENCE
+          path: test-artifacts/guide-r82
+          if-no-files-found: warn
