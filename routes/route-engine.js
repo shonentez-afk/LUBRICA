@@ -148,7 +148,7 @@
  }
  function pointTaskCandidates(routeId,d=database(),options={}){
    const includeUnapproved=!!options.includeUnapproved,r=rawRoute(d,routeId);if(!r)return[];
-   const m=maps(d),readiness=includeUnapproved?null:readinessIndex(d),pmap=legacyPointMap(d),current=new Set((r.taskIds||[]).map(String)),assign=taskAssignments(d),groups=new Map();
+   const m=maps(d),readiness=includeUnapproved?null:readinessIndex(d),pmap=legacyPointMap(d),current=new Set((r.taskIds||[]).map(String)),assign=taskAssignments(d),groups=new Map(),strict=options.addableOnly&&typed(r);
    for(const t of d.tasks||[]){
      if(!includeUnapproved&&!routeEligibility(t,d,readiness).ok)continue;
      const c=taskContext(d,t,m),id=String(t.id),lp=m.lps.get(t.lubricationPointId)||{},eq=m.eq.get(lp.equipmentId)||{},node=m.nodes.get(lp.nodeId)||{},legacy=pmap.get(id)||{},pointId=lp.id||t.lubricationPointId||`task:${id}`;
@@ -157,6 +157,7 @@
      const assigned=(assign.get(id)||[]).filter(rid=>rid!==routeId),sameLine=c.lineId===r.lineId,sameArea=!r.areaId||c.areaId===r.areaId,sameInterval=compatibleInterval(r,c),sameService=matchesService(r,c);
      g.tasks.push({id,operation:t.operation||legacy.operation||'Мероприятие',activityType:t.activityType||'',interval:c.interval,material:legacy.material||t.materialName||'',quantity:t.quantity?.approved??'',unit:t.quantity?.unit||'',toolId:t.toolId||'',approvalStatus:t.approvalStatus||'',inCurrent:current.has(id),assignedRouteIds:assigned,sameLine,sameArea,sameInterval,sameService,recommended:sameLine&&sameArea&&sameInterval&&sameService,warnings:[!sameLine?'Другая линия':'',!sameArea?'Другой участок':'',!sameInterval?'Другая периодичность':'',!sameService?'Другой вид обслуживания':''].filter(Boolean)});
    }
+   if(strict){const A=global.LubricaRouteAutoGrouping,D=global.LubricaRouteDue;for(const g of groups.values())g.tasks=g.tasks.filter(t=>t.recommended&&!t.inCurrent&&!t.assignedRouteIds.length&&!A?.taskReserved(d,t.id)&&(r.status!=='active'||!D?.activationIssues({...r,taskIds:[t.id]},d).length));}
    return [...groups.values()].map(g=>({...g,recommendedTaskCount:g.tasks.filter(t=>t.recommended&&!t.inCurrent).length,availableTaskCount:g.tasks.filter(t=>!t.inCurrent).length,inCurrentCount:g.tasks.filter(t=>t.inCurrent).length})).filter(g=>g.availableTaskCount>0).sort((a,b)=>(Number(b.recommendedTaskCount>0)-Number(a.recommendedTaskCount>0))||(a.equipmentCode+a.pointName).localeCompare(b.equipmentCode+b.pointName,'ru'));
  }
  function taskCandidate(routeId,taskId,d=database()){
