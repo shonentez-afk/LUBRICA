@@ -80,3 +80,26 @@ const reloaded=clone(d);d=reloaded;
 assert.equal(D.parseBasis(t('H1'),d).nextHours,1504,'basis survives JSON roundtrip');
 assert.equal(d.checklistRuns.find(x=>x.id===runtime.id).executionFact.tasks.H1.runtimeMeterHours,'1004');
 console.log('R3B TASK DUE PASS: exact subset, overdue, reserve, material totals, actual meter, skip/cancel/replan, frozen history and JSON roundtrip');
+
+
+/* R4 integration: real R3B plan + checklist start gate, no direct bypass. */
+vm.runInThisContext(fs.readFileSync('routes/route-workload.js','utf8'),{filename:'route-workload.js'});
+const W=LubricaRouteWorkload;
+assert(W.saveSettings({weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',minutes:480},{id:'2',minutes:480}],ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[cr]},d).ok);
+assert(P.commit({startDate:today,endDate:today},d).ok);
+const pprJob=d.routePlanItems.find(x=>x.routeId===cr&&x.status==='planned'&&x.taskIds.includes('C2'));
+assert(pprJob,'skipped/cancelled task replanned');
+assert.equal(C.createRun(cr,{route:entry(cr),date:today,performer:'А',shift:'2',planItemId:pprJob.id}),null,'PPR only requires explicit assignment');
+assert.equal(W.move(pprJob.id,{date:tomorrow,shiftId:'2',reason:'Не ППР'},d).code,'PPR_CONFLICT');
+assert(W.move(pprJob.id,{date:today,shiftId:'2'},d).ok);
+assert.equal(C.createRun(cr,{route:entry(cr),date:today,performer:'А',shift:'1',planItemId:pprJob.id}),null,'assigned shift cannot be bypassed');
+const pprRun=C.createRun(cr,{route:entry(cr),date:today,performer:'А',shift:'2',planItemId:pprJob.id});
+assert(pprRun);assert(pprRun.workAssignment.pprRequired);assert.equal(pprRun.workAssignment.lineId,'L');
+C.updateRun(pprRun.id,{date:tomorrow,shift:'1'});
+assert.equal(C.getRun(pprRun.id).date,today);assert.equal(C.getRun(pprRun.id).shift,'2');
+assert.equal(W.move(pprJob.id,{clear:true,reason:'Нельзя менять начатое'},d).code,'JOB_LOCKED');
+C.updateTask(pprRun.id,'C2',{done:true,actualQuantity:'20 г'});
+assert(C.completeRun(pprRun.id,entry(cr)));
+assert.equal(t('C2').routeDue.nextDate,P.addInterval(today,{kind:'days',value:7}));
+assert.equal(d.routePlanItems.find(x=>x.id===pprJob.id).plannedDate,today);
+console.log('R4 R3B CHECKLIST INTEGRATION PASS — PPR policy, exact assigned shift, frozen fact and original next due logic');

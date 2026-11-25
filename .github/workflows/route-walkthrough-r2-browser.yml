@@ -1,4 +1,4 @@
-name: LUBRICA Routes R2 + R3A + R3B Chromium UX
+name: LUBRICA Routes R2–R4 Chromium UX
 
 on:
   pull_request:
@@ -10,6 +10,10 @@ on:
       - 'routes/route-engine.js'
       - 'routes/route-auto-grouping.js'
       - 'routes/route-due.js'
+      - 'routes/route-workload.js'
+      - 'routes/route-workload-ui.js'
+      - 'assets/route-workload.css'
+      - 'test/test_route_workload_r4_browser.py'
       - 'routes/route-planning.js'
       - 'routes/route-planning-ui.js'
       - 'test/test_route_due_r3b_browser.py'
@@ -43,14 +47,16 @@ jobs:
           python test/test_route_execution_compact_r2_browser.py
           python test/test_route_auto_grouping_r3a_browser.py
           python test/test_route_due_r3b_browser.py
+          python test/test_route_workload_r4_browser.py
       - name: Export screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: LUBRICA_ROUTES_R3B_CHROMIUM_SCREENSHOTS
+          name: LUBRICA_ROUTES_R4_CHROMIUM_SCREENSHOTS
           path: |
             test-artifacts/routes-r2/*.png
             test-artifacts/routes-r3a/*.png
             test-artifacts/routes-r3b/*.png
+            test-artifacts/routes-r4/*.png
           if-no-files-found: warn
           retention-days: 30

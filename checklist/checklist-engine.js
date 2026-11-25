@@ -197,6 +197,10 @@
   const d=db();if(!d)return null;
   const currentRoute=(d.routes||[]).find(r=>String(r.id)===String(routeId));
   const isTyped=currentRoute?.groupingMode==='area_service_interval_v1';
+  const W=global.LubricaRouteWorkload,activeWork=activeRuns(routeId,d)[0];
+  if(activeWork?.workAssignment&&(forceNew||clean(planItemId)&&activeWork.plannedItemId!==clean(planItemId)))return null;
+  const workCheck=activeWork&&!forceNew?{ok:true}:W?.startPolicy(routeId,planItemId,date,shift,d)||{ok:true};
+  if(!workCheck.ok||forceNew&&workCheck.assignment)return null;
   let taskPlan=null,checked=null;
   if(isTyped){
    const D=global.LubricaRouteDue;
@@ -222,11 +226,12 @@
   const startedAt=now();
   const run={id:nextRunId(d),routeId,plannedItemId:clean(planItemId),routeRevision:Number(routeRevision?.revision)||Number(route?.revision)||1,routeRevisionId:routeRevision?.id||'',status:'in_progress',executionNo:executionNumber(routeId,d),date:date||new Date().toISOString().slice(0,10),performer:clean(performer),shift:clean(shift),taskResults:{},comments:'',actualStartAt:startedAt,actualEndAt:null,actualDurationMinutes:null,routeTaskIds:ids,routeSnapshot:snapshot?clone(snapshot):null,routeUpdatedAt:route?.updatedAt||null,snapshotAt:snapshot?startedAt:null,startedAt,updatedAt:startedAt,completedAt:null,cancelledAt:null};
   if(isTyped){run.dueEntries=clone(checked.dueEntries);run.serviceDate=date;run.plannedMinutes=taskPlan.plannedMinutes;}
+  if(workCheck.assignment)run.workAssignment={...clone(workCheck.assignment),pprRequired:!!workCheck.pprRequired,lineId:workCheck.lineId||''};
   runs(d).push(run);if(isTyped)global.LubricaRoutePlanning?.syncFromRun?.(run,d,{persist:false});global.LubricaCore.State.setDatabase(d);if(!isTyped)global.LubricaRoutePlanning?.syncFromRun?.(run,d);return run
  }
  function latestRun(routeId,{includeCompleted=true}={}){const d=db();if(!d)return null;if(!includeCompleted)return normalizeActiveRuns(routeId,d);return routeRuns(routeId,d)[0]||null}
  function ensureRun(routeId,route=null){return latestRun(routeId,{includeCompleted:false})||createRun(routeId,{route})}
- function updateRun(runId,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;if(r.dueEntries?.length){patch={...patch};delete patch.date;}Object.assign(r,patch,{updatedAt:now()});global.LubricaCore.State.setDatabase(d);return r}
+ function updateRun(runId,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;if(r.dueEntries?.length||r.workAssignment){patch={...patch};delete patch.date;if(r.workAssignment){delete patch.shift;delete patch.workAssignment}}Object.assign(r,patch,{updatedAt:now()});global.LubricaCore.State.setDatabase(d);return r}
  function updateTask(runId,id,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress'||(r.dueEntries?.length&&!runTaskIds(r).includes(String(id))))return null;r.taskResults=r.taskResults||{};r.taskResults[id]={done:false,resultStatus:'pending',observations:'',actualQuantity:'',actualQuantityUnit:'',deviationReason:'',...r.taskResults[id],...patch,updatedAt:now()};
   if(r.taskResults[id].done)r.taskResults[id].resultStatus='completed';
   else if(!['skipped','not_applicable'].includes(r.taskResults[id].resultStatus))r.taskResults[id].resultStatus='pending';r.updatedAt=now();global.LubricaCore.State.setDatabase(d);return r.taskResults[id]}
