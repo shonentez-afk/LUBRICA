@@ -331,9 +331,9 @@
    issues.push({taskId:id,message:owners.length?'Уже назначено в другом маршруте':own.reserved.has(id)?'Есть незавершённое задание':own.excluded.has(id)?'Ранее исключено вручную':'Не выбрано пользователем',...(owners.length||own.reserved.has(id)||own.excluded.has(id)?{}:{manualUnselected:true})});
   }
   const diagnostics=M.resultDiagnostics({issues},{issues:[]},d,after,{groupKey:input.manualGroupKey,routeIds:[r.id]});
-  const ix=contextIndex(after),pointCount=new Set(r.taskIds.map(id=>ix.get(id)?.lp?.id)).size,minutes=M.duration(r,r.taskIds,after,ix);
-  const token=JSON.stringify([r.id,r.code,r.name,A.routeKey(r),r.taskIds,input.pprMode||'normal',r.taskIds.map(id=>ix.get(id)?.task?.routeDue||null),diagnostics,minutes]);
-  return{...result,diagnostics,pointCount,minutes,token};
+  const ix=contextIndex(after),points=pointGroupsForRoute(r.id,after),pointCount=points.length,minutes=M.duration(r,r.taskIds,after,ix);
+  const token=JSON.stringify([r.id,r.code,r.name,A.routeKey(r),r.taskIds,input.pprMode||'normal',points,r.taskIds.map(id=>ix.get(id)?.task||null),diagnostics,minutes]);
+  return{...result,diagnostics,points,pointCount,minutes,token};
  }
  function commitManualCreation(input,token,d=database()){
   const result=previewManualCreation(input,d);if(!result.ok)return result;
