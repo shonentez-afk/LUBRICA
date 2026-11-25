@@ -138,3 +138,35 @@
 .r82-issue-card .r82-issue-status{font-weight:700;color:#34546b}
 .r82-issue-card[data-outcome="excluded"] .r82-issue-status,.r82-issue-card[data-outcome="removed"] .r82-issue-status{color:#a23c25}
 .r82-issue-card strong{font-size:12px}
+
+/* Manual wizard: a single visible step and one result renderer shared with automation. */
+#actionDialog.r82-manual-wizard [hidden]{display:none!important}
+#actionDialog.r82-manual-wizard .r82-manual-steps{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
+#actionDialog.r82-manual-wizard .r82-manual-steps .current{font-weight:700;color:var(--ink);border-bottom:2px solid #b77b2a}
+#actionDialog.r82-manual-wizard .r82-manual-steps .done{color:#35694e}
+#actionDialog.r82-manual-wizard .r82-manual-stage{display:grid;gap:10px;padding:4px 2px;min-width:0}
+#actionDialog.r82-manual-wizard .r82-manual-stage h3{margin:0;font-size:15px}
+#actionDialog.r82-manual-wizard .r82-manual-stage label{display:grid;gap:4px;min-width:0}
+#actionDialog.r82-manual-wizard .r82-manual-stage label select,#actionDialog.r82-manual-wizard .r82-manual-stage label input:not([type=checkbox]){min-width:0;width:100%;box-sizing:border-box}
+#actionDialog.r82-manual-wizard .r82-manual-scope{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#actionDialog.r82-manual-wizard .r82-manual-group-title,#actionDialog.r82-manual-wizard .r82-manual-final-info{display:grid;gap:4px;min-width:0}
+#actionDialog.r82-manual-wizard small{display:block;color:var(--muted,#62717a);line-height:1.35;overflow-wrap:anywhere}
+#actionDialog.r82-manual-wizard .r82-manual-groups,#actionDialog.r82-manual-wizard .r82-manual-points{display:grid;gap:6px;min-width:0}
+#actionDialog.r82-manual-wizard .r82-manual-group,#actionDialog.r82-manual-wizard .r82-manual-point{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,auto);gap:10px;padding:10px;border:1px solid var(--line,#d4dce0);border-radius:7px;background:#f8faf9;align-items:center;min-width:0}
+#actionDialog.r82-manual-wizard .r82-manual-group>div:first-child,#actionDialog.r82-manual-wizard .r82-manual-point>div{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+#actionDialog.r82-manual-wizard .r82-manual-group-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+#actionDialog.r82-manual-wizard .r82-manual-group-actions button{white-space:normal;max-width:100%}
+#actionDialog.r82-manual-wizard .r82-manual-picker-tools{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+#actionDialog.r82-manual-wizard .r82-manual-picker-tools b{flex:1 0 auto}
+#actionDialog.r82-manual-wizard .r82-manual-picker-tools input{width:100%;min-width:0}
+#actionDialog.r82-manual-wizard label.r82-manual-task{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:6px}
+#actionDialog.r82-manual-wizard label.r82-manual-task input{width:16px;height:16px;margin:2px 0 0}
+#actionDialog.r82-manual-wizard .r82-manual-final-info{padding:10px;background:#f3f6f5;border-radius:6px;border:1px solid var(--line,#d4dce0)}
+#actionDialog.r82-manual-wizard .r82-manual-result{display:grid;gap:8px;min-width:0;padding:10px;border:1px solid var(--line,#d4dce0);border-radius:7px}
+#actionDialog.r82-manual-wizard .r82-manual-result-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;margin-bottom:8px}
+#actionDialog.r82-manual-wizard .r82-manual-result-stats>div{display:grid;gap:3px;padding:8px;background:#f1f5f4;border-radius:6px;min-width:0}
+#actionDialog.r82-manual-wizard .r82-manual-result-stats b{font-size:17px}
+#actionDialog.r82-manual-wizard .r5-result-detail{margin-top:6px;min-width:0}
+#actionDialog.r82-manual-wizard .r5-scroll{max-height:none;overflow:visible}
+#actionDialog.r82-manual-wizard .route-create-footer>div{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+@media(max-width:620px){#actionDialog.r82-manual-wizard .r82-manual-scope,#actionDialog.r82-manual-wizard .r82-manual-group,#actionDialog.r82-manual-wizard .r82-manual-point{grid-template-columns:minmax(0,1fr)}#actionDialog.r82-manual-wizard .r82-manual-group-actions{align-items:stretch}}
