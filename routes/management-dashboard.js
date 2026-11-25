@@ -31,7 +31,7 @@ function build({startDate='',endDate=''}={},d=db()){
  if(problemRoutes.length)alerts.push({severity:'warn',title:`Маршрутов с аналитическими предупреждениями: ${problemRoutes.length}`,message:'Требуется разбор рекомендаций аналитики маршрутов.'});
  if(analytics.some(x=>x.executions<2))alerts.push({severity:'info',title:'По части маршрутов недостаточно истории',message:'Для устойчивых выводов аналитики требуется минимум 2–3 завершённых выполнения.'});
  if(!alerts.length)alerts.push({severity:'good',title:'Критических сигналов по текущим данным нет',message:'Продолжайте выполнение плана и накопление факта.'});
- return{period:{startDate,endDate},routes:{current:current.length,archived:archived.length,total:rs.length},plan:{total:planned.length,completed:completedPlan.length,overdue:overdue.length,inProgress:inProgress.length,completionPercent:planCompletion},executions:runs.length,avgTimeDeltaPercent:avgTimeDelta,frv:{observedMinutes:round(frvObserved,1),productivePercent:pct(frvProductive,frvObserved)},problemRoutes:problemRoutes.length,areas,alerts,analytics};
+ return{period:{startDate,endDate},routes:{current:current.length,archived:archived.length,total:rs.length},plan:{total:planned.length,completed:completedPlan.length,partial:plan.filter(x=>x.status==='partial').length,cancelled:plan.filter(x=>x.status==='cancelled').length,overdue:overdue.length,inProgress:inProgress.length,completionPercent:planCompletion},executions:runs.length,avgTimeDeltaPercent:avgTimeDelta,frv:{observedMinutes:round(frvObserved,1),productivePercent:pct(frvProductive,frvObserved)},problemRoutes:problemRoutes.length,areas,alerts,analytics};
 }
 global.LubricaManagementDashboard=Object.freeze({build});
 })(window);
