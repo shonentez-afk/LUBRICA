@@ -1,0 +1,78 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+global.window=global;global.state={points:[]};global.SCOPE_LABELS={};
+global.LubricaSystem={registerModule(){},notify(){}};
+global.LubricaApp={refreshFromCore(){},showToast(){}};
+const local=new Map();global.localStorage={getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,String(v)),removeItem:k=>local.delete(k)};
+for(const path of ['core/ids.js','core/database-schema.js','core/database-normalizer.js','core/database-migrations.js','core/database.js','core/migration.js','core/database-safety.js','core/storage.js','core/state.js','structure/context.js','qa/task-readiness.js','qa/qa-engine.js','routes/route-auto-grouping.js','routes/route-due.js','routes/route-workload.js','routes/route-automation.js','routes/route-engine.js','checklist/checklist-engine.js','routes/route-preparation.js','routes/route-planning.js','test/route_r6_fixture.js'])vm.runInThisContext(fs.readFileSync(path,'utf8'),{filename:path});
+const C=LubricaCore,E=LubricaRouteEngine,M=LubricaRouteAutomation,P=LubricaRoutePlanning,W=LubricaRouteWorkload,D=LubricaRouteDue,K=LubricaChecklistEngine;
+const copy=x=>JSON.parse(JSON.stringify(x)),db=()=>C.State.getDatabase(),today=D.today(),tomorrow=P.addInterval(today,{kind:'days',value:1});
+const settings={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:2,minutesPerWorker:20}],ppr:[{lineId:'L1',anchorDate:today},{lineId:'L2',anchorDate:tomorrow}],pprRouteIds:[]};
+async function main(){
+ const original=createR6RouteFixture(48);original.plants=[{id:'PLANT',name:'Завод'}];const input=copy(original);
+ const normalized=C.Database.normalize(original);assert.deepEqual(original,input,'normalize must not mutate its input');
+ C.State.activateDatabase(normalized,'R6 synthetic');
+ let d=db(),info=M.eligible(d);
+ assert.equal(info.valid.size,45);assert.deepEqual(info.issues.map(x=>x.taskId).sort(),['T1','T2','T3']);
+ assert(new Set([...info.valid.values()].map(x=>x.serviceKey)).size>=8,'multiple canonical point types');
+ const opts={activateReady:true,recoverHistory:true,initial:{mode:'next',date:today},timing:{minutes:'',transitionMinutes:0,splitLargeJobs:true,balance:true},workloadSettings:settings,plan:true,startDate:today,endDate:today,forecastWeeks:4};
+ const before=copy(d),preview=M.preview(opts,d);assert(preview.ok,preview.reason);assert.deepEqual(d,before);
+ assert(M.apply(opts,preview.token,d).ok);d=db();
+ const all=d.routes.flatMap(r=>r.taskIds);assert.equal(all.length,45);assert.equal(new Set(all).size,45);
+ assert.equal(d.routePlanItems.flatMap(p=>p.taskIds).length,45);assert(d.routePlanItems.every(p=>p.checklistSnapshot.taskCount===p.taskIds.length));
+ assert.equal(d.routePlanItems.filter(p=>p.plannedMinutes>20).length,0);
+ const shared=E.validationContext(d);assert(d.routes.every(r=>E.validateRoute(r.id,d,shared).valid));
+ assert(E.routeEntries(d,{preview:false}).some(r=>r.serviceKey==='bearing:regrease'&&new Set(r.points.map(p=>p.equipment)).size>1),'no machine family grouping');
+ const groups=new Map();for(const p of d.routePlanItems){if(!groups.has(p.routeId))groups.set(p.routeId,[]);groups.get(p.routeId).push(p)}
+ const pair=[...groups.values()].find(x=>x.length>=2);assert(pair,'split jobs from one route');
+ const [a,b]=pair;
+ const token=P.previewToken(d),snapshot=copy(d);
+ P.items({},d);P.summary({},d);P.exportCsv({},d);E.routeEntries(d,{preview:false});
+ assert.deepEqual(d,snapshot,'read-only queries and export must not change timestamp/history');
+ assert.equal(P.previewToken(d),token);
+ d.tasks.find(t=>t.id===a.taskIds[0]).routeDue.nextDate=tomorrow;
+ assert.equal(P.commit({startDate:today,endDate:today,expectedToken:token},d).code,'STALE_PREVIEW');
+ d.tasks.find(t=>t.id===a.taskIds[0]).routeDue.nextDate=today;
+ const planBefore=copy(d.routePlanItems),run=K.createRun(a.routeId,{date:today,performer:'=TEST',shift:'1',planItemId:a.id});
+ assert(run,'actual normalized state accepts frozen job');d=db();
+ assert.equal(K.createRun(b.routeId,{date:today,performer:'QA',shift:'1',planItemId:b.id}),null,'second job does not replace active run');
+ K.updateRun(run.id,{status:'completed',routeTaskIds:['invalid'],plannedItemId:b.id,date:tomorrow,comments:'Принято'});
+ assert.deepEqual(K.getRun(run.id).routeTaskIds,a.taskIds);assert.equal(K.getRun(run.id).status,'in_progress');assert.equal(K.getRun(run.id).plannedItemId,a.id);
+ for(const id of a.taskIds)K.updateTask(run.id,id,{done:true,actualQuantity:'10',observations:'=1+1'});
+ const completed=K.completeRun(run.id);assert(completed);d=db();
+ assert.equal(d.routePlanItems.find(x=>x.id===a.id).status,'completed');assert.equal(d.routePlanItems.find(x=>x.id===b.id).status,'planned');
+ const csv=P.exportCsv({},d);assert(csv.startsWith('\ufeff'));assert(csv.includes('"'+a.id+'"'));assert(csv.includes("'=1+1"),'formula-like text is escaped');
+ const rows=P.exportRows({},d);assert.equal(rows.rows.length,45);assert.equal(rows.rows.filter(r=>r[0]===a.id&&r[16]==='completed').length,a.taskIds.length);
+ assert.equal(rows.rows.filter(r=>r[0]===b.id&&r[16]==='completed').length,0);
+ // Storage/recovery and JSON loading preserve all new fields and frozen facts.
+ const fields=x=>({routes:x.routes,routeRevisions:x.routeRevisions,routePlanItems:x.routePlanItems,checklistRuns:x.checklistRuns,routeWorkload:x.routeWorkload,routeAutomation:x.routeAutomation,due:x.tasks.map(t=>[t.id,t.routeDue,t.routePolicy])});
+ const frozen=copy(fields(d));assert(await C.Storage.saveRecovery(d,'R6 test'));
+ C.State.startDemo({project:'Demo',points:[],materials:[],rules:{}});assert(await C.State.restoreRecovery());d=db();
+ assert.deepEqual(fields(d),frozen);
+ const reload=C.DatabaseSafety.parseAndPrepare(JSON.stringify(d),'synthetic').database;assert.deepEqual(fields(reload),frozen);
+ assert.throws(()=>C.DatabaseSafety.prepare({...d,routePlanItems:{broken:true}}),/массивом/);
+ assert.throws(()=>C.DatabaseSafety.prepare({...d,routeRevisions:[d.routeRevisions[0],d.routeRevisions[0]]}),/Дубли ID/);
+ // Preserve frozen identity instead of running a legacy merge against history.
+ const alias=copy(d),keeper=alias.tasks.find(t=>t.id===a.taskIds[0]);
+ alias.tasks.push({...copy(keeper),id:'LEGACY-ALIAS',activityType:'relubrication'});
+ const savedPlans=copy(alias.routePlanItems),savedRuns=copy(alias.checklistRuns),savedRevs=copy(alias.routeRevisions),aliased=C.Database.normalize(alias);
+ assert(aliased.tasks.some(t=>t.id==='LEGACY-ALIAS'));assert(aliased.tasks.find(t=>t.id===keeper.id).routeIdentityConflict);
+ assert.equal(E.routeEligibility(aliased.tasks.find(t=>t.id===keeper.id),aliased).code,'TASK_IDENTITY_CONFLICT');
+ assert.deepEqual(aliased.routePlanItems,savedPlans);assert.deepEqual(aliased.checklistRuns,savedRuns);assert.deepEqual(aliased.routeRevisions,savedRevs);
+ assert.equal(C.DatabaseSchema.normalizeTaskApproval('disabled',true),'disabled');
+ // Staff resources: same-route jobs must fit together in one worker's shift.
+ const packed={...createR6RouteFixture(0),routes:[],routePlanItems:[],checklistRuns:[]};
+ packed.routeWorkload={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:2,minutesPerWorker:60}],ppr:[],pprRouteIds:[]};
+ for(const [id,r,n] of [['J1','R1',30],['J2','R1',20],['J3','R2',40],['J4','R3',30]])packed.routePlanItems.push({id,routeId:r,routeName:r,planningBasis:'task_due',plannedDate:today,plannedMinutes:n,status:'planned',taskIds:[id],workAssignment:{date:today,shiftId:'1'}});
+ assert(W.load({startDate:today,endDate:today},packed).totals.staffConflicts>0,'same-route jobs cannot be spread over workers');
+ console.log('R6 REAL MODULES PASS — 48 physical tasks, 45 eligible, all exact plan subsets, stale preview, protected active run, CSV, JSON and recovery, historical identity and worker capacity');
+ // Production-scale synthetic fixture, not a claim about the real plant file.
+ const large=C.Database.normalize(createR6RouteFixture(1200)),start=Date.now();
+ const bulk={activateReady:true,initial:{mode:'next',date:today},forecastWeeks:52,workloadSettings:{...settings,shifts:[{id:'1',workers:2,minutesPerWorker:480}]}};
+ const largeBefore=copy(large),mass=M.preview(bulk,large);assert(mass.ok,mass.reason);assert.equal(mass.report.summary.add,1197);assert.equal(mass.report.summary.create,48);assert.equal(mass.forecast.weeks.length,52);assert.deepEqual(large,largeBefore);
+ assert(M.apply(bulk,mass.token,large).ok);d=db();
+ assert.equal(d.routes.length,48);assert.equal(new Set(d.routes.flatMap(r=>r.taskIds)).size,1197);
+ const again=M.preview({activateReady:true,forecastWeeks:4},d);assert(again.ok,again.reason);assert.equal(again.report.summary.create+again.report.summary.update+again.report.summary.archive,0);
+ console.log('R6 MASS PASS',JSON.stringify({syntheticTasks:1200,eligible:1197,routes:48,forecastWeeks:52,repeatChanges:0,elapsedMs:Date.now()-start}));
+}
+main().catch(e=>{console.error(e);process.exitCode=1});

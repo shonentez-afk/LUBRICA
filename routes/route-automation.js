@@ -214,9 +214,9 @@
  function forecast({weeks=12,startDate=D().today(),lineId='',areaId=''}={},d=db()){
   if(![4,12,26,52].includes(Number(weeks))||!D().day(startDate))return fail('FORECAST_RANGE','Выберите 4, 12, 26 или 52 недели');
   const start=W().rangeFor('week',startDate).startDate,end=add(start,Number(weeks)*7-1),rows=Array.from({length:Number(weeks)},(_,i)=>({startDate:add(start,i*7),endDate:add(start,i*7+6),minutes:0,tasks:0,runtimeTasks:0,pprConflicts:0,capacity:null}));
-  const cfg=W().settings(d),ix=E().contextIndex(d),unknown=[],seen=new Set(),jobs=new Map();
+  const cfg=W().settings(d),shared=E().validationContext?.(d),ix=shared?.contexts||E().contextIndex(d),unknown=[],seen=new Set(),jobs=new Map();
   for(const r of E().routeEntries(d,{preview:false}).filter(r=>r.status==='active'&&D().typed(r)&&scope(r,{lineId,areaId}))){
-   if(!E().validateRoute(r.id,d).valid){unknown.push({routeId:r.id,message:'Маршрут не готов'});continue}
+   if(!E().validateRoute(r.id,d,shared).valid){unknown.push({routeId:r.id,message:'Маршрут не готов'});continue}
    for(const id of ids(r.taskIds)){
     if(seen.has(id)){unknown.push({taskId:id,message:'Дублирующее назначение'});continue}seen.add(id);
     const t=ix.get(id)?.task,b=t&&D().dueFor(t,d,ix);
@@ -224,7 +224,7 @@
     let due=b.dueDate<start?start:b.dueDate,n=0;const base=due,step=b.kind==='runtime_hours'&&b.hoursPerDay>0?Math.max(1,Math.ceil(b.interval/b.hoursPerDay)):0;
     while(due&&due<=end&&n<400){
      const week=rows.find(w=>due>=w.startDate&&due<=w.endDate);
-     if(week){const ppr=taskPpr(id,d)||W().requiresPpr(r.id,d),earliest=b.kind==='runtime_hours'?due:earlyDate(t,d,due),k=JSON.stringify([r.id,due,!!ppr]);
+     if(week){const ppr=t?.routePolicy?.access==='ppr'||W().requiresPpr(r.id,d),earliest=b.kind==='runtime_hours'?due:earlyDate(t,d,due),k=JSON.stringify([r.id,due,!!ppr]);
       if(!jobs.has(k))jobs.set(k,{r,due,week,ids:[],ppr,earliest});
       const job=jobs.get(k);job.ids.push(id);if(earliest>job.earliest)job.earliest=earliest;week.tasks++;if(b.kind==='runtime_hours')week.runtimeTasks++;
      }
@@ -258,8 +258,8 @@
    const po={startDate:rg.startDate,endDate:rg.endDate,routeIds:selected};
    plan=P().commit(po,next,{persist:false});if(!plan.ok)return{...fail('PLAN_BLOCKED',plan.reason),report,prep,plan:plan.preview};
    next=plan.database||next;
-   const routes=new Map(E().routeEntries(next,{preview:false}).map(r=>[r.id,r])),previous=new Set(arr(d.routePlanItems).map(x=>x.id));
-   for(const item of arr(next.routePlanItems).filter(x=>!previous.has(x.id)&&x.planningBasis==='task_due')){const route=routes.get(item.routeId),selectedRoute=route&&D().selectRoute(route,item,next),p=selectedRoute&&global.LubricaRoutePreparation?.build?.(selectedRoute,next);if(p)preparation.push({routeName:item.routeName,ready:p.ready,text:item.plannedDate+' · '+arr(p.materials).map(m=>[m.code||m.name,m.total,m.baseUnit].filter(x=>x!==''&&x!=null).join(' ')).join('; ')+(p.warnings?.length?' · замечаний: '+p.warnings.length:'')+(p.errors?.length?' · ошибок: '+p.errors.length:'')})}
+   const routes=new Map(E().routeEntries(next,{preview:false}).map(r=>[r.id,r])),previous=new Set(arr(d.routePlanItems).map(x=>x.id)),shared=E().validationContext?.(next);
+   for(const item of arr(next.routePlanItems).filter(x=>!previous.has(x.id)&&x.planningBasis==='task_due')){const route=routes.get(item.routeId),selectedRoute=route&&D().selectRoute(route,item,next),p=selectedRoute&&global.LubricaRoutePreparation?.build?.(selectedRoute,next,shared);if(p)preparation.push({routeName:item.routeName,ready:p.ready,text:item.plannedDate+' · '+arr(p.materials).map(m=>[m.code||m.name,m.total,m.baseUnit].filter(x=>x!==''&&x!=null).join(' ')).join('; ')+(p.warnings?.length?' · замечаний: '+p.warnings.length:'')+(p.errors?.length?' · ошибок: '+p.errors.length:'')})}
    if(preparation.some(x=>!x.ready))return{...fail('PREPARATION_BLOCKED','Не все задания готовы по материалам и нормам. Исправьте замечания или снимите флажок формирования плана.'),report,prep,plan:plan.preview,preparation};
    if(o.allocate){
     const wo={...po,allowDelay:o.allowDelay===true,reason:str(o.delayReason)};
@@ -271,10 +271,10 @@
  }
  function preview(o={},d=db()){
   const result=simulate(o,d);if(!result.ok)return result;
-  const {database,...rest}=result;return{...rest,token:JSON.stringify([o,d])};
+  const {database,...rest}=result;return{...rest,token:JSON.stringify([D().today(),o,d])};
  }
  function apply(o,token,d=db()){
-  if(!d||!token||token!==JSON.stringify([o,d]))return fail('STALE_PREVIEW','Данные изменились. Повторите предварительный просмотр');
+  if(!d||!token||token!==JSON.stringify([D().today(),o,d]))return fail('STALE_PREVIEW','Данные изменились. Повторите предварительный просмотр');
   const result=simulate(o,d);if(!result.ok)return result;
   if(JSON.stringify(result.database)!==JSON.stringify(d)){global.LubricaCore.State.setDatabase(result.database);global.LubricaApp?.refreshFromCore?.()}
   const {database,...rest}=result;return rest;

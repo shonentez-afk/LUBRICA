@@ -1,7 +1,7 @@
 (function(global){
 'use strict';
 const Core=global.LubricaCore=global.LubricaCore||{};
-const ARRAYS=['plants','lines','areas','equipment','components','nodes','lubricationPoints','tasks','materials','routes','checklistRuns','tools','imports','bearingOverrides','componentLibraryEntries'];
+const ARRAYS=['plants','lines','areas','equipment','components','nodes','lubricationPoints','tasks','materials','routes','checklistRuns','routePlanItems','routeRevisions','tools','imports','bearingOverrides','componentLibraryEntries'];
 function clean(v){return String(v??'').trim()}
 function objectLike(v){return !!v&&typeof v==='object'&&!Array.isArray(v)}
 function duplicateIds(arr){
@@ -39,6 +39,8 @@ function prepare(data){
  const isV2=data.schemaVersion==='2.0'||ARRAYS.some(k=>Array.isArray(data[k]))&&('project' in data||'meta' in data);
  const isLegacy=Array.isArray(data.points);
  if(!isV2&&!isLegacy)throw new Error('Неизвестный формат базы. Ожидается JSON LUBRICA v2 или совместимая база v1.');
+ // Do not silently coerce broken route history into empty arrays.
+ for(const key of ['routePlanItems','routeRevisions','checklistRuns'])if(data[key]!==undefined){if(!Array.isArray(data[key]))throw new Error('Поле '+key+' должно быть массивом.');if(duplicateIds(data[key]).length)throw new Error('Дубли ID в '+key)}
  let db;
  if(Core.Migration?.toDatabase)db=Core.Migration.toDatabase(data);
  else if(isV2&&Core.Database?.normalize)db=Core.Database.normalize(data);

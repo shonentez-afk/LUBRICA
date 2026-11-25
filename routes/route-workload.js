@@ -118,10 +118,9 @@
  function earliestDate(item,d){return global.LubricaRouteAutomation?.allowedEarliest(item,d)||day(item?.plannedDate)}
  // Same-route jobs are kept sequential: the existing checklist engine has one active run per route.
  function fitJob(slot,rows,item,minutes){
-  const all=[...rows,{item,minutes}];if(!fits(slot,all.map(x=>x.minutes)))return false;
-  if(slot.legacyAggregate)return true;
-  const groups=new Map();for(const x of all)if(x.item?.planningBasis==='task_due'){const k=String(x.item.routeId);groups.set(k,(groups.get(k)||0)+x.minutes)}
-  return [...groups.values()].every(n=>n<=slot.minutesPerWorker);
+  const all=[...rows,{item,minutes}];if(slot.legacyAggregate)return fits(slot,all.map(x=>x.minutes));
+  const groups=new Map(),standalone=[];for(const x of all){if(x.item?.planningBasis==='task_due'){const k=String(x.item.routeId);groups.set(k,(groups.get(k)||0)+x.minutes)}else standalone.push(x.minutes)}
+  return fits(slot,[...standalone,...groups.values()]);
  }
  function technicalDate(item){
   const dates=arr(item?.dueEntries).map(x=>day(x.dueDate)).filter(Boolean).sort();

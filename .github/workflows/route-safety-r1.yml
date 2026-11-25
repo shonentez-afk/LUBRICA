@@ -1,4 +1,4 @@
-name: LUBRICA Routes R1–R5 Regression and Preview
+name: LUBRICA Routes R1–R6 Regression and Preview
 
 on:
   pull_request:
@@ -15,6 +15,10 @@ on:
       - 'test/test_route_due_r3b.js'
       - 'test/test_route_workload_r4.js'
       - 'test/test_route_automation_r5.js'
+      - 'test/test_route_r6_integration.js'
+      - 'test/route_r6_fixture.js'
+      - 'core/database-*.js'
+      - 'tools/route-r6-audit.js'
       - 'assets/route-automation.css'
       - 'test/test_final_ui_baseline_audit.py'
       - 'assets/route-workload.css'
@@ -52,6 +56,8 @@ jobs:
           node --check routes/route-automation.js
           node --check routes/route-automation-ui.js
           node --check test/test_route_automation_r5.js
+          node --check test/test_route_r6_integration.js
+          node --check tools/route-r6-audit.js
           node --check test/test_route_workload_r4.js
           node --check test/test_route_due_r3b.js
           node --check test/test_route_auto_grouping_r3a.js
@@ -77,13 +83,13 @@ jobs:
         run: node test/test_route_workload_r4.js
       - name: R5 unified automation and exact execution
         run: node test/test_route_automation_r5.js
-      - name: Full regression
+      - name: Full regression including R6 real modules and mass routes
         run: bash test/run_all.sh
       - name: Build isolated Edge file preview
         shell: bash
         run: |
           set -euo pipefail
-          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R5_PREVIEW"
+          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R6_PREVIEW"
           mkdir -p "$STAGE"
           rsync -a ./ "$STAGE/" \
             --exclude '.git/' \
@@ -97,8 +103,9 @@ jobs:
             --exclude 'README.md' \
             --exclude 'START_NEW_CHAT_RU.md'
           find "$STAGE" -maxdepth 1 -type f \( -name 'RELEASE_*.md' -o -name 'LUBRICA_*.md' -o -name 'LUBRICA_*.txt' -o -name 'LUBRICA_*.json' -o -name 'LUBRICA_*.csv' \) -delete
-          printf '%s\n' 'LUBRICA ROUTES STAGE R1-R5' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check unified route master, active route reconciliation, history and bulk basis, physical order, task access, approved early window, job splitting, operation time, staffing and projected load. All changes require preview and confirmation.' > "$STAGE/ROUTES_R5_README.txt"
+          printf '%s\n' 'LUBRICA ROUTES STAGE R1-R6' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check unified route master, active route reconciliation, history and bulk basis, physical order, task access, approved early window, job splitting, operation time, staffing and projected load. All changes require preview and confirmation.' > "$STAGE/ROUTES_R6_README.txt"
           test -f "$STAGE/index.html"
+          test -f "$STAGE/tools/route-r6-audit.js"
           test -f "$STAGE/manifest.json"
           test -f "$STAGE/routes/route-engine.js"
           test -f "$STAGE/routes/route-auto-grouping.js"
@@ -120,17 +127,17 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R5_PREVIEW.zip" LUBRICA_ROUTES_R5_PREVIEW
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R6_PREVIEW.zip" LUBRICA_ROUTES_R6_PREVIEW
           cd "$GITHUB_WORKSPACE"
-          unzip -tq LUBRICA_ROUTES_R5_PREVIEW.zip
-          sha256sum LUBRICA_ROUTES_R5_PREVIEW.zip > LUBRICA_ROUTES_R5_PREVIEW.zip.sha256
-          sha256sum -c LUBRICA_ROUTES_R5_PREVIEW.zip.sha256
+          unzip -tq LUBRICA_ROUTES_R6_PREVIEW.zip
+          sha256sum LUBRICA_ROUTES_R6_PREVIEW.zip > LUBRICA_ROUTES_R6_PREVIEW.zip.sha256
+          sha256sum -c LUBRICA_ROUTES_R6_PREVIEW.zip.sha256
       - name: Upload ZIP for manual Edge QA
         uses: actions/upload-artifact@v4
         with:
-          name: LUBRICA_ROUTES_R5_PREVIEW
+          name: LUBRICA_ROUTES_R6_PREVIEW
           path: |
-            LUBRICA_ROUTES_R5_PREVIEW.zip
-            LUBRICA_ROUTES_R5_PREVIEW.zip.sha256
+            LUBRICA_ROUTES_R6_PREVIEW.zip
+            LUBRICA_ROUTES_R6_PREVIEW.zip.sha256
           if-no-files-found: error
           retention-days: 30

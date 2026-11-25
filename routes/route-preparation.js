@@ -8,12 +8,12 @@
  function fmt(n,d=2){return Number(n).toLocaleString('ru-RU',{maximumFractionDigits:d})}
  function demand(task){const q=task?.quantity||{},unit=clean(q.unit),u=unitKey(unit);const value=num(q.approved);if(u&&value!=null)return{amount:value*u.factor,dim:u.dim,base:u.base,source:'approved',raw:value,unit};return null}
  function demandLabel(dim,amount,base){if(dim==='mass'){return amount>=1000?`${fmt(amount/1000,3)} кг`:`${fmt(amount,2)} г`}if(dim==='volume'){return amount>=1000?`${fmt(amount/1000,3)} л`:`${fmt(amount,2)} мл`}return`${fmt(amount,3)} ${base}`}
- function build(route,d=db()){
+ function build(route,d=db(),shared=null){
   if(!route||!d)return null;
   const checklist=global.LubricaChecklistEngine?.model?.(route,d);if(!checklist)return null;
   const taskMap=new Map((d.tasks||[]).map(t=>[String(t.id),t]));
   const materials=new Map(),tools=new Map(),errors=[],warnings=[];
-  const routeReport=global.LubricaRouteEngine?.validateRoute?.(route.id,d);
+  const routeReport=global.LubricaRouteEngine?.validateRoute?.(route.id,d,shared);
   for(const x of routeReport?.errors||[])errors.push({code:x.code||'ROUTE_ERROR',message:x.message||'Ошибка маршрута',taskId:x.taskId||''});
   for(const x of routeReport?.warnings||[])warnings.push({code:x.code||'ROUTE_WARNING',message:x.message||'Предупреждение маршрута',taskId:x.taskId||''});
   const tasks=checklist.groups.flatMap(g=>g.tasks);

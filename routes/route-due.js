@@ -33,7 +33,7 @@
  }
  function reserved(d,id){return arr(d?.routePlanItems).some(x=>['planned','in_progress'].includes(x.status)&&arr(x.taskIds).map(String).includes(String(id)))||runningTask(d,id)}
  function runningTask(d,id){return arr(d?.checklistRuns).some(x=>x.status==='in_progress'&&arr(x.routeTaskIds).map(String).includes(String(id)))}
- function validateRouteBasis(route,d){return rows(route,d).filter(x=>!x.basis.ok).map(x=>({code:x.basis.code,taskId:x.id,message:x.id+': '+x.basis.message}))}
+ function validateRouteBasis(route,d,index=null){const ix=index||engine()?.contextIndex(d)||new Map(),out=[];for(const id of arr(route?.taskIds)){const t=ix.get(String(id))?.task,b=t?parseBasis(t,d,ix):fail('TASK_MISSING','Мероприятие не найдено');if(!b.ok)out.push({code:b.code,taskId:String(id),message:id+': '+b.message})}return out}
  // A single explicit transaction. Existing pending jobs freeze the due basis;
  // meter readings may be refreshed until actual execution starts.
  function configure(routeId,changes,d=db()){
@@ -77,8 +77,8 @@
  }
  // Exactly one next open obligation per task. Overdue items enter the selected
  // range at its first day, retaining their ORIGINAL due date.
- function preview(route,d,start,end){
-  const ix=engine().contextIndex(d),group=new Map(),warnings=[];
+ function preview(route,d,start,end,index=null){
+  const ix=index||engine().contextIndex(d),group=new Map(),warnings=[];
   for(const id of arr(route.taskIds).map(String)){
    const t=ix.get(id)?.task;
    if(!t){warnings.push({code:'TASK_DUE_MISSING',taskId:id,routeId:route.id,message:id+': мероприятие отсутствует'});continue}

@@ -231,7 +231,7 @@
  }
  function latestRun(routeId,{includeCompleted=true}={}){const d=db();if(!d)return null;if(!includeCompleted)return normalizeActiveRuns(routeId,d);return routeRuns(routeId,d)[0]||null}
  function ensureRun(routeId,route=null){return latestRun(routeId,{includeCompleted:false})||createRun(routeId,{route})}
- function updateRun(runId,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;if(r.dueEntries?.length||r.workAssignment){patch={...patch};delete patch.date;if(r.workAssignment){delete patch.shift;delete patch.workAssignment}}Object.assign(r,patch,{updatedAt:now()});global.LubricaCore.State.setDatabase(d);return r}
+ function updateRun(runId,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;if(r.dueEntries?.length||r.workAssignment){const fields=r.workAssignment?['performer','comments']:['performer','shift','comments'];patch=Object.fromEntries(Object.entries(patch||{}).filter(([k])=>fields.includes(k)))}Object.assign(r,patch,{updatedAt:now()});global.LubricaCore.State.setDatabase(d);return r}
  function updateTask(runId,id,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress'||(r.dueEntries?.length&&!runTaskIds(r).includes(String(id))))return null;r.taskResults=r.taskResults||{};r.taskResults[id]={done:false,resultStatus:'pending',observations:'',actualQuantity:'',actualQuantityUnit:'',deviationReason:'',...r.taskResults[id],...patch,updatedAt:now()};
   if(r.taskResults[id].done)r.taskResults[id].resultStatus='completed';
   else if(!['skipped','not_applicable'].includes(r.taskResults[id].resultStatus))r.taskResults[id].resultStatus='pending';r.updatedAt=now();global.LubricaCore.State.setDatabase(d);return r.taskResults[id]}
