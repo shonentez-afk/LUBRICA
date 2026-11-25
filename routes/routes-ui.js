@@ -316,7 +316,7 @@ function openCreateRouteDialog(view){
   content.querySelector('[data-clear-draft]').onclick=()=>{selectedTaskIds.clear();for(const cb of checks)cb.checked=false;refreshCount()};refreshCount();
  }
  function readInput(){
-  const data={lineId,areaId,interval:group.interval,groupingMode:group.groupingMode,serviceKey:group.serviceKey,serviceLabel:group.serviceLabel,scheduleKey:group.scheduleKey,manualGroupKey:group.key,taskIds:[...selectedTaskIds],name:name.trim()||group.name,status:'draft',pprMode:access};
+  const data={lineId,areaId,interval:group.interval,groupingMode:group.groupingMode,serviceKey:group.serviceKey,serviceLabel:group.serviceLabel,scheduleKey:group.scheduleKey,manualGroupKey:group.key,taskIds:[...selectedTaskIds].sort((a,b)=>composition.taskIds.indexOf(a)-composition.taskIds.indexOf(b)),name:name.trim()||group.name,status:'draft',pprMode:access};
   if(!group.scheduleKey.startsWith('runtime_hours:')&&basisMode!=='later')data.initialSchedule={mode:basisMode,date:basisDate};
   return data;
  }

@@ -42,6 +42,95 @@ def check(browser,width,height,label):
  page.evaluate('() => renderRoutes(document.getElementById("routes"))')
  today=page.evaluate('LubricaRouteDue.today()')
  tomorrow=page.evaluate('LubricaRoutePlanning.addInterval(LubricaRouteDue.today(),{kind:"days",value:1})')
+ # Exercise the manual wizard with a second area, equivalent intervals and a source gap.
+ baseline=page.evaluate('JSON.stringify(window.__db)')
+ page.evaluate('''() => {
+  makeTask('OTHER','bearing','regrease','Досмазывание','36 мес.','Другая зона','A2');
+  makeTask('EQV','bearing','regrease','Досмазывание','1 неделя','Недельная точка');
+  makeTask('BAD_SOURCE','bearing','regrease','Досмазывание','7 дней','Неподтверждённая норма');
+  for(const t of window.__db.tasks.filter(t=>['OTHER','EQV','BAD_SOURCE'].includes(t.id)))Object.assign(t,{materialMode:'explicit',materialId:'MAT',materialName:'Смазка',quantity:{approved:'10',unit:'г'}});
+  window.__originalReadiness=window.LubricaTaskReadiness.summarize;
+  window.LubricaTaskReadiness.summarize=d=>({items:d.tasks.map(t=>({taskId:t.id,status:t.id==='BAD_SOURCE'?'attention':'ready',steps:[{label:'Источники',ok:t.id!=='BAD_SOURCE'}],warningCodes:t.id==='BAD_SOURCE'?['QUANTITY_SOURCE_MISSING']:[],next:{label:'Подтвердить источник',hint:'Проверьте норму'}}))});
+  renderRoutes(document.getElementById("routes"));
+ }''')
+ manual_before=page.evaluate('JSON.stringify(window.__db)')
+ page.locator('#createRoute').click()
+ wizard=page.locator('#actionDialog')
+ assert wizard.locator('[data-manual-group-row]').count()==0
+ assert wizard.locator('[data-create-submit]').is_hidden()
+ assert wizard.locator('[name="fillMode"]').count()==0
+ wizard.locator('[name="areaId"]').select_option('A1')
+ assert wizard.locator('[data-manual-group-row]').count()==2
+ assert wizard.locator('[data-schedule-key="days:7"]').count()==1
+ assert wizard.locator('[data-schedule-key="months:36"]').count()==0
+ wizard.locator('[name="areaId"]').select_option('A2')
+ assert wizard.locator('[data-manual-group-row]').count()==1
+ assert wizard.locator('[data-schedule-key="months:36"]').count()==1
+ wizard.locator('[name="areaId"]').select_option('A1')
+ page.screenshot(path=str(OUT/(label+'_manual_groups.png')))
+ wizard.locator('[data-schedule-key="days:7"] [data-manual-group]').click()
+ assert wizard.locator('[data-manual-task]').count()==3
+ assert wizard.locator('[data-manual-task]:checked').count()==3
+ assert wizard.locator('[data-manual-task="H1"]').count()==0
+ assert wizard.locator('[data-manual-task="BAD_SOURCE"]').count()==0
+ wizard.locator('[data-clear-draft]').click()
+ assert wizard.locator('[data-manual-next]').is_disabled()
+ wizard.locator('[data-select-all-draft]').click()
+ wizard.locator('[data-manual-task="EQV"]').uncheck()
+ page.screenshot(path=str(OUT/(label+'_manual_selection.png')))
+ wizard.locator('[data-manual-next]').click()
+ assert wizard.locator('[data-create-submit]').is_visible()
+ assert wizard.locator('[data-create-submit]').is_disabled()
+ wizard.locator('[data-manual-preview]').click()
+ assert wizard.locator('[data-r82-issue="BAD_SOURCE"]').is_visible()
+ assert wizard.locator('[data-r82-issue="BAD_SOURCE"]').get_attribute('data-outcome')=='excluded'
+ assert 'Не подтверждён источник нормы количества' in wizard.locator('[data-r82-issue="BAD_SOURCE"]').inner_text()
+ assert wizard.locator('[data-r82-issue="EQV"]').get_attribute('data-outcome')=='unselected'
+ assert wizard.locator('[data-r82-missing-due]').count()==2
+ assert wizard.locator('[data-create-submit]').is_enabled()
+ assert page.evaluate('JSON.stringify(window.__db)')==manual_before
+ assert page.evaluate('window.__writes')==0
+ page.screenshot(path=str(OUT/(label+'_manual_result.png')))
+ wizard.locator('[name="basisMode"]').select_option('next')
+ wizard.locator('[name="basisDate"]').fill(today)
+ assert wizard.locator('[data-create-submit]').is_disabled()
+ wizard.locator('[data-manual-back]').click()
+ assert wizard.locator('[data-manual-task]:checked').count()==2
+ wizard.locator('[data-manual-next]').click()
+ assert wizard.locator('[name="basisDate"]').input_value()==today
+ wizard.locator('[data-manual-preview]').click()
+ assert wizard.locator('[data-r82-missing-due]').count()==0
+ assert wizard.locator('[data-create-submit]').is_enabled()
+ wizard.locator('[data-close]').last.click()
+ assert page.evaluate('JSON.stringify(window.__db)')==manual_before
+ assert page.evaluate('window.__writes')==0
+ page.locator('#createRoute').click()
+ wizard.locator('[name="areaId"]').select_option('A1')
+ wizard.locator('[data-schedule-key="days:7"] [data-manual-group]').click()
+ wizard.locator('[data-manual-task="EQV"]').uncheck()
+ wizard.locator('[data-manual-next]').click()
+ wizard.locator('[name="basisMode"]').select_option('next')
+ wizard.locator('[name="basisDate"]').fill(today)
+ wizard.locator('[data-manual-preview]').click()
+ assert wizard.locator('[data-create-submit]').is_enabled()
+ wizard.locator('[data-create-submit]').click()
+ assert page.evaluate('window.__db.routes.length')==1
+ assert page.evaluate('window.__db.routes[0].status')=='draft'
+ assert page.evaluate('window.__db.routes[0].taskIds.length')==2
+ assert page.evaluate('window.__db.tasks.find(t=>t.id==="C1").routeDue.nextDate')==today
+ assert page.evaluate('window.__db.routePlanItems.length')==0
+ assert page.evaluate('window.__writes')==1
+ wizard.locator('[data-route-scroll]').wait_for(state='visible')
+ wizard.locator('[data-close-route]').last.click()
+ page.locator('#createRoute').click()
+ wizard.locator('[name="areaId"]').select_option('A1')
+ assert wizard.locator('[data-schedule-key="days:7"] [data-manual-group]').count()==0
+ assert wizard.locator('[data-schedule-key="days:7"] [data-existing-route]').count()==1
+ wizard.locator('[data-schedule-key="days:7"] [data-existing-route]').click()
+ wizard.locator('[data-route-scroll]').wait_for(state='visible')
+ assert page.evaluate('window.__writes')==1
+ wizard.locator('[data-close-route]').last.click()
+ page.evaluate('raw=>{window.__db=JSON.parse(raw);window.__writes=0;window.LubricaTaskReadiness.summarize=window.__originalReadiness;delete document.getElementById("routes").dataset.selectedRoute;renderRoutes(document.getElementById("routes"))}',baseline)
  page.locator('#autoCreateRoute').click()
  dialog=page.locator('#routeExecutionDialog')
  dialog.locator('[data-r8-select-all]').click()
