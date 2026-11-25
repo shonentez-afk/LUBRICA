@@ -1,4 +1,4 @@
-name: LUBRICA Route Walkthrough R2 Chromium UX
+name: LUBRICA Route Walkthrough R2 + R3A Chromium UX
 
 on:
   pull_request:
@@ -7,6 +7,9 @@ on:
       - main
     paths:
       - 'routes/routes-ui.js'
+      - 'routes/route-engine.js'
+      - 'routes/route-auto-grouping.js'
+      - 'test/test_route_auto_grouping_r3a_browser.py'
       - 'routes/route-compact-ui.js'
       - 'checklist/checklist-engine.js'
       - 'assets/route-compact.css'
@@ -32,12 +35,16 @@ jobs:
           python -m pip install --disable-pip-version-check playwright
           python -m playwright install --with-deps chromium
       - name: Real route UI execution, responsive layout and screenshots
-        run: python test/test_route_execution_compact_r2_browser.py
+        run: |
+          python test/test_route_execution_compact_r2_browser.py
+          python test/test_route_auto_grouping_r3a_browser.py
       - name: Export screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: LUBRICA_ROUTES_R2_CHROMIUM_SCREENSHOTS
-          path: test-artifacts/routes-r2/*.png
+          name: LUBRICA_ROUTES_R2_R3A_CHROMIUM_SCREENSHOTS
+          path: |
+            test-artifacts/routes-r2/*.png
+            test-artifacts/routes-r3a/*.png
           if-no-files-found: warn
           retention-days: 30
