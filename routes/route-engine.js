@@ -97,7 +97,7 @@
  function save(d,message='Маршруты сохранены'){global.LubricaCore?.State?.setDatabase?.(d);global.LubricaApp?.refreshFromCore?.();global.LubricaApp?.showToast?.(message)}
  function syncAndSave(){const d=database();const result=syncRoutes(d);if(d&&!result.requiresConfirmation)save(d,`Маршруты обновлены · новых: ${result.created}`);return result}
  function updateRoute(id,patch){const d=database();if(!d)return null;const r=(d.routes||[]).find(x=>x.id===id);if(!r)return null;Object.assign(r,patch,{updatedAt:now()});save(d,'Маршрут сохранён');return r}
- function moveTask(routeId,taskId,delta){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r)return false;const a=r.taskIds||[],i=a.indexOf(String(taskId)),j=i+delta;if(i<0||j<0||j>=a.length)return false;[a[i],a[j]]=[a[j],a[i]];r.updatedAt=now();save(d,'Порядок маршрута изменён');return true}
+ function moveTask(routeId,taskId,delta){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const a=r.taskIds||[],i=a.indexOf(String(taskId)),j=i+delta;if(i<0||j<0||j>=a.length)return false;[a[i],a[j]]=[a[j],a[i]];r.updatedAt=now();save(d,'Порядок маршрута изменён');return true}
  function excludeTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const id=String(taskId);r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);r.excludedTaskIds=[...new Set([...(r.excludedTaskIds||[]),id])];r.updatedAt=now();save(d,'Мероприятие исключено из маршрута');return true}
  function restoreTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const id=String(taskId);if(typed(r)){const t=maps(d).tasks.get(id);if(!t||!matchesService(r,taskContext(d,t))||!routeEligibility(t,d,readinessIndex(d)).ok||(d.routes||[]).some(x=>x.id!==r.id&&x.status!=='archived'&&(x.taskIds||[]).includes(id)))return false;}r.excludedTaskIds=(r.excludedTaskIds||[]).filter(x=>String(x)!==id);if(!(r.taskIds||[]).includes(id))r.taskIds.push(id);r.updatedAt=now();save(d,'Мероприятие возвращено в маршрут');return true}
 
@@ -293,6 +293,7 @@
    const assigned=new Map();for(const other of d.routes||[])if(other.id!==r.id&&other.status==='active')for(const id of other.taskIds||[])if(!assigned.has(String(id)))assigned.set(String(id),other);
    for(const id of r.taskIds||[]){const t=m.tasks.get(String(id));if(!t){errors.push({code:'TASK_MISSING',taskId:id,message:`Мероприятие ${id} отсутствует`});continue}
      const c=taskContext(d,t,m),eligibility=routeEligibility(t,d,readiness,c);
+     if(typed(r)&&!readiness?.has(String(id)))errors.push({code:'TASK_QA_MISSING',taskId:id,message:`${id}: инженерная готовность не подтверждена`});
      if(!eligibility.ok)errors.push({code:eligibility.code,taskId:id,message:`${id}: ${eligibility.message}`});
      if(!m.lps.has(t.lubricationPointId))errors.push({code:'POINT_MISSING',taskId:id,message:`${id}: отсутствует физическая точка`});
      if(seen.has(String(id)))errors.push({code:'DUPLICATE_TASK',taskId:id,message:`${id}: повторяется в маршруте`});seen.add(String(id));
