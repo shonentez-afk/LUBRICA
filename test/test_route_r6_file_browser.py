@@ -69,9 +69,8 @@ def check(browser):
  field('line').select_option('L1');field('area').select_option('A0')
  weekly=dlg.locator('[data-r8-schedule="days:7"]').first
  weekly.locator('[data-r8-pick]').check();weekly.locator('[data-r8-mode]').select_option('ppr')
- field('preview').click();assert field('apply').is_enabled(),field('report').inner_text()
- assert 'ППР линии' in field('report').inner_text()
- assert 'Технический срок не изменён' in field('report').inner_text()
+ field('preview').click();assert not field('apply').is_enabled()
+ assert 'несовместим с ППР' in field('report').inner_text()
  page.screenshot(path=str(OUT/'00b_ppr_master.png'))
  field('line').select_option('');field('area').select_option('')
  dlg.locator('[data-r8-select-all]').click()

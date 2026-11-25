@@ -1,4 +1,4 @@
-name: LUBRICA Routes R1–R8 Regression and Preview
+name: LUBRICA Routes R1–R8.1 Regression and Preview
 
 on:
   pull_request:
@@ -18,6 +18,7 @@ on:
       - 'test/test_route_r6_integration.js'
       - 'test/test_route_r7_consolidation.js'
       - 'test/test_route_r8_live_planning.js'
+      - 'test/test_route_r81_unified_schedule.js'
       - 'test/test_database_modules.js'
       - 'test/route_r6_fixture.js'
       - 'core/database-*.js'
@@ -62,6 +63,7 @@ jobs:
           node --check test/test_route_r6_integration.js
           node --check test/test_route_r7_consolidation.js
           node --check test/test_route_r8_live_planning.js
+          node --check test/test_route_r81_unified_schedule.js
           node --check routes/route-plan-fact.js
           node --check routes/route-analytics.js
           node --check routes/management-dashboard.js
@@ -95,13 +97,15 @@ jobs:
         run: node test/test_route_r7_consolidation.js
       - name: R8 live planning and safe cycles
         run: node test/test_route_r8_live_planning.js
+      - name: R8.1 unified schedule
+        run: node test/test_route_r81_unified_schedule.js
       - name: Full regression including R6 real modules and mass routes
         run: bash test/run_all.sh
       - name: Build isolated Edge file preview
         shell: bash
         run: |
           set -euo pipefail
-          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW"
+          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW"
           mkdir -p "$STAGE"
           rsync -a ./ "$STAGE/" \
             --exclude '.git/' \
@@ -115,7 +119,7 @@ jobs:
             --exclude 'README.md' \
             --exclude 'START_NEW_CHAT_RU.md'
           find "$STAGE" -maxdepth 1 -type f \( -name 'RELEASE_*.md' -o -name 'LUBRICA_*.md' -o -name 'LUBRICA_*.txt' -o -name 'LUBRICA_*.json' -o -name 'LUBRICA_*.csv' \) -delete
-          printf '%s\n' 'LUBRICA ROUTES STAGE R1-R8' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check selected-group route table, centralized line PPR and staffing, calendar/actual weekly cycles, live forecast and atomic next-job shift assignment. All changes require preview and confirmation.' > "$STAGE/ROUTES_R8_README.txt"
+          printf '%s\n' 'LUBRICA ROUTES STAGE R1-R8.1' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check selected-group route table, centralized line PPR and staffing, calendar/actual weekly cycles, live forecast and atomic next-job shift assignment. All changes require preview and confirmation.' > "$STAGE/ROUTES_R8_1_README.txt"
           test -f "$STAGE/index.html"
           test -f "$STAGE/tools/route-r6-audit.js"
           test -f "$STAGE/manifest.json"
@@ -139,17 +143,17 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW.zip" LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW.zip" LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW
           cd "$GITHUB_WORKSPACE"
-          unzip -tq LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW.zip
-          sha256sum LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW.zip > LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW.zip.sha256
-          sha256sum -c LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW.zip.sha256
+          unzip -tq LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW.zip
+          sha256sum LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW.zip > LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW.zip.sha256
+          sha256sum -c LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW.zip.sha256
       - name: Upload ZIP for manual Edge QA
         uses: actions/upload-artifact@v4
         with:
-          name: LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW
+          name: LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW
           path: |
-            LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW.zip
-            LUBRICA_ROUTES_R8_LIVE_PLANNING_PREVIEW.zip.sha256
+            LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW.zip
+            LUBRICA_ROUTES_R8_1_UNIFIED_SCHEDULE_PREVIEW.zip.sha256
           if-no-files-found: error
           retention-days: 30

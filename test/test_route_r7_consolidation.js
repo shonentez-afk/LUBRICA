@@ -43,7 +43,7 @@ assert.equal(d.routes.find(x=>x.id===r.id).automationContent,fingerprint);
 assert.equal(M.preview(one(),d).report.summary.update,0);
 const c=E.previewRouteCandidates({lineId:'L',areaId:'A',interval:'1 неделя'},d);assert.equal(c.taskCount,0);
 const blocked=E.createRoute({lineId:'L',areaId:'A',interval:'7 дней',taskIds:r.taskIds,status:'draft'},d);assert.equal(blocked.code,'TASK_UNAVAILABLE');
-const copyRoute=E.cloneRoute(r.id,{name:'Copy'},d);assert(copyRoute.ok,copyRoute.reason);assert.equal(copyRoute.route.taskIds.length,0);
+const copyRoute=E.cloneRoute(r.id,{name:'Copy'},d);assert.equal(copyRoute.code,'GROUP_EXISTS','same group cannot be copied into a duplicate manual route');
 assert.equal(new Set(d.routes.flatMap(x=>x.taskIds)).size,d.routes.flatMap(x=>x.taskIds).length);
 reset();apply({...one(),initial:undefined});d.routes[0].taskIds=d.routes[0].taskIds.filter(id=>id!=='C1');d.routes[0].excludedTaskIds=['C1'];
 const bulk={lineId:'L',areaId:'A',initial:{mode:'next',date:tomorrow},activateReady:true,forecast:false};

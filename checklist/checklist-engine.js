@@ -209,7 +209,7 @@
  function createRun(routeId,{route=null,date='',performer='',shift='',forceNew=false,planItemId=''}={}){
   const d=db();if(!d)return null;
   const currentRoute=(d.routes||[]).find(r=>String(r.id)===String(routeId));
-  const isTyped=currentRoute?.groupingMode==='area_service_interval_v1';
+  const isTyped=currentRoute?.groupingMode==='area_service_interval_v1';if(global.LubricaRouteAutomation&&global.LubricaRouteDue&&!isTyped)return null;
   const W=global.LubricaRouteWorkload,activeWork=activeRuns(routeId,d)[0];
   if(activeWork?.workAssignment&&(forceNew||clean(planItemId)&&activeWork.plannedItemId!==clean(planItemId)))return null;
   const workCheck=activeWork&&!forceNew?{ok:true}:W?.startPolicy(routeId,planItemId,date,shift,d)||{ok:true};

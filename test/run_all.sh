@@ -135,6 +135,7 @@ echo '[ROUTE AUTOMATION R5]'; run_test node test/test_route_automation_r5.js
 echo '[R6 REAL MODULES AND MASS ROUTES]'; run_test node test/test_route_r6_integration.js
 echo '[R7 ROUTE ENGINE CONSOLIDATION]'; run_test node test/test_route_r7_consolidation.js
 echo '[R8 LIVE PLANNING]'; run_test node test/test_route_r8_live_planning.js
+echo '[R8.1 UNIFIED SCHEDULE]'; run_test node test/test_route_r81_unified_schedule.js
 if [ "$failures" -ne 0 ]; then
   printf 'REGRESSION FAILED: %s test commands failed\n' "$failures" >&2
   exit 1

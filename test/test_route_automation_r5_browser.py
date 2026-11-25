@@ -24,9 +24,9 @@ window.makeTask=(id,category,activity,operation,interval,type,areaId='A1',status
  d.tasks.push({id,lubricationPointId:p,activityType:activity,operation,approvalStatus:status,schedule:{legacyText:interval}});
 };
 
-makeTask('C1','bearing','regrease','Досмазывание','7 дней','Конвейер');
-makeTask('C2','bearing','regrease','Досмазывание','7 дней','Вентилятор');
-makeTask('C3','bearing','regrease','Досмазывание','7 дней','Двигатель');
+makeTask('C1','bearing','regrease','Досмазывание','14 дней','Конвейер');
+makeTask('C2','bearing','regrease','Досмазывание','14 дней','Вентилятор');
+makeTask('C3','bearing','regrease','Досмазывание','14 дней','Двигатель');
 makeTask('H1','bearing','regrease','Досмазывание','500 ч','Пила');
 window.__db.materials.push({id:'MAT',name:'Смазка',code:'GR-01'});
 window.__db.tasks.forEach(t=>Object.assign(t,{materialMode:'explicit',materialId:'MAT',materialName:'Смазка',quantity:{approved:'10',unit:'г'}}));
@@ -60,8 +60,8 @@ def check(browser,width,height,label):
  def section(label):return dlg.locator('.r5-section>summary').filter(has_text=label)
  f('line').select_option('L1');f('area').select_option('A1')
  assert dlg.locator('[data-r8-row]').count()==2
- weekly=dlg.locator('[data-r8-schedule="days:7"]')
- assert '1 неделя (7 дней)' in weekly.inner_text()
+ weekly=dlg.locator('[data-r8-schedule="days:14"]')
+ assert '2 недели (14 дней)' in weekly.inner_text()
  assert dlg.locator('[data-r8-schedule="runtime_hours:500"]').count()==1
  f('preview').click()
  assert not f('apply').is_enabled()
@@ -107,7 +107,7 @@ def check(browser,width,height,label):
  assert page.evaluate('window.__writes')==2
  assert page.evaluate('window.__db.routes.length')==2
  assert page.evaluate('window.__db.routePlanItems.length')==0
- assert page.evaluate('window.__db.routes.find(x=>x.scheduleKey==="days:7").taskIds[0]')=='C3'
+ assert page.evaluate('window.__db.routes.find(x=>x.scheduleKey==="days:14").taskIds[0]')=='C3'
  page.locator('#routePlanning').click()
  plan.locator('[data-plan-start]').fill(today);plan.locator('[data-plan-end]').fill(tomorrow)
  assert plan.locator('[data-r8-live-day]').count()==2
@@ -138,7 +138,7 @@ def check(browser,width,height,label):
  assert dlg.locator('[data-confirm-complete]').is_enabled()
  dlg.locator('[data-confirm-complete]').click()
  assert page.evaluate('window.__db.checklistRuns[0].status')=='completed'
- assert page.evaluate('window.__db.tasks.find(t=>t.id==="C1").routeDue.nextDate')==page.evaluate('LubricaRoutePlanning.addInterval(LubricaRouteDue.today(),{kind:"days",value:7})')
+ assert page.evaluate('window.__db.tasks.find(t=>t.id==="C1").routeDue.nextDate')==page.evaluate('LubricaRoutePlanning.addInterval(LubricaRouteDue.today(),{kind:"days",value:14})')
  assert page.locator('#syncRoutes').count()==0
  page.locator('#autoCreateRoute').click()
  dlg.locator('[data-r8-select-all]').click()

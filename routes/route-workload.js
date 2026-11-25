@@ -127,7 +127,9 @@
   const guard=pprModeGuard(d,v.settings.pprRouteIds);if(!guard.ok)return guard;
   const previous=pprSettings(d);for(const run of arr(d.checklistRuns).filter(x=>x.status==='in_progress')){const r=routes.get(String(run.routeId)),line=String(r?.lineId||run.workAssignment?.lineId||'');if(!line||!(run.workAssignment?.pprRequired||previous.pprRouteIds.includes(String(run.routeId))))continue;if(previous.ppr.find(x=>x.lineId===line)?.anchorDate!==v.settings.ppr.find(x=>x.lineId===line)?.anchorDate)return fail('PPR_ROUTE_LOCKED','Нельзя изменить график ППР линии во время выполнения маршрута')}
   if(JSON.stringify(d.routeWorkload)===JSON.stringify(v.settings))return{ok:true,changed:false,settings:v.settings,database:d};
-  const w=clone(d);w.routeWorkload=v.settings;if(persist)global.LubricaCore.State.setDatabase(w);
+  const w=clone(d);w.routeWorkload=v.settings;
+   if(global.LubricaRouteAutomation&&global.LubricaRouteDue){const D=global.LubricaRouteDue;for(const r of arr(w.routes).filter(x=>x.status==='active'&&D.typed(x))){const oldAnchor=previous.ppr.find(x=>x.lineId===String(r.lineId))?.anchorDate,newAnchor=v.settings.ppr.find(x=>x.lineId===String(r.lineId))?.anchorDate,oldPpr=previous.pprRouteIds.includes(String(r.id)),newPpr=v.settings.pprRouteIds.includes(String(r.id)),individual=arr(r.taskIds).some(id=>global.LubricaRouteAutomation.taskPpr(id,w));if((oldPpr||newPpr||individual)&&(oldAnchor!==newAnchor||oldPpr!==newPpr)){if(global.LubricaRouteAutoGrouping.routeLocked(d,r))return fail('PPR_ROUTE_LOCKED','Сначала завершите или снимите задания маршрута '+r.name);const issues=D.activationIssues(r,w);const issue=issues.find(x=>x.code==='PPR_CYCLE'||x.code==='PPR_ANCHOR_REQUIRED');if(issue)return fail(issue.code,r.name+': '+issue.message)}}}
+   if(persist)global.LubricaCore.State.setDatabase(w);
   return{ok:true,changed:true,settings:v.settings,database:w};
  }
  function assignment(item){
@@ -257,7 +259,7 @@
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   if(!settings(d))return fail('CAPACITY_REQUIRED','Сначала сохраните рабочие дни и доступное время');
   const P=global.LubricaRoutePlanning,E=global.LubricaRouteEngine,D=global.LubricaRouteDue,R=global.LubricaRoutePreparation;
-  const opts={startDate:options.startDate,endDate:options.endDate},p=P.commit(opts,d,{persist:false});if(!p.ok)return {...p,message:p.reason};
+  const opts={startDate:options.startDate,endDate:options.endDate,routeIds:options.routeIds,skipBlocked:true},p=P.commit(opts,d,{persist:false});if(!p.ok)return {...p,message:p.reason};
   const work=p.database,oldIds=new Set(arr(d.routePlanItems).map(x=>x.id)),routes=new Map(E.routeEntries(work,{preview:false}).map(r=>[r.id,r])),shared=E.validationContext?.(work);
   for(const item of arr(work.routePlanItems).filter(x=>!oldIds.has(x.id)&&x.planningBasis==='task_due')){
    const r=routes.get(item.routeId),selected=r&&D.selectRoute(r,item,work),prep=selected&&R?.build(selected,work,shared);

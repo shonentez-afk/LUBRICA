@@ -22,7 +22,7 @@ function task(id,interval,qty){
  d.lubricationPoints.push({id:lp,equipmentId:eq,nodeId:node,category:'bearing',name:'Опора '+id,targetMaterialId:'MAT',status:'confirmed'});
  d.tasks.push({id,lubricationPointId:lp,activityType:'regrease',operation:'Досмазывание',schedule:{legacyText:interval},approvalStatus:'approved',materialMode:'explicit',materialId:'MAT',materialName:'Смазка',quantity:{approved:String(qty),unit:'г'}});
 }
-task('C1','7 дней',10);task('C2','7 дней',20);task('C3','1 неделя',30);
+task('C1','14 дней',10);task('C2','14 дней',20);task('C3','2 недели',30);
 task('H1','500 ч',5);task('H2','500 часов',6);task('H3','500 ч',7);
 let grouping=E.previewAutoGrouping({},d);assert.equal(grouping.summary.create,2);
 let generated=E.applyAutoGrouping({},grouping.token,d);assert(generated.ok,generated.reason);
@@ -53,7 +53,7 @@ let cRun=C.createRun(cr,{route:entry(cr),date:today,performer:'А',shift:'1',pla
 assert.deepEqual(cRun.routeTaskIds,['C1','C2']);assert.equal(cRun.routeSnapshot.taskCount,2);
 assert.equal(d.routePlanItems.find(x=>x.id===cp.id).status,'in_progress');assert.equal(C.updateTask(cRun.id,'C3',{done:true}),null,'non-job task cannot be changed');
 C.updateTask(cRun.id,'C1',{done:true,actualQuantity:'10 г'});C.updateTask(cRun.id,'C2',{done:false,resultStatus:'skipped',deviationReason:'Нет доступа'});
-let done=C.completeRun(cRun.id,entry(cr));assert(done);assert.equal(t('C1').routeDue.nextDate,P.addInterval(today,{kind:'days',value:7}));assert.equal(t('C2').routeDue.nextDate,today,'skip retains due');assert.equal(t('C3').routeDue.nextDate,tomorrow,'future task untouched');
+let done=C.completeRun(cRun.id,entry(cr));assert(done);assert.equal(t('C1').routeDue.nextDate,P.addInterval(today,{kind:'days',value:14}));assert.equal(t('C2').routeDue.nextDate,today,'skip retains due');assert.equal(t('C3').routeDue.nextDate,tomorrow,'future task untouched');
 assert.equal(F.analyzeRun(done,entry(cr)).tasks.total,2);assert.equal(F.analyzeRun(done,entry(cr)).tasks.skipped,1);
 assert.equal(d.routePlanItems.find(x=>x.id===cp.id).status,'completed');
 assert.deepEqual(P.preview({startDate:today,endDate:today},d).items.find(x=>x.routeId===cr).taskIds,['C2'],'skipped task reappears without duplicate completed tasks');
@@ -88,6 +88,8 @@ const W=LubricaRouteWorkload;
 const pprConfig={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:480},{id:'2',workers:2,minutesPerWorker:480}],ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[cr]};
 assert.equal(W.saveSettings(pprConfig,d).code,'PPR_ROUTE_LOCKED','existing open jobs protect route PPR mode');
 for(const job of d.routePlanItems.filter(x=>x.routeId===cr&&x.status==='planned'))assert(P.remove(job.id,d).ok,'explicitly remove unstarted jobs before changing mode');
+assert.equal(W.saveSettings(pprConfig,d).code,'PPR_CYCLE','off-phase future due requires an approved early window');
+t('C3').routePolicy={key:D.signature(t('C3'),d),access:'normal',earlyDays:1,earlyReason:'Approved PPR window'};
 assert(W.saveSettings(pprConfig,d).ok);
 assert(P.commit({startDate:today,endDate:today},d).ok);
 const pprJob=d.routePlanItems.find(x=>x.routeId===cr&&x.status==='planned'&&x.taskIds.includes('C2'));
@@ -103,6 +105,6 @@ assert.equal(C.getRun(pprRun.id).date,today);assert.equal(C.getRun(pprRun.id).sh
 assert.equal(W.move(pprJob.id,{clear:true,reason:'Нельзя менять начатое'},d).code,'JOB_LOCKED');
 C.updateTask(pprRun.id,'C2',{done:true,actualQuantity:'20 г'});
 assert(C.completeRun(pprRun.id,entry(cr)));
-assert.equal(t('C2').routeDue.nextDate,P.addInterval(today,{kind:'days',value:7}));
+assert.equal(t('C2').routeDue.nextDate,P.addInterval(today,{kind:'days',value:14}));
 assert.equal(d.routePlanItems.find(x=>x.id===pprJob.id).plannedDate,today);
 console.log('R4 R3B CHECKLIST INTEGRATION PASS — PPR policy, exact assigned shift, frozen fact and original next due logic');

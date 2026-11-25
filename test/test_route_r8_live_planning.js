@@ -65,9 +65,10 @@ const ppr=row(14,{pprMode:'ppr',cycleMode:'fixed_weekly',initial:{mode:'next',da
 assert.equal(M.preview(op([ppr]),d).code,'PPR_ANCHOR_REQUIRED');
 assert(W.saveSettings({...cfg,shifts:[]},d,{allowUnconfigured:true}).ok);
 assert.equal(W.settings(d),null);assert(W.pprOn('L',today,d));
-apply(op([ppr,row(7,{pprMode:'ppr',initial:{mode:'next',date:''}})]));
+assert.equal(M.preview(op([ppr,row(7,{pprMode:'ppr',initial:{mode:'next',date:''}})]),d).code,'PPR_CYCLE');
+assert.equal(d.routes.length,0);apply(op([ppr,row(7)]));
 const pprForecast=M.projectRange({startDate:today,endDate:plus(28)},d);
-assert(pprForecast.occurrences.some(x=>x.date===plus(7)&&x.pprConflict));
+assert(pprForecast.occurrences.some(x=>x.date===plus(7)&&!x.ppr&&!x.pprConflict));
 assert(pprForecast.occurrences.some(x=>x.date===plus(14)&&x.ppr&&!x.pprConflict));
 assert.equal(d.routePlanItems.length,0);
 assert(W.saveSettings({...cfg,pprRouteIds:W.pprSettings(d).pprRouteIds,shifts:[{id:'1',workers:2,minutesPerWorker:480}]},d).ok);

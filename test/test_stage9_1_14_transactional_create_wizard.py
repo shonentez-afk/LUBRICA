@@ -16,7 +16,7 @@ checks={
  'footer outside scroll region':'grid-template-rows:auto minmax(0,1fr) auto!important' in css,
  'only create layout scrolls':'#actionDialog.route-create-dialog .route-create-layout' in css and 'overflow:auto!important' in css,
  'footer fixed in modal layout':'#actionDialog.route-create-dialog .route-create-footer' in css and 'position:relative!important' in css,
- 'all areas label correct':'<option value="">Все участки</option>' in js,
+ 'explicit manual group':'<option value="">Выберите участок</option>' in js and 'name="serviceKey"' in js,
 }
 start=js.index("f.addEventListener('submit'")
 func_start=js.index('function openCreateRouteDialog')

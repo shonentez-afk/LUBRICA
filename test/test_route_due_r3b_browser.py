@@ -54,6 +54,7 @@ def check(browser,width,height,label):
   page.evaluate('(id)=>{const v=document.getElementById("routes");v.dataset.routeStatusFilter="working";v.dataset.selectedRoute=id;delete v.dataset.checklistRun;delete v.dataset.plannedItemId;renderRoutes(v)}',route_id)
  select(cal)
  page.locator('#routeDue').click()
+ dialog.locator('[data-r81-individual] > summary').click()
  assert dialog.locator('[data-due-task]').count()==2
  dialog.locator('[data-due-bulk]').fill(today)
  dialog.locator('[data-due-fill]').click()
@@ -65,6 +66,7 @@ def check(browser,width,height,label):
  # Runtime due date must not be fabricated. A reading and threshold are explicit.
  select(runtime)
  page.locator('#routeDue').click()
+ dialog.locator('[data-r81-individual] > summary').click()
  for name,value in [('nextHours','1000'),('readingHours','1001'),('readingDate',today),('hoursPerDay','0')]:
   dialog.locator('[data-due-field="'+name+'"]').fill(value)
  page.screenshot(path=str(OUT/(label+'_runtime_setup.png')))
@@ -127,6 +129,21 @@ def check(browser,width,height,label):
  dialog.locator('[data-confirm-complete]').click()
  assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.nextHours')==1503
  assert page.evaluate('window.__db.routePlanItems.every(p=>p.status==="completed")')
+ # R8.1: explicitly convert an existing meter route to safe calendar planning.
+ select(runtime)
+ page.locator('#routeDue').click()
+ assert not dialog.locator('[data-r81-individual]').evaluate('(x)=>x.open')
+ dialog.locator('[data-r81-method]').select_option('calendar_runtime')
+ dialog.locator('[data-r81-date]').fill(today)
+ dialog.locator('[data-r81-confirm]').check()
+ dialog.locator('[data-r81-replace]').check()
+ assert '2 недель' in dialog.locator('[data-r81-rule]').inner_text()
+ page.screenshot(path=str(OUT/(label+'_r81_common_calendar.png')))
+ dialog.locator('[data-r81-save-common]').click()
+ assert not dialog.is_visible(),dialog.inner_text()
+ assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.planningMode')=='calendar_runtime'
+ assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.cycleDays')==14
+ assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.nextHours===undefined')
  assert not errors,errors
  page.close()
 with sync_playwright() as pw:

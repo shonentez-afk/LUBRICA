@@ -14,9 +14,37 @@
  function context(t,d,index){return index?.get(String(t.id))||engine()?.taskContext(d,t)}
  function signature(t,d,index){const c=context(t,d,index),g=global.LubricaRouteAutoGrouping?.describe(c);return g?.ok?JSON.stringify([String(t.lubricationPointId),g.serviceKey,g.scheduleKey]):''}
  function spec(t){return global.LubricaRouteAutoGrouping?.scheduleFor(t)}
+ // R8.1 — planning basis is independent of the approved OEM interval.
+ function calendarRule(hours,maxHoursPerDay,ppr=false){
+  const h=num(hours),rate=num(maxHoursPerDay);
+  if(!(h>0)||!(rate>0&&rate<=24))return fail('RUNTIME_RATE','Подтвердите максимальную наработку от 0 до 24 ч/сут');
+  const maxDays=Math.floor(h/rate),days=ppr?Math.floor(maxDays/14)*14:maxDays>=7?Math.floor(maxDays/7)*7:maxDays;
+  if(!Number.isSafeInteger(days)||days>36500)return fail('RUNTIME_CYCLE','Некорректно большой календарный интервал');
+  if(days<1)return fail('RUNTIME_CYCLE','Технический интервал слишком короткий для '+(ppr?'ППР раз в 14 дней':'суточного календаря')+'; используйте фактический счётчик');
+  return {ok:true,days,maxDays,maxHoursPerDay:rate,technicalHours:h,plannedHours:days*rate,weeks:days%7===0?days/7:0};
+ }
+ function makeCalendarBasis(t,d,index,{date,mode='next',maxHoursPerDay,confirmCalendar=false,ppr=false}={}){
+  const s=spec(t),key=signature(t,d,index),first=day(date);
+  if(!s?.ok||s.kind!=='runtime_hours'||!key)return fail('RUNTIME_MODE','Нужен подтверждённый интервал по наработке');
+  const rule=calendarRule(s.value,maxHoursPerDay,ppr);if(!rule.ok)return rule;
+  if(confirmCalendar!==true)return fail('RUNTIME_CONFIRM','Подтвердите максимальную наработку и допустимость досрочной смазки');
+  if(!first||!['next','last'].includes(mode)||mode==='last'&&first>today())return fail('INITIAL_DATE','Укажите первый срок или фактическую дату последнего обслуживания');
+  let next=mode==='last'?advance(first,rule.days):first;
+  if(ppr){const c=context(t,d,index),W=global.LubricaRouteWorkload,phase=W?.nextPpr(c?.lineId,next,d);
+   if(!phase)return fail('PPR_ANCHOR_REQUIRED','Сначала настройте ППР линии');
+   if(mode==='last'){if(phase>next)next=advance(phase,-14);if(next<=first)return fail('PPR_CYCLE','Нет ППР между последним обслуживанием и допустимым сроком')}
+   else if(phase!==next)return fail('PPR_CYCLE','Первый срок должен совпадать с ППР линии');
+  }
+  return{ok:true,basis:{key,planningMode:'calendar_runtime',calendarConfirmed:true,maxHoursPerDay:rule.maxHoursPerDay,cycleDays:rule.days,nextDate:next,...(mode==='last'?{lastServiceDate:first}:{})}};
+ }
  function parseBasis(t,d,index){
   const s=spec(t),key=signature(t,d,index),b=t.routeDue||{};
   if(!s?.ok||!key||b.key!==key)return fail('TASK_DUE_MISSING','Укажите основание следующего срока для актуального мероприятия');
+  if(s.kind==='runtime_hours'&&b.planningMode==='calendar_runtime'){
+   const date=day(b.nextDate),rate=num(b.maxHoursPerDay),days=num(b.cycleDays);
+   if(b.calendarConfirmed!==true||!date||!(rate>0&&rate<=24)||!Number.isSafeInteger(days)||days<1||days>36500||days*rate>s.value+1e-9)return fail('TASK_CALENDAR_RUNTIME_INVALID','Уточните календарный цикл и максимальную наработку');
+   return {ok:true,key,kind:'days',interval:days,nextDate:date,planningMode:'calendar_runtime',technicalHours:s.value,maxHoursPerDay:rate};
+  }
   if(s.kind==='runtime_hours'){
    const due=num(b.nextHours),reading=num(b.readingHours),rate=num(b.hoursPerDay),date=day(b.readingDate);
    if(due==null||due<0||reading==null||reading<0||!date||date>today()||(rate!=null&&(rate<0||rate>24)))return fail('TASK_METER_MISSING','Укажите действительные показания, дату и следующий порог моточасов');
@@ -38,8 +66,8 @@
   if(!key||!s?.ok||b?.key!==key)return fail('STALE_BASIS','Изменилось мероприятие '+id+'; откройте настройки повторно');
   if(initialOnly&&old.ok)return{ok:true,changed:false};
   if(runningTask(d,id))return fail('RUNNING','Мероприятие '+id+' уже выполняется');
-  if(s.kind==='runtime_hours'&&old.ok&&(b.readingHours<old.readingHours||b.readingDate<old.readingDate))return fail('METER_ROLLBACK',id+': сброс/замена счётчика требуют отдельного согласования');
-  if(reserved(d,id)&&(!old.ok||(s.kind==='runtime_hours'?b.nextHours!==old.nextHours:b.nextDate!==old.nextDate)))return fail('BASIS_RESERVED',id+': сначала снимите незапущенное задание, срок уже зафиксирован');
+  if(s.kind==='runtime_hours'&&old.ok&&old.kind==='runtime_hours'&&b.planningMode!=='calendar_runtime'&&(b.readingHours<old.readingHours||b.readingDate<old.readingDate))return fail('METER_ROLLBACK',id+': сброс/замена счётчика требуют отдельного согласования');
+  if(reserved(d,id)&&(!old.ok||(old.kind==='runtime_hours'?b.planningMode==='calendar_runtime'||b.nextHours!==old.nextHours:b.planningMode!==t.routeDue?.planningMode||b.nextDate!==old.nextDate||b.cycleDays!==t.routeDue?.cycleDays||b.maxHoursPerDay!==t.routeDue?.maxHoursPerDay)))return fail('BASIS_RESERVED',id+': сначала снимите незапущенное задание, срок уже зафиксирован');
   const before=t.routeDue;t.routeDue=b;const result=parseBasis(t,d,index);
   if(!result.ok){if(before===undefined)delete t.routeDue;else t.routeDue=before;return fail(result.code,id+': '+result.message)}
   return{ok:true,changed:JSON.stringify(before)!==JSON.stringify(b)};
@@ -47,7 +75,7 @@
  function validateRouteBasis(route,d,index=null){const ix=index||engine()?.contextIndex(d)||new Map(),out=[];for(const id of arr(route?.taskIds)){const t=ix.get(String(id))?.task,b=t?parseBasis(t,d,ix):fail('TASK_MISSING','Мероприятие не найдено');if(!b.ok)out.push({code:b.code,taskId:String(id),message:id+': '+b.message})}return out}
  // A single explicit transaction. Existing pending jobs freeze the due basis;
  // meter readings may be refreshed until actual execution starts.
- function configure(routeId,changes,d=db()){
+ function configure(routeId,changes,d=db(),{persist=true}={}){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   const r=arr(d.routes).find(x=>String(x.id)===String(routeId));
   if(!typed(r)||r.status==='archived')return fail('ROUTE_NOT_AVAILABLE','Выберите текущий автомаршрут');
@@ -61,7 +89,9 @@
    if(!key||!s?.ok||row.key!==key)return fail('STALE_BASIS','Изменилось мероприятие '+id+'; откройте настройки повторно');
    
    let b={...(old.ok?{lastRunId:t.routeDue?.lastRunId||'',lastServiceDate:t.routeDue?.lastServiceDate||''}:{}),key};
-   if(s.kind==='runtime_hours'){
+   if(s.kind==='runtime_hours'&&old.ok&&old.planningMode==='calendar_runtime'&&row.nextDate!==undefined){
+    b={...t.routeDue,nextDate:day(row.nextDate)};if(row.nextDate!==old.nextDate){b.cycleAnchor=b.nextDate;b.cycleTarget=b.nextDate}
+   }else if(s.kind==='runtime_hours'){
     if(str(row.hoursPerDay)&&num(row.hoursPerDay)==null)return fail('INVALID_RATE',id+': некорректная плановая наработка');
     b={...b,nextHours:num(row.nextHours),readingHours:num(row.readingHours),readingDate:day(row.readingDate),hoursPerDay:num(row.hoursPerDay)||0};
     
@@ -72,13 +102,87 @@
    }
    const result=writeBasis(t,b,work,ix);if(!result.ok)return result;
   }
-  global.LubricaCore.State.setDatabase(work);
-  global.LubricaApp?.refreshFromCore?.();
+  if(persist){global.LubricaCore.State.setDatabase(work);global.LubricaApp?.refreshFromCore?.()}
   return{ok:true,updated:seen.size,database:work};
+ }
+ // Shared setup for a manual or automatic route. No fake counter or history.
+ function configureRoute(routeId,input={},d=db(),{persist=true,activate=true}={}){
+  if(!d)return fail('DATABASE_MISSING','База недоступна');
+  const work=copy(d),r=arr(work.routes).find(x=>String(x.id)===String(routeId)),ix=engine().contextIndex(work),W=global.LubricaRouteWorkload;
+  if(!typed(r)||r.status==='archived')return fail('ROUTE_NOT_AVAILABLE','Выберите текущий маршрут');
+  if(global.LubricaRouteAutoGrouping.routeLocked(work,r))return fail('ROUTE_LOCKED','Сначала завершите или снимите открытые задания');
+  const date=day(input.date),mode=input.mode||'next',runtime=r.scheduleKey.startsWith('runtime_hours:'),calendar=runtime&&input.planningMode==='calendar_runtime',ppr=input.pprMode?input.pprMode==='ppr':W?.requiresPpr(r.id,work);
+  if(!date||!['next','last'].includes(mode)||mode==='last'&&date>today())return fail('INITIAL_DATE','Укажите допустимую исходную дату');
+  if(input.pprMode){const result=W.saveRoutePpr(r.id,input.pprMode,'',work,{persist:false});if(!result.ok)return result;work.routeWorkload=result.database.routeWorkload}
+  let updated=0;
+  for(const id of arr(r.taskIds)){
+   const t=ix.get(String(id))?.task;if(!t)return fail('TASK_MISSING','Нет мероприятия '+id);
+   const old=parseBasis(t,work,ix),s=spec(t);
+   if(old.ok&&!input.replaceExisting){
+    if(calendar&&(old.planningMode!=='calendar_runtime'||old.maxHoursPerDay!==Number(input.maxHoursPerDay)))return fail('MODE_CHANGE_CONFIRM','Для изменения способа или наработки подтвердите замену исходных сроков');
+    continue;
+   }
+   if(!s?.ok)return fail('INTERVAL_INVALID','Уточните технический интервал '+id);
+   if(runtime&&!calendar)return fail('METER_REQUIRED','Настройте общий счётчик оборудования или индивидуальные показания');
+   let b;
+   if(calendar){const made=makeCalendarBasis(t,work,ix,{...input,date,mode,ppr});if(!made.ok)return made;b=made.basis}
+   else b={key:signature(t,work,ix),nextDate:mode==='last'?global.LubricaRoutePlanning.addInterval(date,s):date,...(mode==='last'?{lastServiceDate:date}:{})};
+   if(r.cycleMode==='fixed_weekly'){b.cycleAnchor=b.nextDate;b.cycleTarget=b.nextDate}
+   const changed=writeBasis(t,b,work,ix);if(!changed.ok)return changed;if(changed.changed)updated++;
+  }
+  if(calendar)r.scheduleDefaults={planningMode:'calendar_runtime',maxHoursPerDay:Number(input.maxHoursPerDay),confirmCalendar:true};
+  const issues=activationIssues(r,work,ix);
+  if((activate||r.status==='active')&&issues.length)return{...fail('ROUTE_SCHEDULE_BLOCKED',issues[0].message),issues};
+  if(activate){const check=engine().validateRoute(r.id,work);if(!check.valid)return{...fail('ROUTE_NOT_READY','Маршрут не прошёл инженерную проверку'),issues:check.errors};r.status='active'}
+  engine().ensureRouteRevision(r.id,work,{note:'Общие сроки маршрута',reason:'schedule'});
+  if(persist){global.LubricaCore.State.setDatabase(work);global.LubricaApp?.refreshFromCore?.()}
+  return {ok:true,updated,database:work,route:r};
+ }
+ // The same equipment meter can update all of its tasks; distinct service
+ // thresholds are retained when refreshing readings.
+ function configureMeter(routeId,equipmentId,input={},d=db(),{persist=true,activate=false}={}){
+  if(!d)return fail('DATABASE_MISSING','База недоступна');const work=copy(d),r=arr(work.routes).find(x=>String(x.id)===String(routeId)),ix=engine().contextIndex(work);
+  if(!typed(r)||r.status==='archived'||!equipmentId)return fail('METER_SCOPE','Выберите маршрут и оборудование');
+  const date=day(input.readingDate),reading=num(input.readingHours),last=num(input.lastHours),rate=num(input.hoursPerDay);
+  if(input.confirmMeter!==true||!date||date>today()||reading==null||reading<0||rate!=null&&(rate<0||rate>24))return fail('METER_INITIAL','Подтвердите общий счётчик, показание и дату');
+  let updated=0;
+  for(const id of arr(r.taskIds)){
+   const c=ix.get(String(id));if(String(c?.eq?.id)!==String(equipmentId))continue;
+   const t=c.task,s=spec(t),old=parseBasis(t,work,ix);if(s?.kind!=='runtime_hours')continue;
+   if(old.ok&&old.kind!=='runtime_hours'&&!input.replaceExisting)return fail('MODE_CHANGE_CONFIRM','Подтвердите переход от календаря к счётчику');
+   let b;
+   if(old.ok&&old.kind==='runtime_hours'&&!input.replaceExisting)b={...t.routeDue,readingHours:reading,readingDate:date,hoursPerDay:rate??old.hoursPerDay};
+   else {if(last==null||last<0||last>reading)return fail('METER_INITIAL','Укажите подтверждённую наработку при последнем обслуживании');b={key:signature(t,work,ix),nextHours:last+s.value,readingHours:reading,readingDate:date,hoursPerDay:rate||0}}
+   const res=writeBasis(t,b,work,ix);if(!res.ok)return res;updated++;
+  }
+  if(!updated)return fail('METER_SCOPE','Нет мероприятий выбранного оборудования');
+  if(arr(r.taskIds).every(id=>parseBasis(ix.get(String(id))?.task||{},work,ix).kind==='runtime_hours'))delete r.scheduleDefaults;
+  if(activate){const issues=activationIssues(r,work,ix);if(issues.length)return {...fail('ROUTE_SCHEDULE_BLOCKED',issues[0].message),issues};const check=engine().validateRoute(r.id,work);if(!check.valid)return fail('ROUTE_NOT_READY','Маршрут не прошёл инженерную проверку');r.status='active'}
+  if(persist){global.LubricaCore.State.setDatabase(work);global.LubricaApp?.refreshFromCore?.()}
+  return{ok:true,updated,database:work,route:r};
+ }
+ function activationIssues(route,d,index=null){
+  const ix=index||engine().contextIndex(d),issues=validateRouteBasis(route,d,ix),W=global.LubricaRouteWorkload,M=global.LubricaRouteAutomation;
+  if(!arr(route.taskIds).length)return [{code:'ROUTE_EMPTY',message:'В маршруте нет мероприятий'}];
+  for(const id of arr(route.taskIds)){
+   const t=ix.get(String(id))?.task,b=t&&parseBasis(t,d,ix);
+   if(!b?.ok||!(W?.requiresPpr(route.id,d)||t?.routePolicy?.access==='ppr'))continue;
+   const phase=W?.nextPpr(route.lineId,today(),d);if(!phase){issues.push({code:'PPR_ANCHOR_REQUIRED',taskId:id,message:'Не задан ППР линии'});continue}
+   if(b.kind==='runtime_hours')continue;
+   if(b.kind==='days'&&b.interval<14){issues.push({code:'PPR_CYCLE',taskId:id,message:'Интервал '+b.interval+' дн. несовместим с ППР каждые 14 дней'});continue}
+   let due=b.nextDate,phaseBasis={cycleAnchor:t.routeDue?.cycleAnchor||due,cycleTarget:t.routeDue?.cycleTarget||due};
+   for(let n=0;n<(b.kind==='days'?14:24);n++){
+    const earliest=M?.earlyDate(t,d,due)||due,next=W.nextPpr(route.lineId,earliest,d);
+    if(!next||next>due){issues.push({code:'PPR_CYCLE',taskId:id,message:'Нет ППР в допустимом окне срока '+due});break}
+    const step=calendarStep(next,{kind:b.kind,interval:b.interval,dueDate:due},route,phaseBasis);
+    due=step.nextDate;phaseBasis={...phaseBasis,...step};if(!due)break;
+   }
+  }
+  return issues;
  }
  function dueFor(t,d,index){
   const b=parseBasis(t,d,index);if(!b.ok)return b;
-  if(b.kind!=='runtime_hours')return{...b,dueDate:b.nextDate,basis:'task_calendar'};
+  if(b.kind!=='runtime_hours')return{...b,dueDate:b.nextDate,basis:b.planningMode==='calendar_runtime'?'runtime_calendar':'task_calendar'};
   const left=b.nextHours-b.readingHours;
   if(left<=0)return{...b,dueDate:b.readingDate,basis:'meter_confirmed'};
   if(!b.hoursPerDay)return{...b,dueDate:'',basis:'meter_waiting',remainingHours:left};
@@ -99,7 +203,7 @@
    if(due.dueDate>end&&earliest>end)continue;
    const date=due.dueDate<start?start:due.dueDate;
    if(!group.has(date))group.set(date,[]);
-   group.get(date).push({taskId:id,key:due.key,kind:due.kind,basis:due.basis,dueDate:due.dueDate,...(earliest<due.dueDate?{earliestDate:earliest}:{}),nextHours:due.nextHours??null,interval:due.interval,forecast:due.basis==='meter_forecast'});
+   group.get(date).push({taskId:id,key:due.key,kind:due.kind,basis:due.basis,dueDate:due.dueDate,...(earliest<due.dueDate?{earliestDate:earliest}:{}),nextHours:due.nextHours??null,interval:due.interval,...(due.planningMode?{planningMode:due.planningMode,technicalHours:due.technicalHours,maxHoursPerDay:due.maxHoursPerDay}:{}),forecast:due.basis==='meter_forecast'});
   }
   const groups=[...group].sort((a,b)=>a[0].localeCompare(b[0])).map(([date,entries])=>({date,entries,taskIds:entries.map(x=>x.taskId)}));return{groups:global.LubricaRouteAutomation?.partition(route,groups,d,ix)||groups,warnings};
  }
@@ -129,7 +233,7 @@
   const startEntries=[];
   for(const id of selected.taskIds){
    const e=byId.get(id),t=ix.get(id)?.task,b=t&&parseBasis(t,d,ix);
-   if(!e||!b?.ok||e.key!==b.key)return fail('TASK_BASIS_CHANGED',id+': основание срока изменилось');
+   if(!e||!b?.ok||e.key!==b.key||e.kind!==b.kind||e.interval!==b.interval||e.planningMode!==b.planningMode||e.maxHoursPerDay!==b.maxHoursPerDay)return fail('TASK_BASIS_CHANGED',id+': основание срока изменилось');
    if(b.kind==='runtime_hours'){
     if(e.nextHours!==b.nextHours)return fail('TASK_BASIS_CHANGED',id+': изменился порог наработки');
     if(checkDate&&(b.readingDate!==date||b.readingHours<b.nextHours))return fail('METER_NOT_DUE',id+': подтвердите показание счётчика на дату выполнения (не менее '+b.nextHours+' ч)');
@@ -151,7 +255,7 @@
    const id=String(e.taskId),r=run.taskResults?.[id];
    if(!r?.done||r.resultStatus!=='completed')continue;
    const t=ix.get(id)?.task,b=t&&parseBasis(t,d,ix);
-   if(!b?.ok||b.key!==e.key||(e.kind==='runtime_hours'?b.nextHours!==e.nextHours:b.nextDate!==e.dueDate)){missing.push(id+': основание изменилось во время выполнения');continue}
+   if(!b?.ok||b.key!==e.key||b.kind!==e.kind||b.interval!==e.interval||b.planningMode!==e.planningMode||b.maxHoursPerDay!==e.maxHoursPerDay||(e.kind==='runtime_hours'?b.nextHours!==e.nextHours:b.nextDate!==e.dueDate)){missing.push(id+': основание изменилось во время выполнения');continue}
    if(e.kind==='runtime_hours'){
     const h=num(r.runtimeMeterHours);
     if(h==null||h<e.nextHours||h<e.readingHours||h<b.readingHours)missing.push(id+': укажите фактические моточасы на момент обслуживания (не менее '+Math.max(e.nextHours,e.readingHours,b.readingHours)+' ч)');
@@ -182,5 +286,5 @@
    b.lastRunId=run.id;b.lastServiceDate=run.date;
   }
  }
- global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,writeBasis,validateRouteBasis,configure,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,calendarStep,nextCalendarDate,advanceCompleted});
+ global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,writeBasis,validateRouteBasis,activationIssues,calendarRule,makeCalendarBasis,configure,configureRoute,configureMeter,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,calendarStep,nextCalendarDate,advanceCompleted});
 })(window);

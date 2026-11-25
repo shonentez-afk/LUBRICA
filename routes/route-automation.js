@@ -53,7 +53,7 @@
   return Math.ceil(total+transitions*settings.transitionMinutes);
  }
  function earlyDate(t,d,due){
-  const s=A().scheduleFor(t),p=policy(t,d);
+  const technical=A().scheduleFor(t),b=D().parseBasis(t,d),s=b.ok&&b.planningMode==='calendar_runtime'?{ok:true,kind:'days',value:b.interval}:technical,p=policy(t,d);
   if(!s?.ok||s.kind==='runtime_hours'||!p.earlyReason||!integer(p.earlyDays,1,90))return due;
   const limit=s.kind==='days'?s.value-1:28*s.value-1;
   return p.earlyDays<=limit?add(due,-p.earlyDays):due;
@@ -105,7 +105,10 @@
     desired.push(id);
    }
    const ds=new Set(desired),removed=old.filter(id=>!ds.has(id)),adds=desired.filter(id=>!old.includes(id)).sort(compare(d,ix,g.areaId));
-   let next=[...old.filter(id=>ds.has(id)),...adds];
+   const deferred=r?.status==='active'?adds.filter(id=>!D().parseBasis(ix.get(id).task,d,ix).ok):[];
+   for(const id of deferred)issue(id,'NEW_TASK_DUE_REQUIRED','Новое мероприятие требует исходного срока; действующий маршрут сохранён',r.id);
+   const acceptedAdds=adds.filter(id=>!deferred.includes(id));
+   let next=[...old.filter(id=>ds.has(id)),...acceptedAdds];
    if(!r||o.applyOrder===true)next.sort(compare(d,ix,g.areaId));
    const basisMissing=next.filter(id=>!D().parseBasis(ix.get(id).task,d,ix).ok);
    const nextStatus=r?.status==='active'&&basisMissing.length===0?'active':o.activateReady===true&&next.length&&!basisMissing.length?'active':'draft';
@@ -117,7 +120,7 @@
    else if(!r&&next.length)action='create';
    else if(r&&next.length&&(different||metadataChanged||r.status!==nextStatus)){action='update';if(nextStatus==='draft'&&r.status==='active')why='Новые/изменённые мероприятия требуют исходных сроков; маршрут станет черновиком';else if(metadataChanged&&!different)why='Сверены материал, нормы, условия и трудоёмкость; будет зафиксирована новая ревизия'}
    if(action==='blocked'){next=old;for(const id of adds)issue(id,'GROUP_BLOCKED',why,r?.id||'')}
-   if(action!=='none'||r||next.length)out.push({...g,ids:undefined,action,reason:why,routeId:r?.id||'',currentTaskIds:old,taskIds:action==='archive'?old:next,addTaskIds:action==='blocked'?[]:adds,removeTaskIds:action==='blocked'?[]:removed,invalidTaskIds:removed,basisMissing,contentSig,nextStatus,pointCount:new Set(next.map(id=>ix.get(id)?.lp?.id).filter(Boolean)).size,ownedCount:old.length});
+   if(action!=='none'||r||next.length)out.push({...g,ids:undefined,action,reason:why,routeId:r?.id||'',currentTaskIds:old,taskIds:action==='archive'?old:next,deferredTaskIds:deferred,addTaskIds:action==='blocked'?[]:acceptedAdds,removeTaskIds:action==='blocked'?[]:removed,invalidTaskIds:removed,basisMissing,contentSig,nextStatus,pointCount:new Set(next.map(id=>ix.get(id)?.lp?.id).filter(Boolean)).size,ownedCount:old.length});
   }
   out.sort((a,b)=>a.name.localeCompare(b.name,'ru',{numeric:true}));
   const actions=out.filter(x=>['create','update','archive'].includes(x.action));
@@ -130,13 +133,13 @@
   const runs=arr(d.checklistRuns).filter(r=>r.status==='completed'&&D().day(r.date)&&r.date<=D().today()&&arr(r.dueEntries).some(e=>String(e.taskId)===id&&e.key===key)).sort((a,b)=>b.date.localeCompare(a.date)||str(b.completedAt).localeCompare(str(a.completedAt)));
   for(const r of runs){
    const x=r.executionFact?.tasks?.[id]||r.taskResults?.[id];if(!x?.done||x.resultStatus!=='completed')continue;
-   if(s.kind==='runtime_hours'){if(!number(x.runtimeMeterHours,0,1e12))continue;const h=Number(x.runtimeMeterHours);return{key,nextHours:h+s.value,readingHours:h,readingDate:r.date,hoursPerDay:0,lastRunId:r.id,lastServiceDate:r.date}}
+   if(s.kind==='runtime_hours'){const entry=arr(r.dueEntries).find(e=>String(e.taskId)===id&&e.key===key);if(entry?.planningMode==='calendar_runtime'){const days=Number(entry.interval),rate=Number(entry.maxHoursPerDay);if(Number.isInteger(days)&&days>0&&rate>0&&rate<=24&&days*rate<=s.value)return{key,planningMode:'calendar_runtime',calendarConfirmed:true,cycleDays:days,maxHoursPerDay:rate,nextDate:add(r.date,days),lastRunId:r.id,lastServiceDate:r.date}}if(!number(x.runtimeMeterHours,0,1e12))continue;const h=Number(x.runtimeMeterHours);return{key,nextHours:h+s.value,readingHours:h,readingDate:r.date,hoursPerDay:0,lastRunId:r.id,lastServiceDate:r.date}}
    return{key,nextDate:P().addInterval(r.date,s),lastRunId:r.id,lastServiceDate:r.date};
   }
   return null;
  }
  function setup(d,o,info){
-  const {ix,valid}=info,scopeIds=[...valid].filter(([id,g])=>groupScope(g,o)&&(!o.serviceKey||g.serviceKey===o.serviceKey)).map(([id])=>id);
+  const {ix,valid}=info,allScopeIds=[...valid].filter(([id,g])=>groupScope(g,o)).map(([id])=>id),scopeIds=allScopeIds.filter(id=>!o.serviceKey||valid.get(id).serviceKey===o.serviceKey);
   const ownership=A().ownership(d),usable=id=>setupAllowed(d,id,o,ownership,valid.get(id));
    const settings=config(d),changes=[],issues=[];
   if(o.walkOrder){
@@ -170,11 +173,15 @@
     t.routePolicy=next;changes.push({taskId:id,action:'policy',detail:'Условия, окно и время'});
    }
   }
-  for(const id of scopeIds){
-   const t=ix.get(id).task;if(D().parseBasis(t,d,ix).ok)continue;
+  for(const id of allScopeIds){
+   const t=ix.get(id).task,existingBasis=D().parseBasis(t,d,ix),requested=o.batchByKey?.get(valid.get(id)?.key)?.initial;if(existingBasis.ok){if(requested?.planningMode==='calendar_runtime'&&requested.date&&requested.confirmCalendar===true&&(existingBasis.planningMode!=='calendar_runtime'||existingBasis.maxHoursPerDay!==Number(requested.maxHoursPerDay)))return fail('MODE_CHANGE_CONFIRM','Измените существующий способ планирования в общих настройках срока маршрута');continue}
    if(!usable(id)){issues.push({taskId:id,message:'Срок защищён назначением или ручным маршрутом'});continue}
    let b=o.recoverHistory?historyFor(t,d,ix):null,source=b?'Подтверждённый факт '+b.lastRunId:'';
    const s=A().scheduleFor(t),key=D().signature(t,d,ix),initial=o.batchByKey?.get(valid.get(id)?.key)?.initial||o.initial||{};
+   if(s.kind==='runtime_hours'&&initial.planningMode==='calendar_runtime'&&initial.date){b=null;source=''}
+   if(!b&&s.kind==='runtime_hours'&&initial.planningMode==='calendar_runtime'&&str(initial.date)){
+    const row=o.batchByKey?.get(valid.get(id)?.key),made=D().makeCalendarBasis(t,d,ix,{...initial,ppr:row?row.mode==='ppr':W().requiresPpr(row?.routeId,d)});if(!made.ok)return made;b=made.basis;source='Подтверждённый календарный цикл по наработке';
+   }
    if(!b&&s.kind!=='runtime_hours'&&str(initial.date)){
     const date=D().day(initial.date);if(!date||initial.mode==='last'&&date>D().today())return fail('INITIAL_DATE','Некорректная исходная дата');
     b={key,nextDate:initial.mode==='last'?P().addInterval(date,s):date};source=initial.mode==='last'?'Введённая дата последнего обслуживания':'Введённый следующий срок';
@@ -229,14 +236,15 @@
     const earlyDays=!runtime&&p.earlyReason&&integer(p.earlyDays,1,Math.min(90,b.kind==='days'?b.interval-1:28*b.interval-1))?p.earlyDays:0;
     const existing=pending.get(id),reservedTask=!!existing||A().runningTask(d,id),step=runtime&&b.hoursPerDay>0?Math.max(1,Math.ceil(b.interval/b.hoursPerDay)):0;
     let due=b.dueDate,display=[due,start].sort().at(-1),n=0,phase={cycleAnchor:t.routeDue?.cycleAnchor||b.dueDate,cycleTarget:t.routeDue?.cycleTarget||b.dueDate};
-    while(display<=end&&n<400){
+    while((display<=end||(n===0&&earlyDate(t,d,due)<=end&&start<=end))&&n<400){
      if(n>0||!reservedTask||includeReserved){
-      const earliest=[add(due,-earlyDays),start].sort().at(-1);
+      const earliest=[earlyDate(t,d,due),start].sort().at(-1);
       const suggested=ppr&&anchor?W().nextPprFromAnchor(anchor,earliest):'';
       const pprConflict=ppr&&(!suggested||suggested>due||cfg&&!cfg.weekdays.includes(new Date(suggested+'T00:00:00Z').getUTCDay()||7));
+      const calendarDate=display>end&&earliest<=end?earliest:display;
       const cycleTarget=r.cycleMode==='fixed_weekly'&&!runtime?phase.cycleTarget:'',cycleConflict=!!cycleTarget&&cycleTarget>due;
-      const k=JSON.stringify([r.id,display,due,ppr,n===0,cycleTarget]);
-      if(!jobs.has(k))jobs.set(k,{r,date:display,due,entries:[],ppr,pprConflict:false,suggested,repeat:n>0,runtime,cycleTarget,cycleConflict,overdue:due<D().today()});
+      const k=JSON.stringify([r.id,calendarDate,due,ppr,n===0,cycleTarget]);
+      if(!jobs.has(k))jobs.set(k,{r,date:calendarDate,due,entries:[],ppr,pprConflict:false,suggested,repeat:n>0,runtime,cycleTarget,cycleConflict,overdue:due<D().today()});
       const job=jobs.get(k);job.entries.push({taskId:id});job.pprConflict||=pprConflict;if(suggested>job.suggested)job.suggested=suggested;
      }
      n++;
@@ -287,10 +295,10 @@
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   const report=reconcile(d,{lineId:o.lineId||'',areaId:o.areaId||'',activateReady:true});
   if(!report.ok)return report;
-  const routes=new Map(arr(d.routes).map(r=>[String(r.id),r])),phases=new Map(W().pprSettings(d).ppr.map(x=>[x.lineId,x.anchorDate]));
+  const index=E().contextIndex(d),routes=new Map(arr(d.routes).map(r=>[String(r.id),r])),phases=new Map(W().pprSettings(d).ppr.map(x=>[x.lineId,x.anchorDate]));
   return {...report,groups:report.groups.map(g=>{
    const r=routes.get(String(g.routeId)),anchor=phases.get(String(g.lineId))||'',m=/^days:(\d+)$/.exec(g.scheduleKey),weeks=m&&Number(m[1])%7===0?Number(m[1])/7:0;
-   return {...g,weeks,locked:!!r&&locked(d,r)||g.action==='blocked',routeMode:r&&W().requiresPpr(r.id,d)?'ppr':'normal',cycleMode:r?.cycleMode==='fixed_weekly'?'fixed_weekly':'actual',pprAnchor:anchor,nextPpr:anchor?W().nextPprFromAnchor(anchor,D().today()):''};
+   return {...g,weeks,locked:!!r&&locked(d,r)||g.action==='blocked',routeMode:r&&W().requiresPpr(r.id,d)?'ppr':'normal',cycleMode:r?.cycleMode==='fixed_weekly'?'fixed_weekly':'actual',existingMeter:!!r&&arr(r.taskIds).some(id=>D().parseBasis(index.get(String(id))?.task||{},d,index).kind==='runtime_hours'),scheduleDefaults:r?.scheduleDefaults||null,pprAnchor:anchor,nextPpr:anchor?W().nextPprFromAnchor(anchor,D().today()):''};
   })};
  }
  function prepareBatch(o,work,info){
@@ -306,16 +314,16 @@
    const r=rs[0],mode=str(row.pprMode),cycle=str(row.cycleMode),savedMode=r&&W().requiresPpr(r.id,work)?'ppr':'normal',savedCycle=r?.cycleMode==='fixed_weekly'?'fixed_weekly':'actual';
    if(mode&&!['normal','ppr'].includes(mode)||cycle&&!['actual','fixed_weekly'].includes(cycle))return fail('CYCLE_INVALID','Некорректный режим маршрута');
    const m=/^days:(\d+)$/.exec(g.scheduleKey),weekly=!!m&&Number(m[1])>0&&Number(m[1])%7===0;
-   if(cycle==='fixed_weekly'&&!weekly)return fail('CYCLE_INVALID','Фиксированный недельный цикл возможен только для целого числа недель');
+   if(cycle==='fixed_weekly'&&!weekly&&!(g.scheduleKey.startsWith('runtime_hours:')&&row.initial?.planningMode==='calendar_runtime'))return fail('CYCLE_INVALID','Фиксированный недельный цикл возможен только для целого числа недель');
    if(r&&locked(work,r))return fail('ROUTE_LOCKED','Сначала завершите или снимите открытое задание '+(r.name||r.id));
    let initial={...(o.initial||{}),...(row.initial||{})};
    if(initial.mode&&!['next','last'].includes(initial.mode))return fail('INITIAL_DATE','Некорректное основание даты');
    if(str(initial.date)&&(!D().day(initial.date)||initial.mode==='last'&&initial.date>D().today()))return fail('INITIAL_DATE','Некорректная исходная дата');
-   if(g.scheduleKey.startsWith('runtime_hours:'))initial.date='';
+   if(g.scheduleKey.startsWith('runtime_hours:')&&initial.planningMode!=='calendar_runtime')initial.date='';
    const effectiveMode=mode||savedMode,anchor=phases.get(String(g.lineId))||'';
    if(effectiveMode==='ppr'&&!anchor)return fail('PPR_ANCHOR_REQUIRED','Сначала задайте дату отсчёта ППР линии в настройках предприятия');
-   if(effectiveMode==='ppr'&&!initial.date&&initial.mode!=='last'&&!g.scheduleKey.startsWith('runtime_hours:'))initial={...initial,mode:'next',date:W().nextPprFromAnchor(anchor,D().today())};
-   map.set(key,{key,g,initial,mode,cycle,anchor});
+   if(effectiveMode==='ppr'&&!initial.date&&initial.mode!=='last'&&(!g.scheduleKey.startsWith('runtime_hours:')||initial.planningMode==='calendar_runtime'))initial={...initial,mode:'next',date:W().nextPprFromAnchor(anchor,D().today())};
+   map.set(key,{key,g,initial,mode:effectiveMode,cycle,anchor,routeId:r?.id});
   }
   return{ok:true,map,options:{...o,groupKeys:[...map.keys()],batchByKey:map}};
  }
@@ -385,8 +393,10 @@
      }
      E().ensureRouteRevision(route.id,next,{note:'Изменён режим недельного цикла',reason:'route_cycle'});prep.changes.push({taskId:route.id,action:'cycle',detail:row.cycle==='fixed_weekly'?'Фиксированный недельный цикл':'От фактического выполнения',value:''});
     }
+    if(row.initial.planningMode==='calendar_runtime'&&row.initial.confirmCalendar===true&&row.initial.date){const defaults={planningMode:'calendar_runtime',maxHoursPerDay:Number(row.initial.maxHoursPerDay),confirmCalendar:true};if(JSON.stringify(route.scheduleDefaults)!==JSON.stringify(defaults)){route.scheduleDefaults=defaults;E().ensureRouteRevision(route.id,next,{note:'Подтверждён календарный режим по наработке',reason:'schedule'});prep.changes.push({taskId:route.id,action:'schedule',detail:'Календарное планирование по наработке',value:defaults.maxHoursPerDay})}}
     const pprOnly=W().requiresPpr(route.id,next),phase=row.anchor;
-    if(pprOnly)batchSchedules.push({routeId:route.id,name:route.name,cycleMode:route.cycleMode||'actual',...pprSummary(route,next,phase,W().nextPprFromAnchor(phase,D().today()))});
+    if(pprOnly){const summary=pprSummary(route,next,phase,W().nextPprFromAnchor(phase,D().today()));batchSchedules.push({routeId:route.id,name:route.name,cycleMode:route.cycleMode||'actual',...summary});}
+    if(pprOnly||arr(route.taskIds).some(id=>taskPpr(id,next))){const issues=D().activationIssues(route,next);if(issues.some(x=>x.code==='PPR_CYCLE'||x.code==='PPR_ANCHOR_REQUIRED'))return {...fail('PPR_CYCLE',issues.find(x=>x.code==='PPR_CYCLE'||x.code==='PPR_ANCHOR_REQUIRED').message),details:issues,report,prep};}
    }
   }
   const selected=arr(next.routes).filter(r=>r.source==='auto'&&D().typed(r)&&r.status==='active'&&groupScope(r,o)).map(r=>r.id);
