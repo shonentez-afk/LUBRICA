@@ -9,7 +9,7 @@ checks={
  'draft selection controls':'data-select-all-draft' in js and 'data-clear-draft' in js and 'data-draft-search' in js,
  'final button explicit':'data-create-submit>Создать маршрут</button>' in js,
  'final button label stable':"submit.textContent='Создать маршрут'" in js,
- 'automatic composition remains draft':'data.taskIds=[...(E.previewRouteCandidates(data).taskIds||[])]' in js,
+ 'no parallel automatic fill in manual wizard':'name="fillMode" value="automatic"' not in js and 'data.taskIds=[...(E.previewRouteCandidates(data).taskIds||[])]' not in js,
  'manual/empty composition passed only at submit':'data.taskIds=[...selectedTaskIds]' in js,
  'no editor auto-open after create':'openRouteEditor(view,routeEntries().find(r=>r.id===res.route.id)||res.route)' not in js,
  'success renders list after commit':'creationCommitted=true;view.dataset.selectedRoute=res.route.id;dlg.close();renderRoutes(view)' in js,

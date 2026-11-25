@@ -1,13 +1,21 @@
 const fs=require('fs'),vm=require('vm');global.window=global;global.SCOPE_LABELS={};global.taskKey=p=>p.taskId||p.id;
-const db={lines:[{id:'L1',name:'Линия 1'}],areas:[{id:'A1',lineId:'L1',name:'Упаковка'}],equipment:[{id:'E1',lineId:'L1',areaId:'A1',name:'Конвейер',externalCode:'100'}],nodes:[{id:'N1',equipmentId:'E1',name:'Привод'}],lubricationPoints:[{id:'LP1',equipmentId:'E1',nodeId:'N1',name:'Подшипник',category:'bearing'},{id:'LP2',equipmentId:'E1',nodeId:'N1',name:'Цепь',category:'chain'}],tasks:[{id:'T1',lubricationPointId:'LP1',operation:'Досмазывание',activityType:'regrease',approvalStatus:'approved',quantity:{approved:'5',unit:'г'},schedule:{legacyText:'4 недели'}},{id:'T2',lubricationPointId:'LP2',operation:'Смазка цепи',activityType:'lubricant_apply',approvalStatus:'approved',quantity:{approved:'10',unit:'мл'},schedule:{legacyText:'4 недели'}}],routes:[],materials:[],tools:[],checklistRuns:[]};
+const db={lines:[{id:'L1',name:'Линия 1'}],areas:[{id:'A1',lineId:'L1',name:'Упаковка'}],equipment:[{id:'E1',lineId:'L1',areaId:'A1',name:'Конвейер',externalCode:'100'}],nodes:[{id:'N1',equipmentId:'E1',name:'Привод'}],lubricationPoints:[{id:'LP1',equipmentId:'E1',nodeId:'N1',name:'Подшипник',category:'bearing'},{id:'LP2',equipmentId:'E1',nodeId:'N1',name:'Подшипник 2',category:'bearing'}],tasks:[{id:'T1',lubricationPointId:'LP1',operation:'Досмазывание',activityType:'regrease',approvalStatus:'approved',quantity:{approved:'5',unit:'г'},schedule:{legacyText:'4 недели'}},{id:'T2',lubricationPointId:'LP2',operation:'Досмазывание',activityType:'regrease',approvalStatus:'approved',quantity:{approved:'10',unit:'г'},schedule:{legacyText:'4 недели'}}],routes:[],materials:[],tools:[],checklistRuns:[]};
 function legacy(){return {points:db.tasks.map(t=>{const lp=db.lubricationPoints.find(x=>x.id===t.lubricationPointId);return{id:t.id,taskId:t.id,lubricationPointId:lp.id,pointDisplayId:lp.id,line:'Линия 1',area:'Упаковка',equipment:'Конвейер',position:'100',unit:'Привод',type:lp.category,operation:t.operation,interval:t.schedule.legacyText,status:'ready',verified:true,qty:t.quantity.approved,measure:t.quantity.unit}})}}
 global.LubricaCore={State:{getDatabase:()=>db,setDatabase:d=>{}},Database:{toLegacy:()=>legacy()}};global.LubricaApp={refreshFromCore(){},showToast(){}};global.LubricaSystem={registerModule(){}};global.state=legacy();
-for(const f of ['routes/route-engine.js','checklist/checklist-engine.js'])vm.runInThisContext(fs.readFileSync(f,'utf8'),{filename:f});
+global.LubricaTaskReadiness={summarize:d=>({items:d.tasks.map(t=>({taskId:t.id,status:'ready',steps:[{ok:true}]}))})};
+global.LubricaProgramQA={audit:()=>({issues:[]})};
+for(const f of ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-engine.js','checklist/checklist-engine.js'])vm.runInThisContext(fs.readFileSync(f,'utf8'),{filename:f});
 const R=LubricaRouteEngine,C=LubricaChecklistEngine,a=(x,m)=>{if(!x)throw new Error(m)};
-R.syncRoutes(db);let route=R.routeEntries(db)[0];a(route.points.length===2,'route has two tasks');
+a(R.routeEntries(db).length===0,'no implicit route on read');
+const created=R.createRoute({lineId:'L1',areaId:'A1',interval:'4 недели',taskIds:['T1','T2'],status:'active'},db);
+a(created.ok,created.reason||'explicit route creation');
+let route=R.routeEntries(db)[0];a(route.points.length===2,'route has two tasks');
 const run=C.createRun(route.id,{route,date:'2026-09-04',performer:'Иванов',shift:'1'});a(run&&run.routeSnapshot.groups[0].tasks.length===2,'snapshot captures initial route');
-R.removePointFromRoute(route.id,'LP2',db);route=R.routeEntries(db)[0];a(route.points.length===1,'future route changed');
-let frozen=C.modelForRun(route,run,db);a(frozen.groups[0].tasks.length===2,'active run snapshot unaffected by point removal');
-C.updateTask(run.id,'T1',{done:true});C.updateTask(run.id,'T2',{done:true});a(C.completeRun(run.id,route),'run completes from frozen task ids even after queue change');
+a(!R.removePointFromRoute(route.id,'LP2',db).ok,'open execution protects route composition');
+a(R.routeEntries(db)[0].points.length===2,'rejected change leaves route untouched');
+C.updateTask(run.id,'T1',{done:true});C.updateTask(run.id,'T2',{done:true});a(C.completeRun(run.id,route),'run completes from its frozen task ids');
+a(R.removePointFromRoute(route.id,'LP2',db).ok,'completed execution permits future route editing');
+route=R.routeEntries(db)[0];a(route.points.length===1,'future route changed');
+let frozen=C.modelForRun(route,run,db);a(frozen.groups[0].tasks.length===2,'completed run snapshot remains unchanged');
 const next=C.createRun(route.id,{route,date:'2026-09-05',performer:'Петров',shift:'2'});a(next.routeSnapshot.groups[0].tasks.length===1,'new run uses updated queue');
 console.log('STAGE 9.1.6 QUEUE/LIFECYCLE INTEGRATION PASS');
