@@ -216,7 +216,7 @@
    if(b.kind==='days'&&b.interval<14){issues.push({code:'PPR_CYCLE',taskId:id,message:'Интервал '+b.interval+' дн. несовместим с ППР каждые 14 дней'});continue}
    let due=b.nextDate,phaseBasis={cycleAnchor:t.routeDue?.cycleAnchor||due,cycleTarget:t.routeDue?.cycleTarget||due};
    for(let n=0;n<(b.kind==='days'?14:24);n++){
-    const earliest=M?.earlyDate(t,d,due)||due,next=W.nextPpr(route.lineId,earliest,d);
+    const earliest=M?.earlyDate(t,d,due,ix)||due,next=W.nextPpr(route.lineId,earliest,d);
     if(!next||next>due){issues.push({code:'PPR_CYCLE',taskId:id,message:'Нет ППР в допустимом окне срока '+due});break}
     const step=calendarStep(next,{kind:b.kind,interval:b.interval,dueDate:due},route,phaseBasis);
     due=step.nextDate;phaseBasis={...phaseBasis,...step};if(!due)break;
@@ -243,7 +243,7 @@
    if(!due.ok){warnings.push({code:due.code,taskId:id,routeId:route.id,message:id+': '+due.message});continue}
    if(reserved(d,id))continue;
    if(!due.dueDate){warnings.push({code:'TASK_METER_WAITING',taskId:id,routeId:route.id,message:id+': ещё '+due.remainingHours+' ч; нет прогноза, ожидаются показания счётчика'});continue}
-   const earliest=global.LubricaRouteAutomation?.earlyDate(t,d,due.dueDate)||due.dueDate;
+   const earliest=global.LubricaRouteAutomation?.earlyDate(t,d,due.dueDate,ix)||due.dueDate;
    if(due.dueDate>end&&earliest>end)continue;
    const date=due.dueDate<start?start:due.dueDate;
    if(!group.has(date))group.set(date,[]);

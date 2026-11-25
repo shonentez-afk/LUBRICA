@@ -259,13 +259,9 @@
  function planProposal(options={},d=db()){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   if(!settings(d))return fail('CAPACITY_REQUIRED','Сначала сохраните рабочие дни и доступное время');
-  const P=global.LubricaRoutePlanning,E=global.LubricaRouteEngine,D=global.LubricaRouteDue,R=global.LubricaRoutePreparation;
+  const P=global.LubricaRoutePlanning;
   const opts={startDate:options.startDate,endDate:options.endDate,routeIds:options.routeIds,skipBlocked:true},p=P.commit(opts,d,{persist:false});if(!p.ok)return {...p,message:p.reason};
-  const work=p.database,oldIds=new Set(arr(d.routePlanItems).map(x=>x.id)),routes=new Map(E.routeEntries(work,{preview:false}).map(r=>[r.id,r])),shared=E.validationContext?.(work);
-  for(const item of arr(work.routePlanItems).filter(x=>!oldIds.has(x.id)&&x.planningBasis==='task_due')){
-   const r=routes.get(item.routeId),selected=r&&D.selectRoute(r,item,work),prep=selected&&R?.build(selected,work,shared);
-   if(!prep?.ready)return fail('PREPARATION_BLOCKED','Не готово по материалам и нормам: '+item.routeName);
-  }
+  const work=p.database;
   const a=preview(options,work);if(!a.ok)return a;
   return{ok:true,created:p.created,proposals:a.proposals,remaining:a.remaining,warnings:p.preview.warnings,summary:a.summary,database:work,allocationToken:a.token,token:JSON.stringify([today(),options,d])};
  }

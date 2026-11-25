@@ -52,8 +52,8 @@
   }
   return Math.ceil(total+transitions*settings.transitionMinutes);
  }
- function earlyDate(t,d,due){
-  const technical=A().scheduleFor(t),b=D().parseBasis(t,d),s=b.ok&&b.planningMode==='calendar_runtime'?{ok:true,kind:'days',value:b.interval}:technical,p=policy(t,d);
+ function earlyDate(t,d,due,index=null){
+  const technical=A().scheduleFor(t),b=D().parseBasis(t,d,index),s=b.ok&&b.planningMode==='calendar_runtime'?{ok:true,kind:'days',value:b.interval}:technical,p=policy(t,d,index);
   if(!s?.ok||s.kind==='runtime_hours'||!p.earlyReason||!integer(p.earlyDays,1,90))return due;
   const limit=s.kind==='days'?s.value-1:28*s.value-1;
   return p.earlyDays<=limit?add(due,-p.earlyDays):due;
@@ -219,8 +219,8 @@
   const pprRoutes=new Set(W().pprSettings(d).pprRouteIds),pprPhases=new Map(W().pprSettings(d).ppr.map(p=>[p.lineId,p.anchorDate]));
   const routes=E().routeEntries(d,{preview:false}).filter(r=>r.status!=='archived'&&D().typed(r)&&groupScope(r,{lineId,areaId,groupKey,groupKeys}));
   for(const r of routes){
-   const report=E().validateRoute(r.id,d,shared),bad=new Map(report.errors.filter(x=>x.taskId).map(x=>[String(x.taskId),x]));
-   if(r.status!=='active'||report.errors.some(x=>!x.taskId)){unknown.push({routeId:r.id,name:r.name,message:r.status==='draft'?'Черновик: настройте сроки и активируйте маршрут':'Маршрут не готов'});continue}
+   const report=E().validateRoute(r.id,d,shared),prep=r.status==='active'?global.LubricaRoutePreparation?.build?.(r,d,shared,report):null,errors=prep?.errors||report.errors,bad=new Map(errors.filter(x=>x.taskId).map(x=>[String(x.taskId),x]));
+   if(r.status!=='active'||errors.some(x=>!x.taskId)){unknown.push({routeId:r.id,name:r.name,message:r.status==='draft'?'Черновик: настройте сроки и активируйте маршрут':'Маршрут не готов'});continue}
    for(const id of ids(r.taskIds)){
     if(bad.has(id)){unknown.push({taskId:id,routeId:r.id,message:bad.get(id).message});continue}
     if(seen.has(id)){unknown.push({taskId:id,routeId:r.id,message:'Дублирующее назначение'});continue}seen.add(id);
@@ -230,11 +230,9 @@
     const earlyDays=!runtime&&p.earlyReason&&integer(p.earlyDays,1,Math.min(90,b.kind==='days'?b.interval-1:28*b.interval-1))?p.earlyDays:0;
     const existing=pending.get(id),reservedTask=!!existing||A().runningTask(d,id),step=runtime&&b.hoursPerDay>0?Math.max(1,Math.ceil(b.interval/b.hoursPerDay)):0;
     let due=b.dueDate,display=[due,start].sort().at(-1),n=0,phase={cycleAnchor:t.routeDue?.cycleAnchor||b.dueDate,cycleTarget:t.routeDue?.cycleTarget||b.dueDate};
-    while((display<=end||(n===0&&earlyDate(t,d,due)<=end&&start<=end))&&n<400){
+    while((display<=end||(n===0&&earlyDate(t,d,due,ix)<=end&&start<=end))&&n<400){
+     const earliest=[earlyDate(t,d,due,ix),start].sort().at(-1),suggested=ppr&&anchor?W().nextPprFromAnchor(anchor,earliest):'',pprConflict=ppr&&(!suggested||suggested>due||cfg&&!cfg.weekdays.includes(new Date(suggested+'T00:00:00Z').getUTCDay()||7));
      if(n>0||!reservedTask||includeReserved){
-      const earliest=[earlyDate(t,d,due),start].sort().at(-1);
-      const suggested=ppr&&anchor?W().nextPprFromAnchor(anchor,earliest):'';
-      const pprConflict=ppr&&(!suggested||suggested>due||cfg&&!cfg.weekdays.includes(new Date(suggested+'T00:00:00Z').getUTCDay()||7));
       const calendarDate=display>end&&earliest<=end?earliest:display;
       const cycleTarget=r.cycleMode==='fixed_weekly'&&!runtime?phase.cycleTarget:'',cycleConflict=!!cycleTarget&&cycleTarget>due;
       const k=JSON.stringify([r.id,calendarDate,due,ppr,n===0,cycleTarget]);
@@ -245,7 +243,7 @@
      // For a pending job forecast subsequent cycles after its proposed execution,
      // but leave its first obligation visible only as the actual plan item.
      const assigned=n===1&&existing&&W().assignment(existing),assignedDate=assigned&&W().effectiveDate(existing);
-     const assumed=assignedDate&&assignedDate>=W().earliestDate(existing,d)&&W().allowedWindow(existing,assignedDate,d)?[assignedDate,start].sort().at(-1):display;
+     const assumed=assignedDate&&assignedDate>=W().earliestDate(existing,d)&&W().allowedWindow(existing,assignedDate,d)?[assignedDate,start].sort().at(-1):ppr&&suggested&&!pprConflict?suggested:display;
      if(runtime){if(!step)break;due=add(assumed,step)}
      else {const next=D().calendarStep(assumed,{...b,dueDate:due},r,phase);due=next.nextDate;phase={...phase,...next}}
      if(!due||due<=assumed)break;display=due;
@@ -403,9 +401,8 @@
    const po={startDate:rg.startDate,endDate:rg.endDate,routeIds:selected,skipBlocked:true};
    plan=P().commit(po,next,{persist:false});if(!plan.ok)return{...fail('PLAN_BLOCKED',plan.reason),report,prep,plan:plan.preview};
    next=plan.database||next;
-   const routes=new Map(E().routeEntries(next,{preview:false}).map(r=>[r.id,r])),previous=new Set(arr(d.routePlanItems).map(x=>x.id)),shared=E().validationContext?.(next);
-   for(const item of arr(next.routePlanItems).filter(x=>!previous.has(x.id)&&x.planningBasis==='task_due')){const route=routes.get(item.routeId),selectedRoute=route&&D().selectRoute(route,item,next),p=selectedRoute&&global.LubricaRoutePreparation?.build?.(selectedRoute,next,shared);if(p)preparation.push({routeName:item.routeName,ready:p.ready,text:item.plannedDate+' · '+arr(p.materials).map(m=>[m.code||m.name,m.total,m.baseUnit].filter(x=>x!==''&&x!=null).join(' ')).join('; ')+(p.warnings?.length?' · замечаний: '+p.warnings.length:'')+(p.errors?.length?' · ошибок: '+p.errors.length:'')})}
-   if(preparation.some(x=>!x.ready))return{...fail('PREPARATION_BLOCKED','Не все задания готовы по материалам и нормам. Исправьте замечания или снимите флажок формирования плана.'),report,prep,plan:plan.preview,preparation};
+   const newKeys=new Set(arr(next.routePlanItems).filter(x=>!arr(d.routePlanItems).some(y=>y.id===x.id)).map(x=>x.planKey));
+   preparation=arr(plan.preview?.preparations).filter(x=>newKeys.has(x.planKey)).map(x=>{const p=x.preparation;return{routeName:x.routeName,ready:p.ready,text:x.plannedDate+' · '+arr(p.materials).map(m=>[m.code||m.name,m.total,m.baseUnit].filter(v=>v!==''&&v!=null).join(' ')).join('; ')+(p.warnings?.length?' · замечаний: '+p.warnings.length:'')}});
    if(o.allocate){
     const wo={...po,allowDelay:o.allowDelay===true,reason:str(o.delayReason)};
     allocation=W().preview(wo,next);if(!allocation.ok)return{...allocation,report,prep,plan:plan.preview};
