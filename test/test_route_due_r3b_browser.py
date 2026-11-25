@@ -59,6 +59,7 @@ def check(browser,width,height,label):
  assert editor.locator('[name="status"]').count()==0
  assert editor.locator('[data-route-state]').is_visible()
  assert editor.locator('[data-route-activate]').is_disabled()
+ assert not editor.locator('[data-archive-review]').is_visible()
  before_archive=page.evaluate('JSON.stringify(window.__db)')
  editor.locator('[data-route-archive]').click()
  assert editor.locator('[data-archive-review]').is_visible()

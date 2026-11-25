@@ -73,3 +73,6 @@
 
 /* R8.1 shared route schedule */
 .r81-schedule{border:1px solid var(--line,#d5dce1);border-radius:9px;padding:12px;margin-bottom:14px;background:#f8faf9}.r81-schedule label{display:grid;gap:4px;max-width:100%}.r81-schedule input:not([type=checkbox]),.r81-schedule select{max-width:100%;width:100%;box-sizing:border-box}.r81-schedule .r5-check{display:flex;align-items:start;gap:8px;margin:9px 0}.r81-schedule [hidden]{display:none!important}.route-due-dialog [data-r81-individual]{margin-top:12px}.route-due-dialog [data-r81-individual]>summary{cursor:pointer;font-weight:700;padding:10px}.route-due-dialog td label{display:inline-grid;width:calc(50% - 8px);gap:3px;margin:3px;font-size:11px}
+
+/* R8.2: hidden confirmation must override the shared meta-card display:block!important. */
+.route-queue-editor [data-archive-review][hidden]{display:none!important}
