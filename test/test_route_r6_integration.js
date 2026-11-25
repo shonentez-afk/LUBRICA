@@ -45,7 +45,7 @@ async function main(){
  const rows=P.exportRows({},d);assert.equal(rows.rows.length,45);assert.equal(rows.rows.filter(r=>r[0]===a.id&&r[16]==='completed').length,a.taskIds.length);
  assert.equal(rows.rows.filter(r=>r[0]===b.id&&r[16]==='completed').length,0);
  // Storage/recovery and JSON loading preserve all new fields and frozen facts.
- const fields=x=>({routes:x.routes,routeRevisions:x.routeRevisions,routePlanItems:x.routePlanItems,checklistRuns:x.checklistRuns,routeWorkload:x.routeWorkload,routeAutomation:x.routeAutomation,due:x.tasks.map(t=>[t.id,t.routeDue,t.routePolicy])});
+ const fields=x=>({routes:x.routes,routeRevisions:x.routeRevisions,routePlanItems:x.routePlanItems,checklistRuns:x.checklistRuns,routeWorkload:x.routeWorkload,routeAutomation:x.routeAutomation,due:x.tasks.map(t=>[t.id,t.routeDue??null,t.routePolicy??null])});
  const frozen=copy(fields(d));assert(await C.Storage.saveRecovery(d,'R6 test'));
  C.State.startDemo({project:'Demo',points:[],materials:[],rules:{}});assert(await C.State.restoreRecovery());d=db();
  assert.deepEqual(fields(d),frozen);
@@ -60,6 +60,9 @@ async function main(){
  assert.equal(E.routeEligibility(aliased.tasks.find(t=>t.id===keeper.id),aliased).code,'TASK_IDENTITY_CONFLICT');
  assert.deepEqual(aliased.routePlanItems,savedPlans);assert.deepEqual(aliased.checklistRuns,savedRuns);assert.deepEqual(aliased.routeRevisions,savedRevs);
  assert.equal(C.DatabaseSchema.normalizeTaskApproval('disabled',true),'disabled');
+ const disabled=C.Database.normalize(createR6RouteFixture(12));disabled.tasks[3].approvalStatus='disabled';disabled.tasks[3].verified=true;
+ const legacy=C.Database.toLegacy(disabled);assert.equal(legacy.points.find(p=>p.id===disabled.tasks[3].id).verified,false);
+ const synced=C.Database.syncLegacy(disabled,legacy);assert.equal(synced.tasks.find(t=>t.id===disabled.tasks[3].id).approvalStatus,'disabled');
  // Staff resources: same-route jobs must fit together in one worker's shift.
  const packed={...createR6RouteFixture(0),routes:[],routePlanItems:[],checklistRuns:[]};
  packed.routeWorkload={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:2,minutesPerWorker:60}],ppr:[],pprRouteIds:[]};

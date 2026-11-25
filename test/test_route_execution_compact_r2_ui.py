@@ -13,7 +13,7 @@ checks={
  'all input state from existing checklist results':'resultFor(run,task.taskId)' in compact,
  'no duplicate field IDs':'data-task-result' in compact and 'data-task-actual-quantity' in compact and 'data-task-observation' in compact,
  'single mode in DOM':'displayMode===\'table\'' in ui and 'LubricaRouteCompactUI.render(model,{run,editable,filter:visitFilter})' in ui,
- 'print switches to original table':"view.dataset.routeSheetMode='table';renderRoutes(view)" in ui and "window.addEventListener('afterprint',restore" in ui,
+ 'print switches to original table':"view.dataset.routeSheetMode='table';renderRoutes(view)" in ui and "window.addEventListener('beforeprint',preparePrint)" in ui and "window.addEventListener('afterprint'," in ui and "view.dataset.routeSheetMode=mode" in ui,
  'snapshot engine remains used':'modelForRun' in ui and 'routeSnapshot' in source,
  'reason captured on typing':"if(deviation)patch.deviationReason=el.value.trim()" in ui,
  'reason input focused after marking skipped':"note?.focus({preventScroll:false})" in ui,
