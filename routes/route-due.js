@@ -151,7 +151,7 @@
   if(input.pprMode){const result=W.saveRoutePpr(r.id,input.pprMode,'',work,{persist:false});if(!result.ok)return result;work.routeWorkload=result.database.routeWorkload}
   if(calendar)r.scheduleDefaults={planningMode:'calendar_runtime',maxHoursPerDay:Number(input.maxHoursPerDay),confirmCalendar:true};
   const issues=activationIssues(r,work,ix);
-  if((activate||r.status==='active')&&issues.length)return{...fail('ROUTE_SCHEDULE_BLOCKED',issues[0].message),issues};
+  if((activate||r.status==='active')&&issues.length||issues.some(x=>['PPR_CYCLE','PPR_ANCHOR_REQUIRED'].includes(x.code)))return{...fail('ROUTE_SCHEDULE_BLOCKED',issues[0].message),issues};
   if(activate){const gate=engine().transitionCheck(r,'active',work);if(!gate.ok)return{...fail('ROUTE_NOT_READY',gate.reason),...gate};r.status='active'}
   engine().ensureRouteRevision(r.id,work,{note:'Общие сроки маршрута',reason:'schedule'});
   if(persist){global.LubricaCore.State.setDatabase(work);global.LubricaApp?.refreshFromCore?.()}

@@ -91,12 +91,20 @@
   }
   return{ok:true};
  }
+ function routeAssessment(routeId,d=database()){
+  const r=rawRoute(d,routeId);if(!r)return{status:'blocked',label:'Заблокирован',errors:[{message:'Маршрут не найден'}],warnings:[],locked:true,readyCount:0,total:0};
+  const report=validateRoute(routeId,d),D=global.LubricaRouteDue,issues=[...report.errors];
+  if(typed(r)&&r.status!=='active')for(const issue of D?.activationIssues(r,d)||[])if(!issues.some(x=>x.code===issue.code&&String(x.taskId||'')===String(issue.taskId||'')))issues.push(issue);
+  const bad=new Set(issues.filter(x=>x.taskId).map(x=>String(x.taskId))),total=(r.taskIds||[]).length,readyCount=issues.some(x=>!x.taskId)?0:Math.max(0,total-bad.size),blocked=issues.some(x=>!x.taskId||!['TASK_DUE_MISSING','TASK_METER_MISSING','TASK_CALENDAR_RUNTIME_INVALID','PPR_ANCHOR_REQUIRED'].includes(x.code));
+  const status=blocked?'blocked':issues.length||report.warnings.length?'warning':'ready';
+  return{routeStatus:r.status,status,label:status==='ready'?'Готов':status==='warning'?'Требует уточнения':'Заблокирован',errors:issues,warnings:report.warnings,readyCount,total,locked:typedLocked(d,r),canActivate:r.status==='draft'&&transitionCheck(r,'active',d).ok};
+ }
  function updateRoute(id,patch){if(!validTiming(patch))return null;const d=database();if(!d)return null;const r=(d.routes||[]).find(x=>x.id===id);if(!r||r.status==='archived'||typedLocked(d,r))return null;if(typed(r)){const keys=['name','description','assignee','estimatedMinutesPerTask','fixedMinutes'];patch=Object.fromEntries(Object.entries(patch||{}).filter(([key])=>keys.includes(key)))}Object.assign(r,patch,{updatedAt:now()});save(d,'Маршрут сохранён');return r}
  function updateRouteSettings(id,patch={},status,d=database()){
   if(!d)return{ok:false,reason:'База недоступна'};const work=clone(d),r=rawRoute(work,id);if(!r||r.status==='archived'||typedLocked(work,r))return{ok:false,reason:'Маршрут архивирован или защищён открытым заданием'};
   if(!validTiming(patch))return{ok:false,code:'TIME_INVALID',reason:'Укажите допустимый норматив времени'};
   const keys=['name','description','assignee','estimatedMinutesPerTask','fixedMinutes',...(!typed(r)&&!global.LubricaRouteAutomation?['planningAnchorDate','runtimePlanningHoursPerDay']:[])];
-  Object.assign(r,Object.fromEntries(Object.entries(patch).filter(([k])=>keys.includes(k))));
+  Object.assign(r,Object.fromEntries(Object.entries(patch).filter(([k])=>keys.includes(k)).map(([k,v])=>[k,['estimatedMinutesPerTask','fixedMinutes','runtimePlanningHoursPerDay'].includes(k)?Number(v):v])));
   const desired=status??r.status,gate=transitionCheck(r,desired,work);if(!gate.ok)return gate;r.status=desired;
   r.updatedAt=now();ensureRouteRevision(id,work,{reason:'settings',note:'Настройки маршрута'});save(work,'Параметры маршрута сохранены');return{ok:true,route:r};
  }
@@ -366,6 +374,6 @@
    return{ok:true,created,updated,archived,routeIds,preview:report,database:work};
  }
 
- window.LubricaRouteEngine=Object.freeze({contextIndex,previewAutoGrouping,applyAutoGrouping,routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,updateRouteSettings,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute,validationContext,transitionCheck,validTiming});
+ window.LubricaRouteEngine=Object.freeze({contextIndex,previewAutoGrouping,applyAutoGrouping,routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,updateRouteSettings,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute,validationContext,transitionCheck,validTiming,routeAssessment});
  global.LubricaSystem?.registerModule?.('Маршруты','ok','Создание, ревизии и календарное планирование маршрутов');
 })(window);
