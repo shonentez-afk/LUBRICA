@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """R6: actual desktop application, file://, actual QA/DB/storage, no module stubs."""
-import csv,io,pathlib,shutil
+import csv,io,json,pathlib,shutil
 from playwright.sync_api import sync_playwright
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/'test-artifacts'/'routes-r6';OUT.mkdir(parents=True,exist_ok=True)
@@ -10,8 +10,19 @@ def check(browser):
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto((ROOT/'index.html').as_uri(),wait_until='load')
  assert page.evaluate('window.LubricaBootOK===true'),page.evaluate('String(window.LubricaBootError||"")')
+ # Demo must identify itself; never show technical scope codes as area names.
+ page.locator('[data-view="routes"]').click()
+ page.locator('#autoCreateRoute').click()
+ demo=page.locator('#routeExecutionDialog')
+ assert 'Демонстрационная база' in demo.locator('[data-r5="database-context"]').inner_text()
+ demo.locator('[data-r5="line"]').select_option(label='Линия 1')
+ assert demo.locator('[data-r5="area"] option').all_text_contents()==['Все участки','Суточные силосы','Вагранка','Волокноосаждение']
+ demo.locator('[data-r5="cancel"]').click()
  page.add_script_tag(path=str(ROOT/'test'/'route_r6_fixture.js'))
- page.evaluate('''() => {LubricaCore.State.activateDatabase(createR6RouteFixture(48),'R6 synthetic');LubricaApp.refreshFromCore();LubricaApp.renderAll()}''')
+ raw=page.evaluate('''() => {const d=createR6RouteFixture(48);d.areas[0].name=d.areas[3].name='Одинаковый участок';return JSON.stringify(d)}''')
+ page.locator('#jsonFileInput').set_input_files({'name':'r62-synthetic.json','mimeType':'application/json','buffer':raw.encode('utf-8')})
+ page.wait_for_function('LubricaCore.State.isDemo()===false')
+ page.wait_for_function('LubricaRouteAutomation.eligible(LubricaCore.State.getDatabase()).valid.size===45')
  assert page.evaluate('LubricaRouteAutomation.eligible(LubricaCore.State.getDatabase()).valid.size')==45
  page.locator('[data-view="routes"]').click()
  page.locator('#autoCreateRoute').click()
@@ -19,6 +30,15 @@ def check(browser):
  def field(n):return dlg.locator('[data-r5="'+n+'"]')
  def section(name):return dlg.locator('.r5-section > summary').filter(has_text=name)
  today=page.evaluate('LubricaRouteDue.today()')
+ assert 'Демонстрационная база' not in field('database-context').inner_text()
+ labels=field('area').locator('option').all_text_contents()
+ assert 'Линия 1 — Одинаковый участок' in labels and 'Линия 2 — Одинаковый участок' in labels
+ field('line').select_option('L1');field('area').select_option('A0')
+ assert 'Инженерно готовых мероприятий: 9' in field('scope-count').inner_text()
+ field('line').select_option('L2');assert field('area').input_value()==''
+ field('area').select_option('A3')
+ assert 'Инженерно готовых мероприятий: 12' in field('scope-count').inner_text()
+ field('line').select_option('');field('area').select_option('')
  # Ordinary workflow: no settings, no fabricated dates, no plans.
  assert not field('initial-date').is_visible() and not field('plan').is_visible()
  before=page.evaluate('JSON.stringify(LubricaCore.State.getDatabase())')
@@ -92,6 +112,19 @@ def check(browser):
  assert len(rows)==46
  assert set(r[10] for r in rows[1:])==set(page.evaluate('LubricaCore.State.getDatabase().routePlanItems.flatMap(x=>x.taskIds)'))
  plan.locator('[data-close]').last.click()
+ # Actual manual JSON save: canonical v2, full identities and frozen execution facts.
+ before_save=page.evaluate('JSON.stringify(LubricaCore.State.getDatabase())')
+ page.evaluate('window.showSaveFilePicker=undefined')
+ with page.expect_download() as saved:page.locator('#saveJsonBtn').click()
+ raw_saved=saved.value.path().read_text(encoding='utf-8')
+ before_db=json.loads(before_save);after_db=json.loads(raw_saved)
+ assert {k:v for k,v in before_db.items() if k not in ('meta','appVersion')}=={k:v for k,v in after_db.items() if k not in ('meta','appVersion')}
+ page.reload(wait_until='load')
+ page.locator('#jsonFileInput').set_input_files({'name':'r62-saved.json','mimeType':'application/json','buffer':raw_saved.encode('utf-8')})
+ page.wait_for_function('LubricaCore.State.isDemo()===false')
+ assert page.evaluate('LubricaCore.State.getDatabase().areas.length')==len(before_db['areas'])
+ assert page.evaluate('LubricaCore.State.getDatabase().routes.length')==len(before_db['routes'])
+ assert page.evaluate('LubricaCore.State.getDatabase().checklistRuns[0].status')=='completed'
  # Real file-origin browser storage and reload, no in-memory State stub.
  frozen=page.evaluate('''() => {const d=LubricaCore.State.getDatabase();return JSON.stringify([d.routes,d.routePlanItems,d.routeRevisions,d.checklistRuns,d.routeWorkload,d.routeAutomation,d.tasks.map(t=>[t.id,t.routeDue,t.routePolicy])])}''')
  assert page.evaluate("async () => await LubricaCore.Storage.saveRecovery(LubricaCore.State.getDatabase(),'R6 browser')")
