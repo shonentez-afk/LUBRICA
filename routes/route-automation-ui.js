@@ -80,6 +80,7 @@
   }
   function updatePprMode(){
    const group=routeGroups.get(val('group')),on=!!group&&val('route-mode')==='ppr';
+   el('initial-date').parentElement.firstChild.textContent=val('initial-mode')==='last'?'Дата последнего обслуживания':'Дата первого обслуживания';
    el('route-mode-box').hidden=!group;el('ppr-box').hidden=!on;
    const saved=group&&pprCfg.ppr.find(x=>x.lineId===String(group.lineId));
    el('ppr-anchor').readOnly=!!saved;
@@ -156,7 +157,7 @@
   }
   el('close').onclick=()=>dlg.close();
   el('cancel').onclick=()=>dlg.close();
-  el('advanced').onclick=()=>{advanced=!advanced;dlg.querySelector('.r5-shell').classList.toggle('r5-simple',!advanced);dlg.querySelector('.r5-advanced-fields').hidden=!advanced;dlg.querySelectorAll('.r5-advanced-field').forEach(x=>x.hidden=!advanced);dlg.querySelector('.r5-simple-note').hidden=advanced;el('advanced').textContent=advanced?'Скрыть дополнительные настройки ▴':'Дополнительные настройки ▾';el('advanced').setAttribute('aria-expanded',String(advanced));el('preview').textContent=advanced?'Проверить и рассчитать':'Проверить состав';el('apply').textContent=advanced?'Подтвердить изменения':'Сохранить маршруты';if(!advanced){selectedService='';el('service').value='';el('initial-mode').value='next'}refreshScope();invalidate()};
+  el('advanced').onclick=()=>{advanced=!advanced;dlg.querySelector('.r5-shell').classList.toggle('r5-simple',!advanced);dlg.querySelector('.r5-advanced-fields').hidden=!advanced;dlg.querySelectorAll('.r5-advanced-field').forEach(x=>x.hidden=!advanced);dlg.querySelector('.r5-simple-note').hidden=advanced;el('advanced').textContent=advanced?'Скрыть дополнительные настройки ▴':'Дополнительные настройки ▾';el('advanced').setAttribute('aria-expanded',String(advanced));el('preview').textContent=advanced?'Проверить и рассчитать':'Проверить состав';el('apply').textContent=advanced?'Подтвердить изменения':'Сохранить маршруты';if(!advanced){selectedService='';el('service').value='';if(val('initial-mode')==='last')el('initial-date').value='';el('initial-mode').value='next'}refreshScope();invalidate()};
   const resetBasis=()=>{selectedService='';el('service').value='';el('initial-date').value='';el('initial-mode').value='next'};
   const resetSelection=()=>{resetBasis();el('route-service').value='';el('cadence').value='';el('group').value=''};
   el('create-mode').onchange=()=>{resetSelection();refreshScope();invalidate()};
@@ -166,6 +167,7 @@
   el('area').onchange=()=>{resetSelection();refreshScope();invalidate()};
   el('policy-enabled').onchange=()=>{policyEnabled();invalidate()};
   el('route-mode').onchange=()=>{updatePprMode();invalidate()};
+  el('initial-mode').onchange=()=>{el('initial-date').value='';updatePprMode();invalidate()};
   el('ppr-anchor').oninput=()=>{updatePprMode();invalidate()};
   el('service').onchange=()=>{selectedService=val('service');el('initial-date').value='';refreshScope();invalidate()};
   el('up').onclick=()=>shift(-1);el('down').onclick=()=>shift(1);

@@ -44,6 +44,11 @@ def check(browser):
  key=page.evaluate('''() => [...LubricaRouteAutomation.eligible(LubricaCore.State.getDatabase()).valid.values()].find(g=>g.areaId==='A0'&&g.scheduleKey==='days:7').key''')
  service_key,schedule_key=json.loads(key)[2:]
  assert field('create-mode').input_value()=='single'
+ before=page.evaluate('JSON.stringify(LubricaCore.State.getDatabase())')
+ field('preview').click()
+ assert not field('apply').is_enabled()
+ assert 'Выберите участок, вид обслуживания и периодичность' in field('report').inner_text()
+ assert page.evaluate('JSON.stringify(LubricaCore.State.getDatabase())')==before
  assert field('route-service').is_visible() and field('cadence').is_visible()
  field('route-service').select_option(service_key)
  field('cadence').select_option(schedule_key)
@@ -79,8 +84,11 @@ def check(browser):
  page.evaluate("""() => {document.querySelector('[data-r5="early"]').value='0';document.querySelector('[data-r5="task-minutes"]').value='15'}""")
  field('preview').click()
  assert field('apply').is_enabled(),field('report').inner_text()
+ field('initial-mode').select_option('last');field('initial-date').fill(today)
  field('advanced').click()
  assert not field('apply').is_enabled()
+ assert field('initial-date').input_value()==''
+ assert field('initial-mode').input_value()=='next'
  field('create-mode').select_option('bulk')
  field('line').select_option('');field('area').select_option('')
  # Ordinary workflow: no settings, no fabricated dates, no plans.
