@@ -8,7 +8,9 @@ const W=LubricaRouteWorkload,P=LubricaRoutePlanning,copy=x=>JSON.parse(JSON.stri
 const cfg={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:30},{id:'2',workers:1,minutesPerWorker:40}],ppr:[{lineId:'L1',anchorDate:today},{lineId:'L2',anchorDate:tomorrow}],pprRouteIds:['A','B']};
 const options={startDate:today,endDate:end};
 assert.equal(W.settings(d),null);
-assert.equal(W.saveSettings({...cfg,ppr:[]},d).code,'PPR_ANCHOR_REQUIRED');
+assert.equal(W.saveRoutePpr('A','ppr','',d).code,'PPR_ANCHOR_REQUIRED');
+assert.equal(W.saveSettings(cfg,d).code,'PPR_MODE_ROUTE');
+for(const [id,date] of [['A',today],['B',tomorrow]]){const r=W.saveRoutePpr(id,'ppr',date,d,{persist:false});assert(r.ok,r.message);d=r.database}
 assert(W.saveSettings(cfg,d).ok);assert.equal(writes,1);assert.equal(W.settings(d).ppr[0].intervalDays,14);
 assert(W.pprOn('L1',today,d));assert(!W.pprOn('L2',today,d));assert(W.pprOn('L2',tomorrow,d));
 assert(W.pprOn('L1',plus(14),d));assert(W.pprOn('L2',plus(15),d));assert(!W.pprOn('L1',plus(13),d));
@@ -60,7 +62,7 @@ assert.equal(get('J02').workAssignmentHistory.length,2);
 assert.equal(W.move('J02',{clear:true},d).code,'REASON_REQUIRED');
 assert(W.move('J02',{clear:true,reason:'Вернуть в очередь'},d).ok);
 assert.equal(get('J02').workAssignment,null);assert.equal(W.validateStart(get('J02'),today,'1',d).code,'PPR_ASSIGNMENT_REQUIRED');
-const old=copy(get('J01'));assert.equal(W.saveSettings({...cfg,pprRouteIds:['B']},d).code,'PPR_ROUTE_LOCKED');assert(W.saveSettings({...cfg,ppr:[{lineId:'L1',anchorDate:tomorrow},{lineId:'L2',anchorDate:tomorrow}]},d).ok);
+const old=copy(get('J01'));assert.equal(W.saveSettings({...cfg,pprRouteIds:['B']},d).code,'PPR_MODE_ROUTE');assert.equal(W.saveRoutePpr('A','normal','',d).code,'PPR_ROUTE_LOCKED');assert(W.saveSettings({...cfg,ppr:[{lineId:'L1',anchorDate:tomorrow},{lineId:'L2',anchorDate:tomorrow}]},d).ok);
 assert.deepEqual(get('J01'),old,'changing calendar cannot rewrite jobs');
 assert.equal(W.load(options,d).totals.pprConflicts,2);
 assert.equal(W.validateStart(get('J01'),today,'2',d).code,'PPR_CONFLICT');

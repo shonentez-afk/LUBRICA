@@ -29,7 +29,7 @@ let generated=E.applyAutoGrouping({},grouping.token,d);assert(generated.ok,gener
 const raw=kind=>d.routes.find(r=>r.scheduleKey.startsWith(kind+':')), entry=id=>E.routeEntries(d,{preview:false}).find(r=>r.id===id),t=id=>d.tasks.find(x=>x.id===id);
 let cr=raw('days').id,hr=raw('runtime_hours').id;
 assert.equal(E.setRouteStatus(cr,'active',d).ok,false,'no activation without individual bases');
-function config(id,values){const r=d.routes.find(x=>x.id===id),rows=D.rows(r,d),changes=Object.entries(values).map(([tid,v])=>({id:tid,key:rows.find(x=>x.id===tid).key,...v}));const out=D.configure(id,changes,d);assert(out.ok,out.message);return out}
+function config(id,values){const r=d.routes.find(x=>x.id===id),rows=D.rows(r,d),changes=Object.entries(values).map(([tid,v])=>({id:tid,key:rows.find(x=>x.id===tid).key,confirmMeter:true,...v}));const out=D.configure(id,changes,d);assert(out.ok,out.message);return out}
 config(cr,{C1:{nextDate:yesterday},C2:{nextDate:today},C3:{nextDate:tomorrow}});
 config(hr,{H1:{nextHours:1000,readingHours:1002,readingDate:today,hoursPerDay:0},H2:{nextHours:1000,readingHours:990,readingDate:yesterday,hoursPerDay:10},H3:{nextHours:1500,readingHours:1000,readingDate:today,hoursPerDay:0}});
 assert(E.setRouteStatus(cr,'active',d).ok);assert(E.setRouteStatus(hr,'active',d).ok);
@@ -86,11 +86,12 @@ console.log('R3B TASK DUE PASS: exact subset, overdue, reserve, material totals,
 vm.runInThisContext(fs.readFileSync('routes/route-workload.js','utf8'),{filename:'route-workload.js'});
 const W=LubricaRouteWorkload;
 const pprConfig={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:480},{id:'2',workers:2,minutesPerWorker:480}],ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[cr]};
-assert.equal(W.saveSettings(pprConfig,d).code,'PPR_ROUTE_LOCKED','existing open jobs protect route PPR mode');
+assert.equal(W.saveSettings(pprConfig,d).code,'PPR_MODE_ROUTE','enterprise cannot change route access');
+assert.equal(W.saveRoutePpr(cr,'ppr',today,d).code,'PPR_ROUTE_LOCKED','existing open jobs protect route PPR mode');
 for(const job of d.routePlanItems.filter(x=>x.routeId===cr&&x.status==='planned'))assert(P.remove(job.id,d).ok,'explicitly remove unstarted jobs before changing mode');
-assert.equal(W.saveSettings(pprConfig,d).code,'PPR_CYCLE','off-phase future due requires an approved early window');
+assert.equal(W.saveRoutePpr(cr,'ppr',today,d).code,'PPR_CYCLE','off-phase future due requires an approved early window');
 t('C3').routePolicy={key:D.signature(t('C3'),d),access:'normal',earlyDays:1,earlyReason:'Approved PPR window'};
-assert(W.saveSettings(pprConfig,d).ok);
+assert(W.saveRoutePpr(cr,'ppr',today,d).ok);assert(W.saveSettings(pprConfig,d).ok);
 assert(P.commit({startDate:today,endDate:today},d).ok);
 const pprJob=d.routePlanItems.find(x=>x.routeId===cr&&x.status==='planned'&&x.taskIds.includes('C2'));
 assert(pprJob,'skipped/cancelled task replanned');

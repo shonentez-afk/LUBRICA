@@ -39,13 +39,11 @@ def check(browser,width,height,label):
  assert '1 ч' in dlg.locator('[data-rw-total="1"]').inner_text()
  dlg.locator('[data-rw-ppr-line="L1"]').fill(today)
  dlg.locator('[data-rw-ppr-line="L2"]').fill(tomorrow)
- dlg.locator('.rw-ppr-routes summary').click()
- dlg.locator('[data-rw-ppr-route="A"]').check()
- dlg.locator('[data-rw-ppr-route="B"]').check()
+ assert dlg.locator('[data-rw-ppr-route]').count()==0
  page.screenshot(path=str(OUT/(label+'_settings.png')))
  dlg.locator('[data-rw-save-settings]').click()
  assert page.evaluate('window.__writes')==1
- page.evaluate('''() => {window.__addJobs();LubricaRoutePlanningUI.open(document.getElementById('routes'),{startDate:window.__today,endDate:window.__end});}''')
+ page.evaluate('''() => {for(const id of ['A','B']){const r=LubricaRouteWorkload.saveRoutePpr(id,'ppr','',window.__db,{persist:false});if(!r.ok)throw Error(r.message);window.__db=r.database}window.__addJobs();LubricaRoutePlanningUI.open(document.getElementById('routes'),{startDate:window.__today,endDate:window.__end});}''')
  dlg.locator('[data-rw-open]').click()
  assert page.evaluate('window.__db.routeWorkload.shifts[0].workers')==2
  assert page.evaluate('window.__db.routeWorkload.shifts[0].minutes')==60

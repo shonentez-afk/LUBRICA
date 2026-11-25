@@ -56,7 +56,7 @@ const compatible={...incompatible,groupKey:[...M.eligible(d).valid.values()].fin
 apply(compatible);const pr=d.routes[0];assert.equal(pr.scheduleKey,'days:14');
 d.routePlanItems.push({id:'JOB',routeId:pr.id,status:'planned',taskIds:[pr.taskIds[0]],plannedDate:today});
 assert.equal(W.saveRoutePpr(pr.id,'normal','',d,{persist:false}).code,'PPR_ROUTE_LOCKED');
-assert.equal(W.saveSettings({...cfg,pprRouteIds:[]},d,{persist:false}).code,'PPR_ROUTE_LOCKED');
+assert.equal(W.saveSettings({...cfg,pprRouteIds:[]},d,{persist:false}).code,'PPR_MODE_ROUTE');
 assert(W.requiresPpr(pr.id,d));assert.equal(W.nextPpr('L',tomorrow,d),W.nextPprFromAnchor(today,tomorrow));
 assert.equal(P.parseRuntimeInterval('5000/500 ч'),null);assert.equal(P.parseInterval('7 дней / 14 дней'),null);assert.equal(P.parseInterval('2 недели').value,2);
 assert.equal(P.addInterval(today,P.parseInterval('2 недели')),P.addInterval(today,{kind:'days',value:14}));

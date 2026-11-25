@@ -185,7 +185,7 @@
   const date=day(input.readingDate),reading=num(input.readingHours),last=num(input.lastHours),rate=num(input.hoursPerDay),source=str(input.meterId)||'main',key=meterKey(equipmentId,source),explicit=!!str(input.meterId);
   if(input.confirmMeter!==true||!date||date>today()||reading==null||reading<0||str(input.hoursPerDay)&&rate==null||rate!=null&&(rate<0||rate>24))return fail('METER_INITIAL','Подтвердите общий счётчик, показание и дату');
   const selected=new Set(arr(input.taskIds).map(String)),linked=[];
-  if(explicit&&source!=='main'&&!selected.size)return fail('METER_SCOPE','Для независимого счётчика отметьте его мероприятия');
+  if(explicit&&source!=='main'&&!selected.size&&arr(r.taskIds).filter(id=>String(ix.get(String(id))?.eq?.id)===String(equipmentId)).length!==1)return fail('METER_SCOPE','Для независимого счётчика отметьте его мероприятия');
   if(selected.size&&[...selected].some(id=>!arr(r.taskIds).map(String).includes(id)||String(ix.get(id)?.eq?.id)!==String(equipmentId)))return fail('METER_SCOPE','Выбранное мероприятие не относится к оборудованию маршрута');
   for(const id of arr(r.taskIds)){
    const c=ix.get(String(id));if(String(c?.eq?.id)!==String(equipmentId)||selected.size&&!selected.has(String(id)))continue;

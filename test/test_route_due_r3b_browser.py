@@ -103,12 +103,22 @@ def check(browser,width,height,label):
  select(runtime)
  page.locator('#editRoute').click()
  editor.locator('[data-open-schedule]').click()
+ dialog.locator('[data-r81-method]').select_option('meter')
+ assert dialog.locator('[data-r81-access]').is_visible()
+ assert dialog.locator('[data-r81-save-access]').is_visible()
+ assert not dialog.locator('[data-r81-calendar]').is_visible()
  dialog.locator('[data-r81-individual] > summary').click()
  for name,value in [('nextHours','1000'),('readingHours','1001'),('readingDate',today),('hoursPerDay','0')]:
   dialog.locator('[data-due-field="'+name+'"]').fill(value)
+ dialog.locator('[data-due-confirm-meter]').check()
  page.screenshot(path=str(OUT/(label+'_runtime_setup.png')))
  dialog.locator('[data-due-activate]').click()
+ assert page.evaluate('window.__db.tasks.find(t=>t.id==="H1").routeDue.meterKey===window.__db.routeMeters[0].key')
  assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',runtime)=='active'
+ page.locator('#routeSettings').click()
+ settings=page.locator('#routePlanningDialog')
+ assert settings.locator('[data-rw-ppr-route]').count()==0
+ settings.locator('[data-rw-close]').last.click()
  page.locator('#routePlanning').click()
  plan=page.locator('#routePlanningDialog')
  plan.locator('[data-plan-start]').fill(today)
