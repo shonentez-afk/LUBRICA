@@ -14,6 +14,7 @@ on:
       - 'test/test_route_auto_grouping_r3a.js'
       - 'test/test_route_due_r3b.js'
       - 'test/test_route_workload_r4.js'
+      - 'test/test_final_ui_baseline_audit.py'
       - 'assets/route-workload.css'
       - 'test/test_route_execution_compact_r2_ui.py'
       - 'assets/route-compact.css'
