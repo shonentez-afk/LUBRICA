@@ -16,7 +16,7 @@ async function main(){
  assert.equal(info.valid.size,45);assert.deepEqual(info.issues.map(x=>x.taskId).sort(),['T1','T2','T3']);
  assert(new Set([...info.valid.values()].map(x=>x.serviceKey)).size>=8,'multiple canonical point types');
  const opts={activateReady:true,recoverHistory:true,initial:{mode:'next',date:today},timing:{minutes:'',transitionMinutes:0,splitLargeJobs:true,balance:true},workloadSettings:settings,plan:true,startDate:today,endDate:today,forecastWeeks:4};
- const before=copy(d),preview=M.preview(opts,d);assert(preview.ok,preview.reason);assert.deepEqual(d,before);
+ const before=structuredClone(d),preview=M.preview(opts,d);assert(preview.ok,preview.reason);assert.deepEqual(d,before);
  assert(M.apply(opts,preview.token,d).ok);d=db();
  const all=d.routes.flatMap(r=>r.taskIds);assert.equal(all.length,45);assert.equal(new Set(all).size,45);
  assert.equal(d.routePlanItems.flatMap(p=>p.taskIds).length,45);assert(d.routePlanItems.every(p=>p.checklistSnapshot.taskCount===p.taskIds.length));
@@ -26,7 +26,7 @@ async function main(){
  const groups=new Map();for(const p of d.routePlanItems){if(!groups.has(p.routeId))groups.set(p.routeId,[]);groups.get(p.routeId).push(p)}
  const pair=[...groups.values()].find(x=>x.length>=2);assert(pair,'split jobs from one route');
  const [a,b]=pair;
- const token=P.previewToken(d),snapshot=copy(d);
+ const token=P.previewToken(d),snapshot=structuredClone(d);
  P.items({},d);P.summary({},d);P.exportCsv({},d);E.routeEntries(d,{preview:false});
  assert.deepEqual(d,snapshot,'read-only queries and export must not change timestamp/history');
  assert.equal(P.previewToken(d),token);
@@ -48,8 +48,8 @@ async function main(){
  const fields=x=>({routes:x.routes,routeRevisions:x.routeRevisions,routePlanItems:x.routePlanItems,checklistRuns:x.checklistRuns,routeWorkload:x.routeWorkload,routeAutomation:x.routeAutomation,due:x.tasks.map(t=>[t.id,t.routeDue??null,t.routePolicy??null])});
  const frozen=copy(fields(d));assert(await C.Storage.saveRecovery(d,'R6 test'));
  C.State.startDemo({project:'Demo',points:[],materials:[],rules:{}});assert(await C.State.restoreRecovery());d=db();
- assert.deepEqual(fields(d),frozen);
- const reload=C.DatabaseSafety.parseAndPrepare(JSON.stringify(d),'synthetic').database;assert.deepEqual(fields(reload),frozen);
+ assert.deepEqual(copy(fields(d)),frozen);
+ const reload=C.DatabaseSafety.parseAndPrepare(JSON.stringify(d),'synthetic').database;assert.deepEqual(copy(fields(reload)),frozen);
  assert.throws(()=>C.DatabaseSafety.prepare({...d,routePlanItems:{broken:true}}),/массивом/);
  assert.throws(()=>C.DatabaseSafety.prepare({...d,routeRevisions:[d.routeRevisions[0],d.routeRevisions[0]]}),/Дубли ID/);
  // Preserve frozen identity instead of running a legacy merge against history.
@@ -72,7 +72,7 @@ async function main(){
  // Production-scale synthetic fixture, not a claim about the real plant file.
  const large=C.Database.normalize(createR6RouteFixture(1200)),start=Date.now();
  const bulk={activateReady:true,initial:{mode:'next',date:today},forecastWeeks:52,workloadSettings:{...settings,shifts:[{id:'1',workers:2,minutesPerWorker:480}]}};
- const largeBefore=copy(large),mass=M.preview(bulk,large);assert(mass.ok,mass.reason);assert.equal(mass.report.summary.add,1197);assert.equal(mass.report.summary.create,48);assert.equal(mass.forecast.weeks.length,52);assert.deepEqual(large,largeBefore);
+ const largeBefore=structuredClone(large),mass=M.preview(bulk,large);assert(mass.ok,mass.reason);assert.equal(mass.report.summary.add,1197);assert.equal(mass.report.summary.create,48);assert.equal(mass.forecast.weeks.length,52);assert.deepEqual(large,largeBefore);
  assert(M.apply(bulk,mass.token,large).ok);d=db();
  assert.equal(d.routes.length,48);assert.equal(new Set(d.routes.flatMap(r=>r.taskIds)).size,1197);
  const again=M.preview({activateReady:true,forecastWeeks:4},d);assert(again.ok,again.reason);assert.equal(again.report.summary.create+again.report.summary.update+again.report.summary.archive,0);
