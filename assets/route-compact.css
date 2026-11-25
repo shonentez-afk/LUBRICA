@@ -115,3 +115,18 @@
 .route-r3-issues th,.route-r3-issues td{padding:7px;text-align:left;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 .route-r3-dialog menu{flex:none;display:flex;justify-content:flex-end;gap:8px}
 @media(max-width:620px){.route-r3-scope{grid-template-columns:1fr}.route-r3-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.route-r3-row{flex-direction:column;gap:6px}.route-r3-row strong{text-align:left}.route-r3-dialog menu{flex-wrap:wrap}}
+
+/* R3B: independent due settings and actual meter fact */
+.route-due-table{max-width:100%;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.route-due-table table{width:100%;border-collapse:collapse;font-size:11px;min-width:460px}
+.route-due-table th,.route-due-table td{padding:8px;vertical-align:top;text-align:left;border-bottom:1px solid var(--line)}
+.route-due-table th{background:#f4f7f8;color:var(--muted);position:sticky;top:0;z-index:1}
+.route-due-table td:first-child{min-width:180px;overflow-wrap:anywhere}
+.route-due-table td small{display:block;line-height:1.45;color:var(--muted);margin-top:4px}
+.route-due-table input,.route-r3-scope input{box-sizing:border-box;width:100%;min-width:90px;border:1px solid var(--line);border-radius:7px;padding:7px;color:var(--ink);font:inherit;background:#fff}
+.route-due-table input:disabled{background:#f4f6f7}
+.route-meter-fact{display:grid!important;gap:4px;min-width:0}
+.route-meter-fact small{font-size:10px;color:var(--muted);font-weight:400}
+.route-r3-warning:empty{display:none}
+.route-visit-task-inputs:has(.route-meter-fact) .route-visit-notes{grid-column:1/-1}
+.route-visit-task-inputs .route-meter-fact{align-self:start}
