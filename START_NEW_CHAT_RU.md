@@ -1,6 +1,8 @@
 <!-- R8.2: 32/32 audit passed in CI f2a4155; Chromium passed. Full regression exposed native confirm and narrow PPR wording contract. Replaced native confirm with inline explicit confirmation; extended terminology audit only for the actual line PPR label. Full regression and ZIP passed ec32348; Chromium caught hidden attribute overridden by shared meta-card CSS. Scoped hidden rule added; browser test checks initial hidden state and cancellation. Check latest HEAD workflows before final acceptance. -->
 # LUBRICA — R8.2 core consolidation candidate (25.11.2026)
 
+JSON: единая последовательная очередь ручных и автоматических записей; снимок берётся при начале операции. Проверка исходных байтов, ограниченный повтор при устаревшем состоянии File System Access, остановка при внешнем изменении, recovery и сохранение в новый файл. При активации другой базы прежняя привязка сбрасывается. Модель файловых отказов проверяется в test/test_json_autosave_queue.js; реальная запись на Edge/сетевом диске требует ручной приёмки.
+
 UX: отдельная постоянная кнопка расписания убрана. Сроки/доступ/моточасы — подчинённый раздел настроек маршрута. Календарь остаётся единственным общим планом работ; подготовка открывается по ID конкретного задания. Браузерные проверки перенесены на новые входы без отмены проверки сроков, статусов и подготовки.
 
 UX: исключён переход «Подготовка» → календарь без выбранного задания. Календарь содержит действие подготовки конкретной плановой записи; из выбранного задания доступна та же подготовка, с возвратом в календарь или переходом к запуску. Обязательный checkStart и состав задания сохранены.

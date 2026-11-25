@@ -137,6 +137,7 @@ echo '[R7 ROUTE ENGINE CONSOLIDATION]'; run_test node test/test_route_r7_consoli
 echo '[R8 LIVE PLANNING]'; run_test node test/test_route_r8_live_planning.js
 echo '[R8.1 UNIFIED SCHEDULE]'; run_test node test/test_route_r81_unified_schedule.js
 echo '[R8.2 CORE AUDIT AND ROUTE SETTINGS]'; run_test node test/test_route_r82_audit.js
+echo '[JSON FILE SAVE SERIALIZATION]'; run_test node test/test_json_autosave_queue.js
 if [ "$failures" -ne 0 ]; then
   printf 'REGRESSION FAILED: %s test commands failed\n' "$failures" >&2
   exit 1

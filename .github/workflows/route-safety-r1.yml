@@ -23,6 +23,7 @@ on:
       - 'test/test_database_modules.js'
       - 'test/route_r6_fixture.js'
       - 'core/database-*.js'
+      - 'test/test_json_autosave_queue.js'
       - 'tools/route-r6-audit.js'
       - 'assets/route-automation.css'
       - 'test/test_final_ui_baseline_audit.py'
