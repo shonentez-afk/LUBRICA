@@ -102,10 +102,8 @@ for(const f of ['core/database-schema.js','structure/context.js','routes/route-a
 const R=window.LubricaRouteEngine,M=window.LubricaRouteAutomation,D=window.LubricaRouteDue,P=window.LubricaRoutePlanning,G=window.LubricaRouteAutoGrouping;
 const info=M.eligible(db);
 assert(info.ok,'canonical readiness index');
-for(const id of allMachineTaskIds){
-  const expected=!blockedTaskIds.has(id);
-  assert.strictEqual(info.valid.has(id),expected,'PP task eligibility '+id+': '+JSON.stringify(info.issues.find(x=>x.taskId===id)||{}));
-}
+const eligibilityMismatches=[...allMachineTaskIds].filter(id=>info.valid.has(id)===blockedTaskIds.has(id)).map(id=>({id,expected:!blockedTaskIds.has(id),actual:info.valid.has(id),code:info.issues.find(x=>x.taskId===id)?.code||'UNKNOWN'}));
+assert.strictEqual(eligibilityMismatches.length,0,'PP eligibility mismatches: '+JSON.stringify(eligibilityMismatches));
 const options={activateReady:true,forecast:false};
 const beforePreview=JSON.stringify(db),preview=M.preview(options,db);
 assert(preview.ok,preview.reason);assert(preview.report.summary.create>0,'new automatic groups');

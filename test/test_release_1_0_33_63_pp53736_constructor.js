@@ -42,6 +42,16 @@ assert.strictEqual(db.lubricationPoints.filter(p=>/r77_/.test(p.machineProfileOr
 assert(!db.lubricationPoints.some(p=>/6015-2RS1/.test(p.installedComponent?.name||'')),'sealed 6015-2RS1 must not get routine relube point');
 assert(db.components.some(c=>/S37 DRE80 M4\/TF/.test(c.name)&&c.machineProfileId==='IZOTEH-PP53736'));
 assert(db.tasks.some(t=>t.schedule?.approvedHours===200));assert(db.tasks.some(t=>t.schedule?.approvedHours===800));assert(db.tasks.some(t=>t.schedule?.approvedHours===5000&&t.schedule?.machineOemRawInterval==='5000/500 h'));
+// Reapplying the explicit OEM machine profile must replace stale active calendar
+// fields from any earlier calculation without changing approved runtime hours.
+const expectedHours=new Map(db.tasks.filter(t=>t.machineProfileId==='IZOTEH-PP53736').map(t=>[t.id,t.schedule.runtimeHours]));
+for(const t of db.tasks.filter(t=>expectedHours.has(t.id)))Object.assign(t.schedule,{calendarValue:1,calendarUnit:'months'});
 const pointCount=db.lubricationPoints.length,taskCount=db.tasks.length;A.applyConfiguration(db,root,{r77Count:6,s37State:'installed',chainsEnabled:true,jacksEnabled:true,bearingsEnabled:true});assert.strictEqual(db.lubricationPoints.length,pointCount);assert.strictEqual(db.tasks.length,taskCount);
+for(const t of db.tasks.filter(t=>expectedHours.has(t.id))){
+ assert.strictEqual(t.schedule.calendarValue,null,'stale calendar value removed by explicit OEM reapply');
+ assert.strictEqual(t.schedule.calendarUnit,null,'stale calendar unit removed by explicit OEM reapply');
+ assert.strictEqual(t.schedule.runtimeHours,expectedHours.get(t.id),'technical runtime hours unchanged');
+ assert.strictEqual(t.schedule.runtimeUnit,'hours');
+}
 const analog=A.applyToAnalog(db,root);assert(analog?.target);assert.strictEqual(analog.target.externalCode,'10208190');assert.strictEqual(db.equipment.find(e=>e.id==='EQ-000101').parentEquipmentId,analog.target.id);assert.strictEqual(db.equipment.find(e=>e.id==='EQ-000102').parentEquipmentId,analog.target.id);assert.strictEqual(db.equipment.find(e=>e.id==='EQ-000103').parentEquipmentId,analog.target.id);assert.strictEqual(db.components.find(c=>c.id==='COMP-0000101').equipmentId,analog.target.id);assert.strictEqual(db.components.find(c=>c.id==='COMP-0000102').equipmentId,analog.target.id);
 console.log('PASS 1.0.33.63 PP53736 constructor');

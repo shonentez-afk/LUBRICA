@@ -80,6 +80,7 @@ assert.equal(E.validateRoute(br.id,d).valid,false);
 assert(E.applyAutoGrouping({},changed.token,d).ok,'explicit confirmation moves task');
 assert.equal(d.routes.filter(r=>r.status!=='archived'&&r.taskIds.includes('B1')).length,1);
 assert.equal(A.scheduleFor({schedule:{legacyText:'5000/500 часов'}}).ok,false);
+assert.equal(A.scheduleFor({schedule:{strategy:'По наработке',runtimeHours:5000,calendarValue:12,calendarUnit:'months',legacyText:'5000 ч'}}).code,'INTERVAL_CONFLICT','unresolved real schedule conflicts stay blocked');
 assert.equal(A.scheduleFor({schedule:{legacyText:'1 месяц'}}).key,'months:1');
 assert.equal(A.scheduleFor({schedule:{legacyText:'30 дней'}}).key,'days:30');
 assert.equal(A.scheduleFor({schedule:{legacyText:'1 год'}}).key,A.scheduleFor({schedule:{legacyText:'12 месяцев'}}).key);
