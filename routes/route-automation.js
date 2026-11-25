@@ -168,6 +168,8 @@
   for(const id of allScopeIds){
    const t=ix.get(id).task,existingBasis=D().parseBasis(t,d,ix),requested=o.batchByKey?.get(valid.get(id)?.key)?.initial;if(existingBasis.ok){if(requested?.planningMode==='calendar_runtime'&&requested.date&&requested.confirmCalendar===true&&(existingBasis.planningMode!=='calendar_runtime'||existingBasis.maxHoursPerDay!==Number(requested.maxHoursPerDay)))return fail('MODE_CHANGE_CONFIRM','Измените существующий способ планирования в общих настройках срока маршрута');continue}
    if(!usable(id)){issues.push({taskId:id,message:'Срок защищён назначением или ручным маршрутом'});continue}
+   const prior=D().parseBasis(t,d,ix,{allowUnbound:true}),initialRequest=o.batchByKey?.get(valid.get(id)?.key)?.initial||o.initial||{};
+   if(prior.ok&&prior.kind==='runtime_hours'&&!prior.meterKey){if(initialRequest.planningMode==='calendar_runtime'&&str(initialRequest.date))return fail('MODE_CHANGE_CONFIRM','Ранее записанные моточасы требуют явной смены способа планирования в настройках маршрута');if(!str(initialRequest.equipmentId)){issues.push({taskId:id,message:'Подтвердите физический счётчик ранее записанных моточасов'});continue}}
    let b=o.recoverHistory?historyFor(t,d,ix):null,source=b?'Подтверждённый факт '+b.lastRunId:'';
    const s=A().scheduleFor(t),key=D().signature(t,d,ix),initial=o.batchByKey?.get(valid.get(id)?.key)?.initial||o.initial||{};
    if(s.kind==='runtime_hours'&&initial.planningMode==='calendar_runtime'&&initial.date){b=null;source=''}

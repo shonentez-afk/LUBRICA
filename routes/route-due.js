@@ -66,7 +66,7 @@
   if(s.kind==='runtime_hours'){
    const keySource=b.meterKey,eq=context(t,d,index)?.eq?.id,meter=keySource?meterRecord(d,keySource):null;
    if(keySource&&(!meter||!sourceMatches(keySource,eq))||!keySource&&!allowUnbound)return fail('TASK_METER_MISSING','Подтвердите привязку к физическому счётчику оборудования');
-   const due=num(b.nextHours),reading=num(meter?.readingHours??b.readingHours),rate=num(meter?.hoursPerDay??b.hoursPerDay),date=day(meter?.readingDate??b.readingDate);
+   const due=num(b.nextHours),reading=num(meter?meter.readingHours:b.readingHours),rate=num(meter?meter.hoursPerDay:b.hoursPerDay),date=day(meter?meter.readingDate:b.readingDate);
    if(due==null||due<0||reading==null||reading<0||!date||date>today()||rate!=null&&(rate<0||rate>24))return fail('TASK_METER_MISSING','Укажите действительные показания, дату и следующий порог моточасов');
    return{ok:true,key,kind:s.kind,interval:s.value,nextHours:due,readingHours:reading,readingDate:date,hoursPerDay:rate||0,...(keySource?{meterKey:keySource}:{})};
   }
@@ -149,7 +149,8 @@
   let updated=0;
   for(const id of arr(r.taskIds)){
    const t=ix.get(String(id))?.task;if(!t)return fail('TASK_MISSING','Нет мероприятия '+id);
-   const old=parseBasis(t,work,ix),s=spec(t);
+   const old=parseBasis(t,work,ix),s=spec(t),unbound=!old.ok&&s?.kind==='runtime_hours'&&parseBasis(t,work,ix,{allowUnbound:true}).ok;
+   if(unbound&&calendar&&!input.replaceExisting)return fail('MODE_CHANGE_CONFIRM','Есть ранее записанные моточасы. Для перехода на календарь явно подтвердите замену срока.');
    if(old.ok&&!input.replaceExisting){
     if(calendar&&(old.planningMode!=='calendar_runtime'||old.maxHoursPerDay!==Number(input.maxHoursPerDay)))return fail('MODE_CHANGE_CONFIRM','Для изменения способа или наработки подтвердите замену исходных сроков');
     continue;
@@ -190,7 +191,7 @@
   for(const id of arr(r.taskIds)){
    const c=ix.get(String(id));if(String(c?.eq?.id)!==String(equipmentId)||selected.size&&!selected.has(String(id)))continue;
    const t=c.task,s=spec(t),old=parseBasis(t,work,ix,{allowUnbound:true});if(s?.kind!=='runtime_hours')continue;
-   if(old.ok&&(old.kind!=='runtime_hours'||old.meterKey&&old.meterKey!==key)&&!input.replaceExisting)return fail('MODE_CHANGE_CONFIRM','Подтвердите смену источника или способа планирования');
+   if((old.ok&&(old.kind!=='runtime_hours'||old.meterKey&&old.meterKey!==key)||!old.ok&&t.routeDue?.meterKey)&&!input.replaceExisting)return fail('MODE_CHANGE_CONFIRM','Подтвердите смену источника или способа планирования');
    let b;
    if(old.ok&&old.kind==='runtime_hours'&&!input.replaceExisting)b={...t.routeDue,readingHours:reading,readingDate:date,hoursPerDay:rate??old.hoursPerDay};
    else {if(last==null||last<0||last>reading)return fail('METER_INITIAL','Укажите подтверждённую наработку при последнем обслуживании');b={key:signature(t,work,ix),nextHours:last+s.value,readingHours:reading,readingDate:date,hoursPerDay:rate||0}}

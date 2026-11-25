@@ -373,7 +373,7 @@ function openAutoGroupingDialog(view,{bulk=false}={}){
 function openRouteDueDialog(view,route,{onBack=null}={}){
  const D=window.LubricaRouteDue,E=window.LubricaRouteEngine,W=window.LubricaRouteWorkload,dlg=routeExecutionDialog(),db=window.LubricaCore.State.getDatabase();
  if(!D?.typed(route)||!dlg)return;
- const list=D.rows(route),runtime=route.scheduleKey?.startsWith('runtime_hours:'),missing=list.filter(x=>!x.basis.ok).length,ix=E.contextIndex(db),machines=new Map(list.map(x=>{const e=ix.get(x.id)?.eq;return [String(e?.id||''),[e?.externalCode,e?.name].filter(Boolean).join(' · ')]})),ppr=W.requiresPpr(route.id,db),rate=route.scheduleDefaults?.maxHoursPerDay||24,hasMeter=list.some(x=>x.basis.ok&&x.basis.kind==='runtime_hours');
+ const list=D.rows(route),runtime=route.scheduleKey?.startsWith('runtime_hours:'),missing=list.filter(x=>!x.basis.ok).length,ix=E.contextIndex(db),machines=new Map(list.map(x=>{const e=ix.get(x.id)?.eq;return [String(e?.id||''),[e?.externalCode,e?.name].filter(Boolean).join(' · ')]})),ppr=W.requiresPpr(route.id,db),rate=route.scheduleDefaults?.maxHoursPerDay||24,hasMeter=list.some(x=>x.basis.ok&&x.basis.kind==='runtime_hours'||x.raw?.key===x.key&&x.raw?.planningMode!=='calendar_runtime'&&x.raw?.nextHours!=null);
  const field=(name,value,type,disabled=false)=>'<input data-due-field="'+name+'" type="'+type+'" '+(type==='number'?'min="0" step="any" ':'')+'value="'+esc(value??'')+'" '+(disabled?'disabled':'')+'>';
  const table=list.map(row=>{
   const b=row.basis.ok?row.basis:row.raw?.key===row.key?row.raw:{},meter=runtime&&b.planningMode!=='calendar_runtime',locked=row.running,scope=esc(row.equipmentCode+' · '+row.equipment+' · '+row.pointName);
