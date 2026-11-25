@@ -53,6 +53,22 @@ def check(browser,width,height,label):
  def select(route_id):
   page.evaluate('(id)=>{const v=document.getElementById("routes");v.dataset.routeStatusFilter="working";v.dataset.selectedRoute=id;delete v.dataset.checklistRun;delete v.dataset.plannedItemId;renderRoutes(v)}',route_id)
  select(cal)
+ # R8.2: manual order and metadata are independent of lifecycle.
+ page.locator('#editRoute').click()
+ editor=page.locator('#actionDialog')
+ assert editor.locator('[name="status"]').count()==0
+ assert editor.locator('[data-route-state]').is_visible()
+ assert editor.locator('[data-route-activate]').is_disabled()
+ first=page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).taskIds[0]',cal)
+ editor.locator('[data-point-down]').first.click()
+ assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).taskIds[0]',cal)!=first
+ editor.locator('[data-point-up]').last.click()
+ assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).taskIds[0]',cal)==first
+ editor.locator('[name="name"]').fill('Маршрут R8.2')
+ editor.locator('[data-save-route]').click()
+ assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',cal)=='draft'
+ page.screenshot(path=str(OUT/(label+'_r82_settings.png')))
+ editor.locator('[data-close-route]').last.click()
  page.locator('#routeDue').click()
  dialog.locator('[data-r81-individual] > summary').click()
  assert dialog.locator('[data-due-task]').count()==2

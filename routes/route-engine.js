@@ -203,11 +203,15 @@
    const groups=pointGroupsForRoute(routeId,d),wanted=[],seen=new Set();
    for(const ref of visitRefs||[]){const g=findVisitGroup(groups,ref);if(g&&!seen.has(g.visitKey)){wanted.push(g);seen.add(g.visitKey)}}
    for(const g of groups)if(!seen.has(g.visitKey))wanted.push(g);
-   r.taskIds=wanted.flatMap(g=>g.taskIds);r.updatedAt=now();if(persist)save(d,'Очередь маршрута изменена');return true;
+   const next=wanted.flatMap(g=>g.taskIds).map(String),old=(r.taskIds||[]).map(String);
+   // A move may reorder physical visits, but never discard an unresolved task or alter membership.
+   if(next.length!==old.length||new Set(old).size!==old.length||new Set(next).size!==next.length||next.some(id=>!old.includes(id)))return false;
+   if(JSON.stringify(next)===JSON.stringify(old))return true;
+   r.taskIds=next;r.updatedAt=now();if(typed(r))ensureRouteRevision(routeId,d,{reason:'order',note:'Изменён порядок физических точек'});if(persist)save(d,'Очередь маршрута изменена');return true;
  }
  function movePointToIndex(routeId,visitRef,targetIndex,d=database()){
    const groups=pointGroupsForRoute(routeId,d),targetGroup=findVisitGroup(groups,visitRef),from=targetGroup?groups.indexOf(targetGroup):-1;if(from<0)return false;
-   const to=Math.max(0,Math.min(groups.length-1,Number(targetIndex)));if(from===to)return true;
+   const raw=rawRoute(d,routeId);if(!raw||raw.status==='archived'||typedLocked(d,raw)||!Number.isInteger(Number(targetIndex)))return false;const to=Math.max(0,Math.min(groups.length-1,Number(targetIndex)));if(from===to)return true;
    const [g]=groups.splice(from,1);groups.splice(to,0,g);return setPointOrder(routeId,groups.map(x=>x.visitKey),d);
  }
  function movePoint(routeId,visitRef,delta,d=database()){
