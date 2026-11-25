@@ -25,8 +25,8 @@ def check(browser,width,height,label):
  page.evaluate('''() => {
   const W=LubricaRouteWorkload,P=LubricaRoutePlanning,t=W.today(),tom=P.addInterval(t,{kind:'days',value:1});
   window.__today=t;window.__tomorrow=tom;window.__end=P.addInterval(t,{kind:'days',value:15});
-  for(const [id,route,name,lineId] of [['J1','A','Подшипники','L1'],['J2','B','Цепи','L2']])
-   window.__db.routePlanItems.push({id,routeId:route,routeCode:route,routeName:name,lineId,line:'Линия '+lineId,area:'Участок',plannedDate:t,plannedMinutes:30,status:'planned',runId:'',taskIds:['T'+id],dueEntries:[{taskId:'T'+id,dueDate:t}],routeRevision:1,routeRevisionId:'',checklistSnapshot:{taskCount:1}});
+  window.__addJobs=()=>{for(const [id,route,name,lineId] of [['J1','A','Подшипники','L1'],['J2','B','Цепи','L2']])
+   window.__db.routePlanItems.push({id,routeId:route,routeCode:route,routeName:name,lineId,line:'Линия '+lineId,area:'Участок',plannedDate:t,plannedMinutes:30,status:'planned',runId:'',taskIds:['T'+id],dueEntries:[{taskId:'T'+id,dueDate:t}],routeRevision:1,routeRevisionId:'',checklistSnapshot:{taskCount:1}})};
   LubricaRoutePlanningUI.open(document.getElementById('routes'),{startDate:t,endDate:window.__end});
  }''')
  today=page.evaluate('window.__today');tomorrow=page.evaluate('window.__tomorrow')
@@ -45,6 +45,8 @@ def check(browser,width,height,label):
  page.screenshot(path=str(OUT/(label+'_settings.png')))
  dlg.locator('[data-rw-save-settings]').click()
  assert page.evaluate('window.__writes')==1
+ page.evaluate('''() => {window.__addJobs();LubricaRoutePlanningUI.open(document.getElementById('routes'),{startDate:window.__today,endDate:window.__end});}''')
+ dlg.locator('[data-rw-open]').click()
  assert page.evaluate('window.__db.routeWorkload.shifts[0].workers')==2
  assert page.evaluate('window.__db.routeWorkload.shifts[0].minutes')==60
  assert 'Линия 1' in dlg.locator('[data-rw-day="'+today+'"] .rw-ppr-marker').inner_text()

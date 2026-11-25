@@ -94,7 +94,7 @@
  function preview(d,o={},engine=global.LubricaRouteEngine){
   const R=global.LubricaRouteAutomation;
   if(!R)return{ok:false,code:'AUTOMATION_REQUIRED',reason:'Модуль автоматизации маршрутов недоступен',groups:[],issues:[],token:''};
-  return R.reconcile(d,{...o,compatDraftOnly:true},engine);
+  return R.reconcile(d,o,engine);
  }
  global.LubricaRouteAutoGrouping=Object.freeze({MODE,serviceFor,scheduleFor,parseText:textSpec,describe,routeKey,matches,preview,workingRoutes,openPlan,runningTask,taskReserved,routeLocked,ownership});
 })(window);

@@ -5,7 +5,7 @@ global.LubricaCore={State:{getDatabase:()=>db,setDatabase:d=>{saved=d}},Database
 global.LubricaApp={refreshFromCore(){},showToast(){}};global.LubricaSystem={registerModule(){}};
 vm.runInThisContext(fs.readFileSync('routes/route-engine.js','utf8'),{filename:'route-engine.js'});
 const a=(x,m)=>{if(!x)throw new Error(m)};
-let x=LubricaRouteEngine.syncRoutes(db);a(x.created===1,'one route should be created');a(db.routes[0].taskIds.join(',')==='T1,T2','only approved tasks should enter route');a(!db.routes[0].taskIds.includes('T3'),'review task leaked');
+a(LubricaRouteEngine.routeEntries(db).length===0,'no routes before explicit creation');let x=LubricaRouteEngine.createRoute({lineId:'L1',areaId:'A1',interval:'4 недели',taskIds:['T1','T2'],status:'draft'},db);a(x.ok,'explicit manual route should be created');a(db.routes[0].taskIds.join(',')==='T1,T2','only approved tasks should enter route');a(!db.routes[0].taskIds.includes('T3'),'review task leaked');
 LubricaRouteEngine.updateRoute(db.routes[0].id,{name:'Маршрут упаковки',assignee:'Иванов',estimatedMinutesPerTask:7,fixedMinutes:12});a(saved===db,'route update not persisted');a(db.routes[0].name==='Маршрут упаковки','name not saved');
 LubricaRouteEngine.moveTask(db.routes[0].id,'T2',-1);a(db.routes[0].taskIds[0]==='T2','task order not changed');
 LubricaRouteEngine.excludeTask(db.routes[0].id,'T2');a(!db.routes[0].taskIds.includes('T2')&&db.routes[0].excludedTaskIds.includes('T2'),'exclude failed');

@@ -75,8 +75,8 @@
  // cannot accept it. Manual routes and exclusions are never modified.
  function reconcile(d,o={},engine=E()){
   const info=eligible(d);if(!info.ok)return fail('QA_MISSING','Инженерный контроль недоступен');
-  const {ix,valid}=info,issues=info.issues.filter(x=>scope(ix.get(x.taskId),o)),own=A().ownership(d),working=own.routes,owners=own.owners,groups=new Map(),routeByKey=own.byGroup,excluded=own.excluded,draftOnly=o.compatDraftOnly===true,ownershipReserved=own.reserved;
-  const key=r=>A().routeKey(r),editable=r=>r&&r.source==='auto'&&D().typed(r)&&(draftOnly?r.status==='draft':['active','draft'].includes(r.status))&&groupScope(r,o)&&!own.locked.has(String(r.id));
+  const {ix,valid}=info,issues=info.issues.filter(x=>scope(ix.get(x.taskId),o)),own=A().ownership(d),working=own.routes,owners=own.owners,groups=new Map(),routeByKey=own.byGroup,excluded=own.excluded,ownershipReserved=own.reserved;
+  const key=r=>A().routeKey(r),editable=r=>r&&r.source==='auto'&&D().typed(r)&&['active','draft'].includes(r.status)&&groupScope(r,o)&&!own.locked.has(String(r.id));
   const issue=(id,code,message,routeId='')=>issues.push({taskId:id,code,message,routeId});
   for(const [id,g] of valid){if(!groupScope(g,o))continue;if(!groups.has(g.key))groups.set(g.key,{...g,ids:[]});groups.get(g.key).ids.push(id)}
   for(const r of working){if(!D().typed(r)||!groupScope(r,o))continue;const k=key(r);if(!groups.has(k))groups.set(k,{key:k,lineId:r.lineId,areaId:r.areaId,name:r.name||r.code||r.id,groupingMode:r.groupingMode,serviceKey:r.serviceKey,serviceLabel:r.serviceLabel,scheduleKey:r.scheduleKey,interval:r.interval,ids:[]})}
@@ -85,7 +85,6 @@
    if(rs.length>1)blocked.set(k,'Несколько маршрутов одной группы');
    else if(!editable(rs[0]))blocked.set(k,'Ручной маршрут, другой охват или незавершённое задание');
    else if(uniq(rs[0].taskIds).length!==arr(rs[0].taskIds).length||uniq(rs[0].taskIds).some(id=>(owners.get(id)||[]).length>1||excluded.has(id)||own.reserved.has(id)))blocked.set(k,'Дубли или противоречивые ручные исключения');
-    else if(draftOnly&&uniq(rs[0].taskIds).some(id=>valid.get(id)?.key!==k))blocked.set(k,'Состав маршрута изменился или утратил готовность; требуется ручная сверка');
   }
   let changed=true;
   while(changed){changed=false;for(const [k,rs] of routeByKey){
@@ -107,11 +106,11 @@
    }
    const ds=new Set(desired),removed=old.filter(id=>!ds.has(id)),adds=desired.filter(id=>!old.includes(id)).sort(compare(d,ix,g.areaId));
    let next=[...old.filter(id=>ds.has(id)),...adds];
-   if(!r||o.applyOrder===true&&!draftOnly)next.sort(compare(d,ix,g.areaId));
+   if(!r||o.applyOrder===true)next.sort(compare(d,ix,g.areaId));
    const basisMissing=next.filter(id=>!D().parseBasis(ix.get(id).task,d,ix).ok);
-   const nextStatus=draftOnly?(r?.status||'draft'):r?.status==='active'&&basisMissing.length===0?'active':o.activateReady===true&&next.length&&!basisMissing.length?'active':'draft';
+   const nextStatus=r?.status==='active'&&basisMissing.length===0?'active':o.activateReady===true&&next.length&&!basisMissing.length?'active':'draft';
    const contentSig=JSON.stringify(next.map(id=>{const c=ix.get(id),t=c?.task;return [id,t?.materialId,t?.materialName,t?.materialMode,t?.quantity,t?.toolId,c?.lp?.targetMaterialId,rawPolicy(t),taskMinutes(t,d,r||g,ix),config(d).transitionMinutes]}));
-   const different=JSON.stringify(old)!==JSON.stringify(next),metadataChanged=!draftOnly&&!!r&&r.automationContent!==contentSig;
+   const different=JSON.stringify(old)!==JSON.stringify(next),metadataChanged=!!r&&r.automationContent!==contentSig;
    let action='none',why='';
    if(reason){if(adds.length||removed.length||rs.length>1||metadataChanged||o.applyOrder===true&&different){action='blocked';why=reason}}
    else if(!next.length&&r){action='archive';why='В группе не осталось готовых мероприятий; история сохранится'}
@@ -283,7 +282,7 @@
    const init=o.initial||{};
    const useFirst=pprMode==='ppr'&&o.initialFromPpr===true&&!str(init.date)&&init.mode!=='last'&&!group.scheduleKey.startsWith('runtime_hours:');
    const prep=setup(work,useFirst?{...o,initial:{...init,mode:'next',date:firstPpr}}:o,info);if(!prep.ok)return prep;
-  const options={lineId:o.lineId||'',areaId:o.areaId||'',groupKey:o.groupKey||'',advanced:true,applyOrder:o.applyOrder===true,activateReady:o.activateReady===true};
+  const options={lineId:o.lineId||'',areaId:o.areaId||'',groupKey:o.groupKey||'',applyOrder:o.applyOrder===true,activateReady:o.activateReady===true};
   const report=reconcile(work,options);
   if(!report.ok)return report;
   const result=E().applyAutoGrouping(options,report.token,work,{persist:false});

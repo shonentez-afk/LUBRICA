@@ -8,6 +8,6 @@ global.state={points:[
 global.LubricaCore={State:{getDatabase:()=>({tasks:[{id:'T1',approvalStatus:'approved'},{id:'T2',approvalStatus:'review'},{id:'T3',approvalStatus:'approved'}]})}};
 vm.runInThisContext(fs.readFileSync('routes/route-engine.js','utf8'),{filename:'route-engine.js'});
 const r=LubricaRouteEngine.routeEntries();
-if(r.length!==2)throw new Error('expected 2 routes');
-if(r.some(x=>x.points.some(p=>p.taskId==='T2')))throw new Error('review task leaked into routes');
+if(r.length!==0)throw new Error('read model must not invent routes');
+const p=LubricaRouteEngine.syncRoutes();if(!p.requiresConfirmation||p.created!==0||p.routes.length!==0)throw new Error('implicit route creation must never occur');
 console.log('ROUTE ENGINE TEST PASS');
