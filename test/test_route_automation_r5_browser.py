@@ -50,6 +50,12 @@ def check(browser,width,height,label):
  def f(key):return dlg.locator('[data-r5="'+key+'"]')
  def section(label):return dlg.locator('.r5-section>summary').filter(has_text=label)
  f('line').select_option('L1');f('area').select_option('A1')
+ assert f('create-mode').input_value()=='single'
+ f('route-service').select_option('bearing:regrease')
+ assert '1 неделя (7 дней)' in f('cadence').locator('option').all_text_contents()[1]
+ assert f('cadence').locator('optgroup[label="Кратные недели"]').count()==1
+ assert f('cadence').locator('optgroup[label="Другие технические интервалы"]').count()==1
+ f('create-mode').select_option('bulk')
  assert not f('service').is_visible() and not f('early').is_visible() and not f('plan').is_visible()
  f('preview').click()
  assert f('apply').is_enabled(),f('report').inner_text()

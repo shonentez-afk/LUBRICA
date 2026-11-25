@@ -42,7 +42,13 @@ def check(browser):
  # R6.3 one explicit route and first date, independent of optional policy.
  field('line').select_option('L1');field('area').select_option('A0')
  key=page.evaluate('''() => [...LubricaRouteAutomation.eligible(LubricaCore.State.getDatabase()).valid.values()].find(g=>g.areaId==='A0'&&g.scheduleKey==='days:7').key''')
- field('group').select_option(key)
+ service_key,schedule_key=json.loads(key)[2:]
+ assert field('create-mode').input_value()=='single'
+ assert field('route-service').is_visible() and field('cadence').is_visible()
+ field('route-service').select_option(service_key)
+ field('cadence').select_option(schedule_key)
+ assert field('group').input_value()==key
+ assert '1 неделя (7 дней)' in field('cadence').locator('option:checked').inner_text()
  assert field('initial-date').is_visible()
  field('initial-date').fill(today)
  before=page.evaluate('JSON.stringify(LubricaCore.State.getDatabase())')
@@ -75,6 +81,7 @@ def check(browser):
  assert field('apply').is_enabled(),field('report').inner_text()
  field('advanced').click()
  assert not field('apply').is_enabled()
+ field('create-mode').select_option('bulk')
  field('line').select_option('');field('area').select_option('')
  # Ordinary workflow: no settings, no fabricated dates, no plans.
  assert not field('initial-date').is_visible() and not field('plan').is_visible()
@@ -86,7 +93,8 @@ def check(browser):
  field('apply').click()
  assert not dlg.is_visible()
  assert page.evaluate('''() => {const d=LubricaCore.State.getDatabase();return d.routes.flatMap(r=>r.taskIds).length===45&&d.routes.every(r=>r.status==='draft')&&d.routePlanItems.length===0&&d.tasks.every(t=>!t.routeDue&&!t.routePolicy)}''')
- page.locator('#autoCreateRoute').click()
+ page.locator('#syncRoutes').click()
+ assert field('create-mode').input_value()=='bulk'
  field('preview').click()
  assert not field('apply').is_enabled(),field('report').inner_text()
  assert 'Новых изменений нет' in field('report').inner_text()
