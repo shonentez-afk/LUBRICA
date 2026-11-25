@@ -122,6 +122,8 @@ def check(browser,width,height,label):
  plan.locator('[data-plan-start]').fill(today);plan.locator('[data-plan-end]').fill(tomorrow)
  assert plan.locator('[data-r8-live-day]').count()==2
  assert plan.locator('.r8-projected-label').count()>0
+ # Every displayed time is in the day-heading row; empty cells have none.
+ assert plan.locator('[data-r8-live-day] summary').evaluate_all('''rows=>rows.every(s=>{const time=s.querySelector('[data-day-total]');if(!time)return !s.querySelector('.r8-projected-label');const a=s.querySelector('.r82-day-number').getBoundingClientRect(),b=time.getBoundingClientRect(),r=s.getBoundingClientRect();return time.parentElement.classList.contains('r82-day-heading')&&a.right<=b.left+0.5&&b.right<=r.right+0.5&&Math.abs(a.top-b.top)<5&&!time.textContent.includes('Всего:')})''')
  plan.locator('[data-rw-open]').click()
  plan.locator('[data-r8-plan-preview]').click()
  assert 'Новых ближайших заданий: 3' in plan.locator('.rw-preview').inner_text()

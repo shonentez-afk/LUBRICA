@@ -129,6 +129,9 @@ def check(browser,width,height,label):
  total_before=int(plan.locator('[data-calendar-total]').get_attribute('data-calendar-total'))
  assert total_before>0
  assert int(daily.get_attribute('data-day-total'))==total_before
+ assert daily.inner_text()==f'{total_before//60}:{total_before%60:02d}'
+ assert daily.evaluate('''x=>{const row=x.closest('.r82-day-heading'),a=row.querySelector('.r82-day-number').getBoundingClientRect(),b=x.getBoundingClientRect(),r=row.getBoundingClientRect(),c=row.closest('.r8-live-day').getBoundingClientRect();return b.left>=a.right-0.5&&Math.abs(a.top-b.top)<5&&b.right<=r.right+0.5&&b.right<=c.right-2&&getComputedStyle(x).whiteSpace==='nowrap'&&x.scrollWidth<=x.clientWidth+1}''')
+ assert 'К выполнению:' in daily.get_attribute('title')
  assert int(plan.locator('[data-calendar-forecast]').get_attribute('data-calendar-forecast'))==total_before
  page.screenshot(path=str(OUT/(label+'_plan_preview.png')))
  plan.locator('[data-commit]').click()
@@ -136,6 +139,11 @@ def check(browser,width,height,label):
  assert int(plan.locator('[data-calendar-total]').get_attribute('data-calendar-total'))==total_before
  assert int(plan.locator('[data-calendar-forecast]').get_attribute('data-calendar-forecast'))==0
  assert int(plan.locator('[data-calendar-planned]').get_attribute('data-calendar-planned'))==total_before
+ assert daily.inner_text()==f'{total_before//60}:{total_before%60:02d}'
+ day=plan.locator('[data-r8-live-day="'+today+'"]')
+ day.locator('summary').click()
+ assert 'К выполнению:' in day.locator('.r8-day-details').inner_text()
+ day.locator('summary').click()
  # Open the exact reserved job from the compact editor; no automatic deletion.
  plan.locator('[data-close]').last.click()
  select(cal)
