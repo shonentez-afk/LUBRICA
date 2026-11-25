@@ -28,6 +28,7 @@
  function contextIndex(d){const m=maps(d);return new Map((d.tasks||[]).map(t=>[String(t.id),taskContext(d,t,m)]))}
  function groupKey(c){return [c.lineId,c.areaId,c.interval].join('|')}
  function typed(r){return !!r?.groupingMode&&r.groupingMode===global.LubricaRouteAutoGrouping?.MODE}
+ function typedLocked(d,r){return typed(r)&&((d.routePlanItems||[]).some(x=>String(x.routeId)===String(r.id)&&['planned','in_progress'].includes(x.status))||(d.checklistRuns||[]).some(x=>String(x.routeId)===String(r.id)&&x.status==='in_progress'))}
  function typedMeta(r){return typed(r)?{groupingMode:r.groupingMode,serviceKey:r.serviceKey||'',serviceLabel:r.serviceLabel||'',scheduleKey:r.scheduleKey||''}:{}}
  function matchesService(r,c){return !typed(r)||global.LubricaRouteAutoGrouping.matches(r,c)}
  function compatibleInterval(r,c){return typed(r)?global.LubricaRouteAutoGrouping.scheduleFor(c.task).key===r.scheduleKey:(r.intervalMode==='mixed'||c.interval===r.interval)}
@@ -97,8 +98,8 @@
  function syncAndSave(){const d=database();const result=syncRoutes(d);if(d&&!result.requiresConfirmation)save(d,`Маршруты обновлены · новых: ${result.created}`);return result}
  function updateRoute(id,patch){const d=database();if(!d)return null;const r=(d.routes||[]).find(x=>x.id===id);if(!r)return null;Object.assign(r,patch,{updatedAt:now()});save(d,'Маршрут сохранён');return r}
  function moveTask(routeId,taskId,delta){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r)return false;const a=r.taskIds||[],i=a.indexOf(String(taskId)),j=i+delta;if(i<0||j<0||j>=a.length)return false;[a[i],a[j]]=[a[j],a[i]];r.updatedAt=now();save(d,'Порядок маршрута изменён');return true}
- function excludeTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r)return false;const id=String(taskId);r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);r.excludedTaskIds=[...new Set([...(r.excludedTaskIds||[]),id])];r.updatedAt=now();save(d,'Мероприятие исключено из маршрута');return true}
- function restoreTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived')return false;const id=String(taskId);if(typed(r)){const t=maps(d).tasks.get(id);if(!t||!matchesService(r,taskContext(d,t))||!routeEligibility(t,d,readinessIndex(d)).ok||(d.routes||[]).some(x=>x.id!==r.id&&x.status!=='archived'&&(x.taskIds||[]).includes(id)))return false;}r.excludedTaskIds=(r.excludedTaskIds||[]).filter(x=>String(x)!==id);if(!(r.taskIds||[]).includes(id))r.taskIds.push(id);r.updatedAt=now();save(d,'Мероприятие возвращено в маршрут');return true}
+ function excludeTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const id=String(taskId);r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);r.excludedTaskIds=[...new Set([...(r.excludedTaskIds||[]),id])];r.updatedAt=now();save(d,'Мероприятие исключено из маршрута');return true}
+ function restoreTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const id=String(taskId);if(typed(r)){const t=maps(d).tasks.get(id);if(!t||!matchesService(r,taskContext(d,t))||!routeEligibility(t,d,readinessIndex(d)).ok||(d.routes||[]).some(x=>x.id!==r.id&&x.status!=='archived'&&(x.taskIds||[]).includes(id)))return false;}r.excludedTaskIds=(r.excludedTaskIds||[]).filter(x=>String(x)!==id);if(!(r.taskIds||[]).includes(id))r.taskIds.push(id);r.updatedAt=now();save(d,'Мероприятие возвращено в маршрут');return true}
 
  function rawRoute(d,routeId){return (d?.routes||[]).find(r=>String(r.id)===String(routeId))||null}
  function routeKey(r){return typed(r)?global.LubricaRouteAutoGrouping.routeKey(r):[r?.lineId||'',r?.areaId||'',r?.interval||''].join('|')}
@@ -159,7 +160,7 @@
    r.taskIds.push(...unique);
  }
  function addTasksToRoute(routeId,taskIds,options={},d=database()){
-   const target=rawRoute(d,routeId);if(!target)return {ok:false,reason:'Маршрут не найден'};if(target.status==='archived')return{ok:false,reason:'Архивный маршрут нельзя менять'};
+   const target=rawRoute(d,routeId);if(!target)return {ok:false,reason:'Маршрут не найден'};if(target.status==='archived')return{ok:false,reason:'Архивный маршрут нельзя менять'};if(typedLocked(d,target))return{ok:false,reason:'Состав зафиксирован в незавершённых заданиях'};
    const readiness=readinessIndex(d),ids=[...new Set((taskIds||[]).map(String))],m=maps(d),accepted=[],warnings=[],conflicts=[];
    for(const id of ids){
      const t=m.tasks.get(id);if(!t){conflicts.push({taskId:id,reason:'Мероприятие не найдено'});continue}
@@ -169,7 +170,7 @@
      if(!sameLine||!sameArea){if(target.status==='active'){conflicts.push({taskId:id,reason:'Линия или участок отличаются'});continue}if(!sameLine)warnings.push(`${id}: другая линия`);if(!sameArea)warnings.push(`${id}: другой участок`)}
      const other=(d.routes||[]).filter(r=>r.id!==routeId&&r.status!=='archived'&&(r.taskIds||[]).some(x=>String(x)===id));if(target.status==='active'&&other.some(r=>r.status==='active')){conflicts.push({taskId:id,reason:'Мероприятие уже назначено в активном маршруте'});continue}
      if(other.length&&options.copy!==true&&options.move!==true){conflicts.push({taskId:id,reason:`Мероприятие уже включено: ${other.map(r=>r.code||r.id).join(', ')}`});continue}
-     if(options.move===true){const native=pointNativeRoute(d,id);for(const r of other)r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);if(native&&native.id!==routeId)native.excludedTaskIds=[...new Set([...(native.excludedTaskIds||[]),id])]}
+     if(options.move===true&&other.some(r=>typedLocked(d,r))){conflicts.push({taskId:id,reason:'Мероприятие зафиксировано в незавершённом задании'});continue}if(options.move===true){const native=pointNativeRoute(d,id);for(const r of other)r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);if(native&&native.id!==routeId)native.excludedTaskIds=[...new Set([...(native.excludedTaskIds||[]),id])]}
      target.excludedTaskIds=(target.excludedTaskIds||[]).filter(x=>String(x)!==id);accepted.push(id);
    }
    insertTaskIds(target,accepted,options,d);target.updatedAt=now();
@@ -177,7 +178,7 @@
    return {ok:accepted.length>0||conflicts.length===0,taskIds:accepted,warnings:[...new Set(warnings)],conflicts};
  }
  function removeTaskFromRoute(routeId,taskId,d=database()){
-   const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};const id=String(taskId);
+   const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(r.status==='archived'||typedLocked(d,r))return{ok:false,reason:'Состав архивирован или зафиксирован в плане'};const id=String(taskId);
    if(!(r.taskIds||[]).some(x=>String(x)===id))return {ok:false,reason:'Мероприятие не входит в маршрут'};
    r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);const native=pointNativeRoute(d,id);if(native?.id===routeId)r.excludedTaskIds=[...new Set([...(r.excludedTaskIds||[]),id])];r.updatedAt=now();save(d,'Мероприятие исключено из маршрута');return {ok:true,taskId:id};
  }
@@ -186,7 +187,7 @@
    return pointTaskCandidates(routeId,d).map(g=>{const compatible=g.tasks.filter(t=>t.sameLine&&t.sameArea&&t.sameInterval&&t.sameService!==false),excludedTaskIds=compatible.filter(t=>excluded.has(String(t.id))).map(t=>t.id),assignedRouteIds=[...new Set(compatible.flatMap(t=>t.assignedRouteIds||[]))];return {...g,taskIds:compatible.map(t=>t.id),excludedTaskIds,assignedRouteIds,missingTaskIds:compatible.filter(t=>!t.inCurrent).map(t=>t.id),state:compatible.length&&excludedTaskIds.length===compatible.length?'excluded':assignedRouteIds.length?'other_route':'available'}}).filter(g=>g.taskIds.length&&g.missingTaskIds.length);
  }
  function setPointOrder(routeId,visitRefs,d=database(),{persist=true}={}){
-   const r=rawRoute(d,routeId);if(!r)return false;
+   const r=rawRoute(d,routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;
    const groups=pointGroupsForRoute(routeId,d),wanted=[],seen=new Set();
    for(const ref of visitRefs||[]){const g=findVisitGroup(groups,ref);if(g&&!seen.has(g.visitKey)){wanted.push(g);seen.add(g.visitKey)}}
    for(const g of groups)if(!seen.has(g.visitKey))wanted.push(g);
@@ -250,15 +251,15 @@
    d.routes.push(r);
    if(input.fillMode==='automatic'){const m=maps(d),readiness=readinessIndex(d);r.taskIds=(d.tasks||[]).filter(t=>routeEligibility(t,d,readiness).ok).filter(t=>{const c=taskContext(d,t,m);return c.lineId===r.lineId&&(!r.areaId||c.areaId===r.areaId)&&compatibleInterval(r,c)&&matchesService(r,c)}).map(t=>String(t.id));}
    if(Array.isArray(input.taskIds))for(const id of input.taskIds.map(String))if(!r.taskIds.includes(id))r.taskIds.push(id);
-   if(r.status==='active'){if(typed(r)){d.routes=d.routes.filter(x=>x!==r);return{ok:false,reason:'Для нового автомаршрута требуется согласовать индивидуальные сроки мероприятий'}}const report=validateRoute(r.id,d);if(!report.valid){d.routes=d.routes.filter(x=>x!==r);return{ok:false,reason:'Маршрут не готов к активации',report}}}
+   if(r.status==='active'){const report=validateRoute(r.id,d);if(!report.valid){d.routes=d.routes.filter(x=>x!==r);return{ok:false,reason:'Маршрут не готов к активации',report}}}
    ensureRouteRevision(r.id,d,{note:'Исходная версия маршрута',reason:'create'});save(d,'Маршрут создан');return {ok:true,route:r};
  }
  function cloneRoute(routeId,input={},d=database()){
    const src=rawRoute(d,routeId);if(!src)return {ok:false,reason:'Маршрут не найден'};const result=createRoute({...src,...input,id:undefined,code:input.code||'',name:input.name||`${src.name||src.id} — копия`,status:'draft',source:'copy',groupingMode:'',serviceKey:'',serviceLabel:'',scheduleKey:'',fillMode:'empty',taskIds:[...(src.taskIds||[])]},d);return result;
  }
- function archiveRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return false;ensureRouteRevision(routeId,d,{note:'Перед архивированием',reason:'archive'});r.status='archived';r.updatedAt=now();save(d,'Маршрут архивирован');return true}
+ function archiveRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r||typedLocked(d,r))return false;ensureRouteRevision(routeId,d,{note:'Перед архивированием',reason:'archive'});r.status='archived';r.updatedAt=now();save(d,'Маршрут архивирован');return true}
  function restoreRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};r.status='draft';r.updatedAt=now();save(d,'Маршрут восстановлен из архива');return {ok:true,route:r}}
- function setRouteStatus(routeId,status,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(!['draft','active','archived'].includes(status))return {ok:false,reason:'Неизвестный статус маршрута'};if(status==='active'){if(typed(r))return{ok:false,reason:'Для новых автомаршрутов сначала требуется согласовать индивидуальные сроки мероприятий (этап R3B). Сейчас доступна подготовка черновиков.'};const report=validateRoute(routeId,d);if(!report.valid)return {ok:false,reason:`Маршрут содержит ошибок: ${report.errors.length}`,report}}r.status=status;r.updatedAt=now();save(d,status==='active'?'Маршрут активирован':status==='archived'?'Маршрут архивирован':'Маршрут переведён в черновик');return {ok:true,route:r}}
+ function setRouteStatus(routeId,status,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(!['draft','active','archived'].includes(status))return {ok:false,reason:'Неизвестный статус маршрута'};if(status!=='active'&&typedLocked(d,r))return{ok:false,reason:'Сначала завершите выполнение или снимите незапущенные задания маршрута'};if(status==='active'){if(typed(r)){const D=global.LubricaRouteDue,missing=D?.validateRouteBasis(r,d);if(!D||missing?.length)return{ok:false,reason:'Сначала задайте индивидуальные сроки всех мероприятий',report:{errors:missing||[]}}}const report=validateRoute(routeId,d);if(!report.valid)return {ok:false,reason:`Маршрут содержит ошибок: ${report.errors.length}`,report}}r.status=status;r.updatedAt=now();save(d,status==='active'?'Маршрут активирован':status==='archived'?'Маршрут архивирован':'Маршрут переведён в черновик');return {ok:true,route:r}}
  function deleteRoute(routeId,d=database()){const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if((d.checklistRuns||[]).some(x=>x.routeId===routeId)||(d.routePlanItems||[]).some(x=>x.routeId===routeId))return{ok:false,reason:'Существуют выполнение или план; маршрут нужно архивировать'};if(r.source==='auto')return {ok:false,reason:'Автоматический маршрут нельзя удалить — его можно архивировать'};if(r.status==='active')return {ok:false,reason:'Активный маршрут сначала архивируйте'};d.routes=d.routes.filter(x=>String(x.id)!==String(routeId));save(d,'Маршрут удалён');return {ok:true}}
  function candidatePointVariants(routeId,d=database(),options={}){
    const includeCurrent=!!options.includeCurrent;return pointTaskCandidates(routeId,d).flatMap(g=>{
@@ -278,7 +279,7 @@
    return addTasksToRoute(routeId,variant.taskIds,{...options,move:options.copy===true?false:true,copy:options.copy===true},d);
  }
  function movePointToRoute(sourceRouteId,targetRouteId,pointRef,options={},d=database()){
-   const source=rawRoute(d,sourceRouteId),target=rawRoute(d,targetRouteId);if(!source||!target)return {ok:false,reason:'Маршрут не найден'};if(source.status==='archived'||target.status==='archived')return{ok:false,reason:'Архивный маршрут нельзя менять'};if(source.lineId!==target.lineId||(source.areaId&&target.areaId&&source.areaId!==target.areaId))return{ok:false,reason:'Разные линии или участки'};const group=findVisitGroup(pointGroupsForRoute(sourceRouteId,d),pointRef);if(!group)return {ok:false,reason:'Точка не найдена в исходном маршруте'};
+   const source=rawRoute(d,sourceRouteId),target=rawRoute(d,targetRouteId);if(!source||!target)return {ok:false,reason:'Маршрут не найден'};if(source.status==='archived'||target.status==='archived'||typedLocked(d,source)||typedLocked(d,target))return{ok:false,reason:'Состав архивирован или зафиксирован в плане'};if(source.lineId!==target.lineId||(source.areaId&&target.areaId&&source.areaId!==target.areaId))return{ok:false,reason:'Разные линии или участки'};const group=findVisitGroup(pointGroupsForRoute(sourceRouteId,d),pointRef);if(!group)return {ok:false,reason:'Точка не найдена в исходном маршруте'};
    const m=maps(d),incompatible=group.taskIds.filter(id=>{const t=m.tasks.get(String(id));if(!t)return true;const c=taskContext(d,t,m);return !compatibleInterval(target,c)||!matchesService(target,c)});
    if(incompatible.length)return {ok:false,reason:'Не все мероприятия точки соответствуют периодичности маршрута назначения',taskIds:incompatible};
    const ids=[...group.taskIds];source.taskIds=(source.taskIds||[]).filter(x=>!ids.includes(String(x)));insertTaskIds(target,ids,options,d);source.updatedAt=target.updatedAt=now();save(d,'Мероприятия точки перемещены в другой маршрут');return {ok:true,taskIds:ids,pointId:group.pointId};
@@ -288,7 +289,7 @@
    const m=maps(d),readiness=readinessIndex(d),errors=[],warnings=[],seen=new Set();
    if(!(r.taskIds||[]).length)errors.push({code:'ROUTE_EMPTY',message:'В маршруте нет мероприятий'});
    if(!r.lineId)errors.push({code:'ROUTE_LINE_MISSING',message:'Не указана линия'});
-   if(typed(r)&&r.status==='active')errors.push({code:'R3A_DUE_POLICY_REQUIRED',message:'До согласования индивидуальных сроков новых автомаршрутов их выполнение и планирование недоступны'});
+   if(typed(r)&&r.status==='active'){const D=global.LubricaRouteDue;if(!D)errors.push({code:'R3B_DUE_MODULE_REQUIRED',message:'Модуль индивидуальных сроков недоступен'});else errors.push(...D.validateRouteBasis(r,d))}
    const assigned=new Map();for(const other of d.routes||[])if(other.id!==r.id&&other.status==='active')for(const id of other.taskIds||[])if(!assigned.has(String(id)))assigned.set(String(id),other);
    for(const id of r.taskIds||[]){const t=m.tasks.get(String(id));if(!t){errors.push({code:'TASK_MISSING',taskId:id,message:`Мероприятие ${id} отсутствует`});continue}
      const c=taskContext(d,t,m),eligibility=routeEligibility(t,d,readiness,c);
