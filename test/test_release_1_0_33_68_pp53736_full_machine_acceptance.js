@@ -130,10 +130,15 @@ assert.strictEqual(repeat.report.summary.create+repeat.report.summary.update+rep
 // One next obligation per task, not a fabricated series of future work orders.
 const readingDate=D.today(),end=P.addInterval(readingDate,{kind:'days',value:366});
 function configureMeter(rate,confirmedTaskId=''){
+ // Confirm a physical equipment meter once; every task on that equipment
+ // uses the same synthetic reading, but keeps its own technical threshold.
+ const ix=R.contextIndex(db),confirmedEq=confirmedTaskId?ix.get(String(confirmedTaskId))?.eq?.id:null;
+ const confirmedReading=confirmedTaskId?D.rows(db.routes.find(r=>r.taskIds.includes(confirmedTaskId)),db).find(x=>x.id===confirmedTaskId).spec.value:0;
  for(const id of machineRouteIds){
   const r=db.routes.find(x=>x.id===id);
-  const rows=D.rows(r,db).map(x=>({id:x.id,key:x.key,nextHours:x.spec.value,readingHours:x.id===confirmedTaskId?x.spec.value:0,readingDate,hoursPerDay:rate}));
+  const rows=D.rows(r,db).map(x=>({id:x.id,key:x.key,nextHours:x.spec.value,readingHours:confirmedEq&&ix.get(x.id)?.eq?.id===confirmedEq?confirmedReading:0,readingDate,hoursPerDay:rate,confirmMeter:true}));
   const saved=D.configure(id,rows,db);assert(saved.ok,saved.message);
+  for(const row of rows){const task=db.tasks.find(t=>String(t.id)===row.id),basis=D.parseBasis(task,db);assert(basis.ok&&basis.meterKey,'physical meter must be linked');assert.strictEqual(basis.readingHours,row.readingHours,'shared confirmed reading');assert.strictEqual(basis.nextHours,row.nextHours,'individual threshold retained')}
   const active=R.setRouteStatus(id,'active',db);assert(active.ok,active.reason);
  }
 }
