@@ -111,7 +111,7 @@
    let next=[...old.filter(id=>ds.has(id)),...acceptedAdds];
    if(!r||o.applyOrder===true)next.sort(compare(d,ix,g.areaId));
    const basisMissing=next.filter(id=>!D().parseBasis(ix.get(id).task,d,ix).ok);
-   const nextStatus=r?.status==='active'&&basisMissing.length===0?'active':o.activateReady===true&&next.length&&!basisMissing.length?'active':'draft';
+   const nextStatus=r?.status==='active'?'active':o.activateReady===true&&next.length&&!basisMissing.length?'active':'draft';
    const contentSig=JSON.stringify(next.map(id=>{const c=ix.get(id),t=c?.task;return [id,t?.materialId,t?.materialName,t?.materialMode,t?.quantity,t?.toolId,c?.lp?.targetMaterialId,rawPolicy(t),taskMinutes(t,d,r||g,ix),config(d).transitionMinutes]}));
    const different=JSON.stringify(old)!==JSON.stringify(next),metadataChanged=!!r&&r.automationContent!==contentSig;
    let action='none',why='';
@@ -227,8 +227,10 @@
   const pprRoutes=new Set(W().pprSettings(d).pprRouteIds),pprPhases=new Map(W().pprSettings(d).ppr.map(p=>[p.lineId,p.anchorDate]));
   const routes=E().routeEntries(d,{preview:false}).filter(r=>r.status!=='archived'&&D().typed(r)&&groupScope(r,{lineId,areaId,groupKey,groupKeys}));
   for(const r of routes){
-   if(r.status!=='active'||!E().validateRoute(r.id,d,shared).valid){unknown.push({routeId:r.id,name:r.name,message:r.status==='draft'?'Черновик: настройте сроки и активируйте маршрут':'Маршрут не готов'});continue}
+   const report=E().validateRoute(r.id,d,shared),bad=new Map(report.errors.filter(x=>x.taskId).map(x=>[String(x.taskId),x]));
+   if(r.status!=='active'||report.errors.some(x=>!x.taskId)){unknown.push({routeId:r.id,name:r.name,message:r.status==='draft'?'Черновик: настройте сроки и активируйте маршрут':'Маршрут не готов'});continue}
    for(const id of ids(r.taskIds)){
+    if(bad.has(id)){unknown.push({taskId:id,routeId:r.id,message:bad.get(id).message});continue}
     if(seen.has(id)){unknown.push({taskId:id,routeId:r.id,message:'Дублирующее назначение'});continue}seen.add(id);
     const t=ix.get(id)?.task,b=t&&D().dueFor(t,d,ix);
     if(!b?.ok||!b.dueDate){unknown.push({taskId:id,routeId:r.id,message:b?.message||'Нет прогноза наработки'});continue}

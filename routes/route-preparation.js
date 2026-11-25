@@ -13,7 +13,7 @@
   const checklist=global.LubricaChecklistEngine?.model?.(route,d);if(!checklist)return null;
   const taskMap=new Map((d.tasks||[]).map(t=>[String(t.id),t]));
   const materials=new Map(),tools=new Map(),errors=[],warnings=[];
-  const routeReport=global.LubricaRouteEngine?.validateRoute?.(route.id,d,shared);
+  const routeReport=global.LubricaRouteEngine?.validateRoute?.(route.id,d,shared,global.LubricaRouteDue?.typed(route)?route.taskIds:null);
   for(const x of routeReport?.errors||[])errors.push({code:x.code||'ROUTE_ERROR',message:x.message||'Ошибка маршрута',taskId:x.taskId||''});
   for(const x of routeReport?.warnings||[])warnings.push({code:x.code||'ROUTE_WARNING',message:x.message||'Предупреждение маршрута',taskId:x.taskId||''});
   const tasks=checklist.groups.flatMap(g=>g.tasks);
