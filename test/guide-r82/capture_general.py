@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Capture only real application DOM from index.html (file://). No rendered mockups."""
-import json, pathlib, shutil, traceback, ast
+import json, pathlib, shutil, traceback, ast, io
 from playwright.sync_api import sync_playwright
 from PIL import Image
 from openpyxl import load_workbook
@@ -60,6 +60,7 @@ def basics(browser):
         popup.locator('.lubrica-label').wait_for(state='visible')
         popup.screenshot(path=str(OUT/'09-printed-label.png'),animations='disabled')
         popup.close()
+        print('GUIDE SCREEN 09-printed-label.png',flush=True)
         p.locator('[data-lib-tab="tools"]').click()
         shot(p,'08-tool-material-label.png','#libraryAdd')
         view(p,'workspace')
@@ -74,7 +75,8 @@ def basics(browser):
         close(p)
         with p.expect_download(timeout=45000) as dl: p.locator('#exportBtn').click()
         xlsx=dl.value.path()
-        w=load_workbook(xlsx,read_only=True)
+        assert dl.value.suggested_filename.lower().endswith('.xlsx'), dl.value.suggested_filename
+        w=load_workbook(io.BytesIO(xlsx.read_bytes()),read_only=True)
         assert len(w.sheetnames)>1
         w.close()
         shot(p,'22-final-excel.png','#exportBtn')
