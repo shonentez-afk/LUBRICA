@@ -76,3 +76,36 @@
 
 /* R8.2: hidden confirmation must override the shared meta-card display:block!important. */
 .route-queue-editor [data-archive-review][hidden]{display:none!important}
+
+/* R8.2 compact editor: one scrollable body, no competing fixed-height nested lists. */
+#actionDialog.route-queue-dialog .route-queue-editor{gap:0!important;box-sizing:border-box!important;min-height:0!important}
+#actionDialog.route-queue-dialog .route-editor-dialog-head{flex:0 0 auto!important;margin:0 0 8px!important;padding:0 0 8px!important;min-height:0!important}
+#actionDialog.route-queue-dialog .route-editor-dialog-head h2{font-size:16px!important;margin:2px 0!important;line-height:1.25!important}
+#actionDialog.route-queue-dialog .r82-route-subtitle{margin:2px 0!important;font-size:11px!important;line-height:1.3!important}
+#actionDialog.route-queue-dialog .r82-route-scroll{flex:1 1 0!important;min-height:0!important;min-width:0!important;overflow-y:auto!important;overflow-x:hidden!important;scrollbar-gutter:stable;overscroll-behavior:contain;padding:0 6px 8px 0;display:block!important}
+#actionDialog.route-queue-dialog .r82-route-state{margin:0 0 6px;padding:0}
+#actionDialog.route-queue-dialog .r82-route-status-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:8px 10px;background:#f5f8f8;border:1px solid var(--line);border-radius:8px;font-size:12px}
+#actionDialog.route-queue-dialog .r82-route-status-strip small{font-size:11px;color:var(--muted)}
+#actionDialog.route-queue-dialog .r82-route-lock,#actionDialog.route-queue-dialog .r82-route-issues{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;font-size:11px;background:#fff9ed;border-radius:6px;margin-top:5px}
+#actionDialog.route-queue-dialog .r82-route-shortcuts{display:flex;justify-content:flex-end;margin:4px 0}
+#actionDialog.route-queue-dialog .r82-route-shortcuts:empty{display:none}
+#actionDialog.route-queue-dialog .r82-route-parameters{margin:4px 0 8px!important}
+#actionDialog.route-queue-dialog .r82-route-parameters>summary{padding:8px 10px!important}
+#actionDialog.route-queue-dialog .r82-route-action-box{grid-column:1/-1;border-bottom:1px solid var(--line);padding-bottom:6px}
+#actionDialog.route-queue-dialog .r82-route-action-box [data-route-action-error]:empty{display:none}
+#actionDialog.route-queue-dialog .r82-archive-review{border:1px solid var(--line);border-radius:7px;padding:8px;margin:6px 0}
+#actionDialog.route-queue-dialog .r82-archive-review[hidden],#actionDialog.route-queue-dialog .route-editor-settings [hidden]{display:none!important}
+#actionDialog.route-queue-dialog .route-queue-editor [data-queue-host]{display:block!important;flex:none!important;min-height:0!important;overflow:visible!important}
+#actionDialog.route-queue-dialog .route-editor-panel{flex:none!important;max-height:none!important;overflow:visible!important}
+#actionDialog.route-queue-dialog .route-editor-panel[hidden]{display:none!important}
+#actionDialog.route-queue-dialog .route-current-list,#actionDialog.route-queue-dialog .route-available-list{flex:none!important;max-height:none!important;height:auto!important;overflow:visible!important;scrollbar-gutter:auto!important}
+#actionDialog.route-queue-dialog .route-editor-footer{position:static!important;min-height:40px!important;flex:0 0 auto!important;margin-top:4px!important;padding-top:6px!important;padding-bottom:6px!important;box-shadow:none!important}
+#actionDialog.route-queue-dialog [data-drop-end]{min-height:30px}
+@media(max-height:650px),(max-width:760px){
+ #actionDialog.route-queue-dialog .route-editor-dialog-head{grid-template-columns:minmax(0,1fr) auto!important;gap:6px!important}
+ #actionDialog.route-queue-dialog .route-editor-dialog-head h2{font-size:14px!important}
+ #actionDialog.route-queue-dialog .route-editor-dialog-head .route-editor-head-actions{display:flex!important;width:auto!important;flex-direction:column!important;gap:4px!important}
+ #actionDialog.route-queue-dialog .route-editor-tabs{grid-template-columns:1fr 1fr!important}
+ #actionDialog.route-queue-dialog .route-editor-footer{flex-direction:row!important;align-items:center!important}
+ #actionDialog.route-queue-dialog .route-editor-footer .btn{width:auto!important}
+}

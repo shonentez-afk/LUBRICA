@@ -58,6 +58,10 @@ def check(browser,width,height,label):
  editor=page.locator('#actionDialog')
  assert editor.locator('[name="status"]').count()==0
  assert editor.locator('[data-route-state]').is_visible()
+ assert not editor.locator('[data-route-parameters]').evaluate('(x)=>x.open')
+ assert editor.locator('[name="planningAnchorDate"]').count()==0
+ assert editor.locator('[name="runtimePlanningHoursPerDay"]').count()==0
+ editor.locator('[data-route-parameters] > summary').click()
  assert editor.locator('[data-route-activate]').is_disabled()
  assert not editor.locator('[data-archive-review]').is_visible()
  before_archive=page.evaluate('JSON.stringify(window.__db)')
@@ -105,6 +109,19 @@ def check(browser,width,height,label):
  page.screenshot(path=str(OUT/(label+'_plan_preview.png')))
  plan.locator('[data-commit]').click()
  assert page.evaluate('window.__db.routePlanItems.length')==2
+ # Open the exact reserved job from the compact editor; no automatic deletion.
+ plan.locator('[data-close]').last.click()
+ select(cal)
+ page.locator('#editRoute').click()
+ assert editor.locator('[data-open-route-jobs]').is_visible()
+ assert editor.locator('[data-route-point]').count()==2
+ editor.locator('[data-route-parameters] > summary').click()
+ assert editor.locator('[data-route-archive]').is_disabled()
+ assert not editor.locator('[data-archive-review]').is_visible()
+ assert editor.locator('[data-point-down]').first.is_disabled()
+ editor.locator('[data-open-route-jobs]').click()
+ assert not editor.is_visible()
+ assert plan.is_visible()
  # Open the calendar job, not all points of the template.
  cid=page.evaluate('(id)=>window.__db.routePlanItems.find(p=>p.routeId===id).id',cal)
  plan.locator('[data-plan-id="'+cid+'"]').click()
@@ -171,6 +188,7 @@ def check(browser,width,height,label):
  # Explicit inline confirmation archives the selected route, preserving history.
  select(cal)
  page.locator('#editRoute').click()
+ editor.locator('[data-route-parameters] > summary').click()
  editor.locator('[data-route-archive]').click()
  assert editor.locator('[data-archive-review]').is_visible()
  history_before=page.evaluate('JSON.stringify(window.__db.checklistRuns)')
