@@ -110,7 +110,7 @@
   const runs=new Map((d?.checklistRuns||[]).map(r=>[String(r.id),r]));
   return (Array.isArray(d?.routePlanItems)?d.routePlanItems:[]).map(item=>{
    const run=item.runId&&runs.get(String(item.runId));if(!run)return item;
-   const status=['completed','cancelled','in_progress'].includes(run.status)?run.status:item.status;
+   const status=['completed','partial','cancelled','in_progress'].includes(run.status)?run.status:item.status;
    return {...item,status,...(run.completedAt?{completedAt:run.completedAt}:{}),...(run.cancelledAt?{cancelledAt:run.cancelledAt}:{})};
   });
  }
@@ -129,7 +129,7 @@
  }
  function remove(planId,d=db()){if(!d)return{ok:false,reason:'База данных недоступна'};const x=planStore(d).find(i=>i.id===planId);if(!x)return{ok:false,reason:'Плановое задание не найдено'};if(x.status!=='planned'||x.runId||(d.checklistRuns||[]).some(r=>String(r.plannedItemId)===String(planId)))return{ok:false,reason:'Удалять можно только незапущенное плановое задание'};d.routePlanItems=d.routePlanItems.filter(i=>i.id!==planId);global.LubricaCore?.State?.setDatabase?.(d);return{ok:true}}
  function linkRun(planId,runId,d=db()){const x=planStore(d).find(i=>i.id===planId);if(!x)return null;x.runId=runId;x.status='in_progress';x.startedAt=new Date().toISOString();x.updatedAt=x.startedAt;global.LubricaCore?.State?.setDatabase?.(d);return x}
- function syncFromRun(run,d=db(),{persist=true}={}){if(!d||!run?.plannedItemId)return null;const x=planStore(d).find(i=>i.id===run.plannedItemId);if(!x)return null;x.runId=run.id;x.status=run.status==='completed'?'completed':run.status==='cancelled'?'cancelled':'in_progress';x.updatedAt=new Date().toISOString();if(run.completedAt)x.completedAt=run.completedAt;if(run.cancelledAt)x.cancelledAt=run.cancelledAt;if(persist)global.LubricaCore?.State?.setDatabase?.(d);return x}
+ function syncFromRun(run,d=db(),{persist=true}={}){if(!d||!run?.plannedItemId)return null;const x=planStore(d).find(i=>i.id===run.plannedItemId);if(!x)return null;x.runId=run.id;x.status=['completed','partial','cancelled'].includes(run.status)?run.status:'in_progress';x.updatedAt=new Date().toISOString();if(run.completedAt)x.completedAt=run.completedAt;if(run.cancelledAt)x.cancelledAt=run.cancelledAt;if(persist)global.LubricaCore?.State?.setDatabase?.(d);return x}
  function exportRows(options={},d=db()){
   const header=['Задание','Маршрут','Линия','Участок','Технический срок','Исходный плановый день','Назначенный день','Смена','Статус','Ревизия','Мероприятие ID','Точка ID','Оборудование','Операция','Материал','Плановая норма','Результат','Фактическое количество','Фактические моточасы','Причина / наблюдения'];
   const runs=new Map((d?.checklistRuns||[]).map(r=>[String(r.id),r])),rows=[];
@@ -146,7 +146,7 @@
   const {header,rows}=exportRows(options,d),cell=v=>{let s=String(v??'');if(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'};
   return '\ufeff'+[header,...rows].map(r=>r.map(cell).join(';')).join('\r\n');
  }
- function summary(options={},d=db()){const rows=items(options,d);return{total:rows.length,planned:rows.filter(x=>x.displayStatus==='planned').length,overdue:rows.filter(x=>x.displayStatus==='overdue').length,inProgress:rows.filter(x=>x.displayStatus==='in_progress').length,completed:rows.filter(x=>x.displayStatus==='completed').length,minutes:rows.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0)}}
+ function summary(options={},d=db()){const rows=items(options,d);return{total:rows.length,planned:rows.filter(x=>x.displayStatus==='planned').length,overdue:rows.filter(x=>x.displayStatus==='overdue').length,inProgress:rows.filter(x=>x.displayStatus==='in_progress').length,completed:rows.filter(x=>x.displayStatus==='completed').length,partial:rows.filter(x=>x.displayStatus==='partial').length,cancelled:rows.filter(x=>x.displayStatus==='cancelled').length,minutes:rows.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0)}}
  global.LubricaRoutePlanning=Object.freeze({parseInterval,parseRuntimeInterval,addInterval,runtimeStepDays,lastCompletedDate,preview,previewToken,commit,items,exportRows,exportCsv,summary,remove,linkRun,syncFromRun,syncFromRuns});
  global.LubricaSystem?.registerModule?.('План смазочных работ','ok','Календарное планирование смазочных работ');
 })(window);

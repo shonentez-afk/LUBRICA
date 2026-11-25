@@ -80,7 +80,7 @@
  function matches(r,c){if(r?.groupingMode!==MODE)return true;const info=describe(c);return info.ok&&routeKey(r)===info.key}
  // R7: shared task ownership and protection.
  const workingRoutes=d=>arr(d?.routes).filter(r=>r.status!=='archived');
- const openPlan=x=>!['completed','cancelled'].includes(x?.status);
+ const openPlan=x=>!['completed','partial','cancelled'].includes(x?.status);
  const runningTask=(d,id)=>arr(d?.checklistRuns).some(x=>x.status==='in_progress'&&arr(x.routeTaskIds).map(String).includes(String(id)));
  const taskReserved=(d,id)=>arr(d?.routePlanItems).some(x=>openPlan(x)&&arr(x.taskIds).map(String).includes(String(id)))||runningTask(d,id);
  const routeLocked=(d,r)=>!!r&&(arr(d?.routePlanItems).some(x=>String(x.routeId)===String(r.id)&&openPlan(x))||arr(d?.checklistRuns).some(x=>String(x.routeId)===String(r.id)&&x.status==='in_progress'));

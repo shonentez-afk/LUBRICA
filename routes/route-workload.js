@@ -12,7 +12,7 @@
  const fail=(code,message)=>({ok:false,code,message});
  const min=x=>{const n=Number(x);return str(x)&&Number.isFinite(n)&&n>0?Math.ceil(n):null};
  const slotKey=(date,shift)=>date+'|'+shift;
- const active=s=>['planned','in_progress','completed'].includes(s);
+ const active=s=>['planned','in_progress','completed','partial'].includes(s);
  function range(start,end){
   const a=day(start),b=day(end);
   if(!a||!b||b<a||distance(a,b)>92)return fail('INVALID_RANGE','Выберите корректный период не более 93 календарных дней');
@@ -94,7 +94,7 @@
   const old=new Set(pprSettings(d).pprRouteIds),next=new Set(nextIds);
   for(const r of arr(d?.routes)){
    if(old.has(String(r.id))===next.has(String(r.id)))continue;
-   const locked=global.LubricaRouteAutoGrouping?.routeLocked(d,r)??(arr(d.routePlanItems).some(x=>String(x.routeId)===String(r.id)&&!['completed','cancelled'].includes(x.status))||arr(d.checklistRuns).some(x=>String(x.routeId)===String(r.id)&&x.status==='in_progress'));
+   const locked=global.LubricaRouteAutoGrouping?.routeLocked(d,r)??(arr(d.routePlanItems).some(x=>String(x.routeId)===String(r.id)&&!['completed','partial','cancelled'].includes(x.status))||arr(d.checklistRuns).some(x=>String(x.routeId)===String(r.id)&&x.status==='in_progress'));
    if(locked)return fail('PPR_ROUTE_LOCKED','Сначала завершите или снимите открытые задания маршрута '+(r.code||r.name||r.id));
   }
   return{ok:true};
@@ -168,7 +168,7 @@
   for(const r of arr(d?.checklistRuns)){runs.set(String(r.id),r);if(r.plannedItemId){const old=byPlan.get(String(r.plannedItemId));if(!old||old.status!=='in_progress')byPlan.set(String(r.plannedItemId),r)}}
   return arr(d?.routePlanItems).map(item=>{
    const run=runs.get(String(item.runId||''))||byPlan.get(String(item.id))||null;
-   const status=run&&['completed','cancelled','in_progress'].includes(run.status)?run.status:item.status;
+   const status=run&&['completed','partial','cancelled','in_progress'].includes(run.status)?run.status:item.status;
    const a=assignment(item),fixed=!!run||!!item.runId||status!=='planned';
    return {item,run,status,fixed,a,date:a?.date||day(item.plannedDate),shiftId:a?.shiftId||'',minutes:min(item.plannedMinutes)};
   }).filter(x=>active(x.status));

@@ -46,10 +46,10 @@
  }
  function routeAnalysis(routeId,route=null,d=db(),period={}){
    if(!d)return{runs:[],summary:null};
-   const runs=global.LubricaChecklistEngine?.routeRuns?.(routeId,d)?.filter(r=>r.status==='completed'&&inPeriod(r,period))||[];
+   const runs=global.LubricaChecklistEngine?.routeRuns?.(routeId,d)?.filter(r=>(['completed','partial'].includes(r.status)||r.status==='cancelled'&&!!r.executionFact)&&inPeriod(r,period))||[];
    const analyzed=runs.map(r=>analyzeRun(r,route,d)).filter(Boolean),timeKnown=analyzed.filter(x=>x.actualMinutes!=null);
    const summary=analyzed.length?{
-     executions:analyzed.length,
+     executions:analyzed.length,completedExecutions:analyzed.filter(x=>x.status==='completed').length,partialExecutions:analyzed.filter(x=>x.status==='partial').length,cancelledExecutions:analyzed.filter(x=>x.status==='cancelled').length,
      avgPlannedMinutes:round(analyzed.reduce((s,x)=>s+x.plannedMinutes,0)/analyzed.length,1),
      avgActualMinutes:timeKnown.length?round(timeKnown.reduce((s,x)=>s+x.actualMinutes,0)/timeKnown.length,1):null,
      avgTimeDeltaPercent:timeKnown.filter(x=>x.timeDeltaPercent!=null).length?round(timeKnown.filter(x=>x.timeDeltaPercent!=null).reduce((s,x)=>s+x.timeDeltaPercent,0)/timeKnown.filter(x=>x.timeDeltaPercent!=null).length,1):null,
