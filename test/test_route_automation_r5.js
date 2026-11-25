@@ -28,6 +28,16 @@ const t=id=>d.tasks.find(x=>x.id===id),getRoute=kind=>d.routes.find(r=>r.schedul
 for(const id of ['C1','C2','C3','C4','C5'])task(id,'7 дней',10);
 task('M1','14 дней',20);task('H1','500 ч',5);task('H2','1000 ч',6);
 const scope={lineId:'L',areaId:'A',serviceKey:'bearing:regrease'},initial={mode:'next',date:tomorrow},cfg={weekdays:[1,2,3,4,5,6,7],shifts:[1,2,3].map(i=>({id:String(i),workers:1,minutesPerWorker:45})),ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[]};
+// R6.1 ordinary preview without a plan, forecast or optional configuration.
+const ordinaryBefore=clone(d),ordinary=M.preview({lineId:'L',areaId:'A',activateReady:true,recoverHistory:true,forecast:false},d);
+assert(ordinary.ok,ordinary.reason);assert.equal(ordinary.forecast,null);assert.equal(ordinary.report.summary.create,4);
+assert(ordinary.report.groups.filter(g=>g.action==='create').every(g=>g.nextStatus==='draft'));
+assert.deepEqual(d,ordinaryBefore);
+const invalid=M.preview({lineId:'L',areaId:'A',policy:{taskIds:['H1'],earlyDays:1,earlyReason:'Test'},forecast:false},d);
+assert.equal(invalid.code,'EARLY_INVALID');assert(invalid.message.includes('моточасам')&&invalid.details[0].taskId==='H1');
+assert.deepEqual(d,ordinaryBefore);
+const clear=M.preview({lineId:'L',areaId:'A',policy:{taskIds:['H1'],earlyDays:0,earlyReason:''},forecast:false},d);
+assert(clear.ok,clear.reason);assert.deepEqual(d,ordinaryBefore);
 const order=d.equipment.map(x=>x.id).reverse(),options={...scope,initial,recoverHistory:true,activateReady:true,walkOrder:order,applyOrder:true,policy:{taskIds:['C1','C2'],access:'ppr',earlyDays:1,earlyReason:'Согласованное инженерное окно',minutes:20},timing:{minutes:20,transitionMinutes:2,splitLargeJobs:true,balance:true},workloadSettings:cfg,plan:true,allocate:true,startDate:today,endDate:later,forecastWeeks:4};
 const short=M.preview({...options,endDate:today},d);assert(short.ok,short.reason);assert.equal(short.plan.created,2,'an approved early window may open in the selected period although technical due is next week/day');assert.equal(short.allocation.summary.assigned,2);
 assert.equal(M.preview({...options,policy:{taskIds:['H1'],earlyDays:1,earlyReason:'Нельзя по часам'},plan:false,allocate:false},d).code,'EARLY_INVALID');

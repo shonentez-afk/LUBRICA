@@ -154,7 +154,7 @@
    if(old!==JSON.stringify([settings.serviceMinutes,settings.transitionMinutes])&&arr(d.routes).some(r=>D().typed(r)&&locked(d,r)))return fail('TIME_LOCKED','Сначала завершите или снимите открытые задания перед изменением общих норм времени');
    settings.splitLargeJobs=n.splitLargeJobs===true;settings.balance=n.balance===true;
   }
-  d.routeAutomation=settings;
+  if(o.walkOrder||o.timing)d.routeAutomation=settings;
   if(o.policy){
    const p=o.policy,chosen=uniq(p.taskIds);
    if(!chosen.length||chosen.some(id=>!scopeIds.includes(id)||!usable(id)))return fail('POLICY_SCOPE','Выберите доступные мероприятия без открытого задания');
@@ -163,7 +163,7 @@
     if(p.access==='normal'||p.access==='ppr')next.access=p.access;
     if(str(p.earlyDays)!==''){
      const limit=s.kind==='runtime_hours'?0:Math.min(90,s.kind==='days'?s.value-1:28*s.value-1);
-     if(!integer(p.earlyDays,0,limit)||Number(p.earlyDays)>0&&!str(p.earlyReason))return fail('EARLY_INVALID',id+': для календарного досрочного окна нужны допустимое число дней и инженерное основание; моточасы не округляются');
+     if(!integer(p.earlyDays,0,limit)||Number(p.earlyDays)>0&&!str(p.earlyReason)){const c=ix.get(id),name=[c?.eq?.name,c?.lp?.name].filter(Boolean).join(' · ')||id;return {...fail('EARLY_INVALID',Number(p.earlyDays)>0&&!str(p.earlyReason)?'Укажите основание досрочного допуска или оставьте поле дней пустым.':s.kind==='runtime_hours'?'Для обслуживания по моточасам нельзя задать досрочный допуск. Выберите подходящие календарные мероприятия.':'Досрочный допуск превышает допустимый для интервала. Уменьшите число дней или выберите подходящие мероприятия.'),details:[{taskId:id,message:name+' · '+(s.label||s.key)+' · максимально '+limit+' дн.'}]}}
      next.earlyDays=Number(p.earlyDays);next.earlyReason=next.earlyDays?str(p.earlyReason):'';
     }
     if(str(p.minutes)!==''){if(!number(p.minutes,0,1440))return fail('TIME_INVALID',id+': время 0–1440 мин');next.minutes=Number(p.minutes)}
@@ -267,7 +267,7 @@
     const a=W().apply(wo,allocation.token,next,{persist:false});if(!a.ok)return a;next=a.database||next;
    }
   }
-  return{ok:true,report,prep,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId},next),database:next};
+  return{ok:true,report,prep,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId},next),database:next};
  }
  function preview(o={},d=db()){
   const result=simulate(o,d);if(!result.ok)return result;

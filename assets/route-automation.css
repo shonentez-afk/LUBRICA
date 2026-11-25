@@ -48,3 +48,16 @@
 .r5-bar i.over{background:#bf8849}
 @media(max-width:850px){.r5-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.r5-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:540px){.r5-grid{grid-template-columns:1fr}.r5-body{padding:10px}.r5-shell .dialog-head{padding:12px}.r5-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.r5-forecast-row{grid-template-columns:80px 1fr}.r5-forecast-row small{grid-column:1/-1}.r5-item{flex-direction:column}.r5-item strong{max-width:100%;text-align:left}}
+
+/* R6.1 — one ordinary flow, optional advanced controls. */
+.r5-shell [hidden]{display:none!important}
+#routeExecutionDialog:has(.r5-simple),#actionDialog:has(.r5-simple){width:min(800px,96vw)}
+.r5-simple .r5-scope-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.r5-extra-toggle{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 2px}
+.r5-extra-toggle .btn{font-weight:600}
+.r5-advanced-fields{display:grid;gap:10px;min-width:0}
+.r5-summary-simple{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.r5-simple .r5-scroll{max-height:240px}
+.r5-simple .r5-empty-result{border-style:dashed}
+.r5-shell .r5-warning{margin:6px 0;line-height:1.5}
+@media(max-width:540px){.r5-simple .r5-scope-grid{grid-template-columns:1fr}.r5-summary-simple{grid-template-columns:repeat(2,minmax(0,1fr))}}
