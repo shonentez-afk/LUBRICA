@@ -196,6 +196,69 @@ def check(browser,width,height,label):
  assert not editor.is_visible()
  assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',cal)=='archived'
  assert page.evaluate('JSON.stringify(window.__db.checklistRuns)')==history_before
+ # Reproduce the reported 20-point, 2250 h, PPR-only route on a short window.
+ large=page.evaluate('''() => {
+  const ids=Array.from({length:20},(_,i)=>'LONG'+String(i+1).padStart(2,'0'));
+  for(const id of ids){makeTask(id,'bearing','regrease','Досмазывание','2250 ч','Конвейер');const t=window.__db.tasks.find(x=>x.id===id);Object.assign(t,{materialMode:'explicit',materialId:'MAT',materialName:'Смазка',quantity:{approved:'10',unit:'г'}})}
+  const today=LubricaRouteDue.today(),cfg={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:480}],ppr:[{lineId:'L1',anchorDate:today}],pprRouteIds:[]};
+  let r=LubricaRouteWorkload.saveSettings(cfg,window.__db);if(!r.ok)throw Error(r.message||r.reason);
+  r=LubricaRouteEngine.createRoute({lineId:'L1',areaId:'A1',interval:'2250 ч',name:'Линия 1 — Загрузки суточных силосов — Подшипники — Досмазывание — 2250 ч',taskIds:ids,status:'draft'},window.__db);
+  if(!r.ok)throw Error(r.reason);const id=r.route.id;
+  r=LubricaRouteDue.configureRoute(id,{date:today,mode:'next',pprMode:'ppr',planningMode:'calendar_runtime',maxHoursPerDay:24,confirmCalendar:true},window.__db,{activate:true});
+  if(!r.ok)throw Error(r.message||r.reason);return id;
+ }''')
+ page.set_viewport_size({'width':974 if width>=1000 else 768,'height':878 if width>=1000 else 600})
+ select(large)
+ page.locator('#editRoute').click()
+ body=editor.locator('[data-route-scroll]')
+ assert editor.locator('[data-route-point]').count()==20
+ assert not editor.locator('[data-route-parameters]').evaluate('(x)=>x.open')
+ assert body.evaluate('(x)=>x.clientHeight>160 && x.scrollHeight>x.clientHeight')
+ assert body.evaluate('(x)=>x.scrollWidth<=x.clientWidth+1')
+ assert editor.locator('[data-route-point]').first.evaluate('(x)=>{const p=x.getBoundingClientRect(),b=x.closest("[data-route-scroll]").getBoundingClientRect();return p.top<b.bottom&&p.bottom>b.top}')
+ page.screenshot(path=str(OUT/(label+'_r82_long_route_top.png')))
+ bounds=body.bounding_box()
+ page.mouse.move(bounds['x']+bounds['width']/2,bounds['y']+bounds['height']/2)
+ page.mouse.wheel(0,650)
+ page.wait_for_function('document.querySelector("[data-route-scroll]").scrollTop>0')
+ editor.locator('[data-route-point]').last.scroll_into_view_if_needed()
+ assert editor.locator('[data-route-point]').last.evaluate('(x)=>{const p=x.getBoundingClientRect(),b=x.closest("[data-route-scroll]").getBoundingClientRect();return p.top<b.bottom&&p.bottom>b.top}')
+ assert editor.locator('.route-editor-footer').evaluate('(x)=>{const r=x.getBoundingClientRect();return r.bottom<=innerHeight&&r.top>=0}')
+ page.screenshot(path=str(OUT/(label+'_r82_long_route_bottom.png')))
+ # Opening parameters cannot remove the scrollable area; the last point remains reachable.
+ body.evaluate('(x)=>x.scrollTop=0')
+ editor.locator('[data-route-parameters] > summary').click()
+ assert body.evaluate('(x)=>x.clientHeight>160 && x.scrollHeight>x.clientHeight')
+ editor.locator('[data-route-point]').last.scroll_into_view_if_needed()
+ assert body.evaluate('(x)=>x.scrollTop>0')
+ editor.locator('[data-close-route]').last.click()
+ # Reserve the exact route, explain the protection and remove only the actual planned job.
+ assert page.evaluate('(id)=>LubricaRoutePlanning.commit({startDate:LubricaRouteDue.today(),endDate:LubricaRouteDue.today(),routeIds:[id]},window.__db).ok',large)
+ select(large)
+ page.locator('#editRoute').click()
+ assert editor.locator('[data-open-route-jobs]').is_visible()
+ assert editor.locator('[data-route-point]').count()==20
+ assert editor.locator('[data-point-down]').first.is_disabled()
+ editor.locator('[data-route-parameters] > summary').click()
+ assert editor.locator('[data-route-archive]').is_disabled()
+ assert not editor.locator('[data-archive-review]').is_visible()
+ page.screenshot(path=str(OUT/(label+'_r82_locked_route.png')))
+ job_ids=page.evaluate('(id)=>window.__db.routePlanItems.filter(x=>x.routeId===id&&x.status==="planned").map(x=>x.id)',large)
+ assert len(job_ids)>0
+ editor.locator('[data-open-route-jobs]').click()
+ for job in job_ids:
+  plan.locator('[data-remove-plan="'+job+'"]').click()
+ assert page.evaluate('(id)=>!window.__db.routePlanItems.some(x=>x.routeId===id&&x.status==="planned")',large)
+ plan.locator('[data-close]').last.click()
+ select(large)
+ page.locator('#editRoute').click()
+ editor.locator('[data-route-parameters] > summary').click()
+ assert editor.locator('[data-route-archive]').is_enabled()
+ editor.locator('[data-route-archive]').click()
+ assert editor.locator('[data-archive-review]').is_visible()
+ editor.locator('[data-archive-confirm]').click()
+ assert page.evaluate('(id)=>window.__db.routes.find(r=>r.id===id).status',large)=='archived'
+ assert not editor.is_visible()
  assert not errors,errors
  page.close()
 with sync_playwright() as pw:

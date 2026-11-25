@@ -222,7 +222,7 @@ function openRouteValidationDialog(route){
 }
 function openRouteEditor(view,route){
  const dlg=document.getElementById('actionDialog');if(!dlg||!route)return;
- const activeRun=window.LubricaChecklistEngine?.latestRun?.(route.id,{includeCompleted:false}),Engine=window.LubricaRouteEngine,typed=!!window.LubricaRouteDue?.typed(route);let insertAfterPointId='',candidateMode='recommended',editorPanel=(window.LubricaRouteEngine?.queueState?.(route.id)?.current?.length?'route':'add');
+ const Engine=window.LubricaRouteEngine,typed=!!window.LubricaRouteDue?.typed(route);let insertAfterPointId='',candidateMode='recommended',editorPanel=(window.LubricaRouteEngine?.queueState?.(route.id)?.current?.length?'route':'add');
  const assessment=()=>Engine.routeAssessment(route.id);
  const openJobs=()=>{const d=window.LubricaCore.State.getDatabase();return (d.routePlanItems||[]).filter(x=>String(x.routeId)===String(route.id)&&['planned','in_progress'].includes(x.status))};
  const stateMarkup=()=>{const a=assessment(),W=window.LubricaRouteWorkload,d=window.LubricaCore.State.getDatabase(),ppr=W?.requiresPpr(route.id,d),jobs=openJobs(),running=jobs.some(x=>x.status==='in_progress')||!!window.LubricaChecklistEngine?.latestRun?.(route.id,{includeCompleted:false});
