@@ -195,24 +195,39 @@
  function executionNumber(routeId,d){return runs(d).filter(r=>r.routeId===routeId&&!['superseded'].includes(r.status)).length+1}
  function createRun(routeId,{route=null,date='',performer='',shift='',forceNew=false,planItemId=''}={}){
   const d=db();if(!d)return null;
-  // R3A routes are deliberately draft-only until task-level due planning is ready.
   const currentRoute=(d.routes||[]).find(r=>String(r.id)===String(routeId));
-  if(currentRoute?.groupingMode===global.LubricaRouteAutoGrouping?.MODE&&currentRoute?.groupingMode)return null;
+  const isTyped=currentRoute?.groupingMode==='area_service_interval_v1';
+  let taskPlan=null,checked=null;
+  if(isTyped){
+   const D=global.LubricaRouteDue;
+   if(!D||!clean(performer)||!clean(shift)||forceNew)return null;
+   const active=activeRuns(routeId,d);
+   if(active.length)return active[0].plannedItemId===clean(planItemId)?active[0]:null;
+   taskPlan=D.planItem(routeId,planItemId,d);
+   const entry=global.LubricaRouteEngine?.routeEntries?.(d,{preview:false})?.find(r=>r.id===routeId);
+   checked=D.checkStart(entry,taskPlan,d,date);
+   if(!checked.ok)return null;
+   route=checked.route;
+   const prep=global.LubricaRoutePreparation?.build?.(route,d);
+   if(prep&&!prep.ready)return null;
+  }
   const existing=normalizeActiveRuns(routeId,d);if(existing&&!forceNew){global.LubricaCore.State.setDatabase(d);return existing}
   if(existing&&forceNew){existing.status='superseded';existing.supersededAt=now();existing.updatedAt=now()}
   const ids=(route?.points||[]).map(taskId).filter(Boolean);
   if(route&&ids.length===0)return null;
-  const revisionResult=route?global.LubricaRouteEngine?.ensureRouteRevision?.(routeId,d,{note:'Автофиксация перед выполнением',reason:'execution'}):null;
-  const routeRevision=revisionResult?.revision||global.LubricaRouteEngine?.routeRevisions?.(routeId,d)?.[0]||null;
-  const snapshot=route?model(route,d):null;
+  const revisionResult=route&&!isTyped?global.LubricaRouteEngine?.ensureRouteRevision?.(routeId,d,{note:'Автофиксация перед выполнением',reason:'execution'}):null;
+  const routeRevision=isTyped?{revision:taskPlan.routeRevision,id:taskPlan.routeRevisionId}:(revisionResult?.revision||global.LubricaRouteEngine?.routeRevisions?.(routeId,d)?.[0]||null);
+  const snapshot=isTyped?clone(checked.snapshot):(route?model(route,d):null);
+  if(isTyped){const byId=new Map(checked.dueEntries.map(e=>[String(e.taskId),e]));for(const group of snapshot.groups)for(const task of group.tasks)task.dueEntry=clone(byId.get(String(task.taskId)))}
   const startedAt=now();
   const run={id:nextRunId(d),routeId,plannedItemId:clean(planItemId),routeRevision:Number(routeRevision?.revision)||Number(route?.revision)||1,routeRevisionId:routeRevision?.id||'',status:'in_progress',executionNo:executionNumber(routeId,d),date:date||new Date().toISOString().slice(0,10),performer:clean(performer),shift:clean(shift),taskResults:{},comments:'',actualStartAt:startedAt,actualEndAt:null,actualDurationMinutes:null,routeTaskIds:ids,routeSnapshot:snapshot?clone(snapshot):null,routeUpdatedAt:route?.updatedAt||null,snapshotAt:snapshot?startedAt:null,startedAt,updatedAt:startedAt,completedAt:null,cancelledAt:null};
-  runs(d).push(run);global.LubricaCore.State.setDatabase(d);global.LubricaRoutePlanning?.syncFromRun?.(run,d);return run
+  if(isTyped){run.dueEntries=clone(checked.dueEntries);run.serviceDate=date;run.plannedMinutes=taskPlan.plannedMinutes;}
+  runs(d).push(run);if(isTyped)global.LubricaRoutePlanning?.syncFromRun?.(run,d,{persist:false});global.LubricaCore.State.setDatabase(d);if(!isTyped)global.LubricaRoutePlanning?.syncFromRun?.(run,d);return run
  }
  function latestRun(routeId,{includeCompleted=true}={}){const d=db();if(!d)return null;if(!includeCompleted)return normalizeActiveRuns(routeId,d);return routeRuns(routeId,d)[0]||null}
  function ensureRun(routeId,route=null){return latestRun(routeId,{includeCompleted:false})||createRun(routeId,{route})}
- function updateRun(runId,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;Object.assign(r,patch,{updatedAt:now()});global.LubricaCore.State.setDatabase(d);return r}
- function updateTask(runId,id,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;r.taskResults=r.taskResults||{};r.taskResults[id]={done:false,resultStatus:'pending',observations:'',actualQuantity:'',actualQuantityUnit:'',deviationReason:'',...r.taskResults[id],...patch,updatedAt:now()};
+ function updateRun(runId,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;if(r.dueEntries?.length){patch={...patch};delete patch.date;}Object.assign(r,patch,{updatedAt:now()});global.LubricaCore.State.setDatabase(d);return r}
+ function updateTask(runId,id,patch){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress'||(r.dueEntries?.length&&!runTaskIds(r).includes(String(id))))return null;r.taskResults=r.taskResults||{};r.taskResults[id]={done:false,resultStatus:'pending',observations:'',actualQuantity:'',actualQuantityUnit:'',deviationReason:'',...r.taskResults[id],...patch,updatedAt:now()};
   if(r.taskResults[id].done)r.taskResults[id].resultStatus='completed';
   else if(!['skipped','not_applicable'].includes(r.taskResults[id].resultStatus))r.taskResults[id].resultStatus='pending';r.updatedAt=now();global.LubricaCore.State.setDatabase(d);return r.taskResults[id]}
  function progress(run,route){
@@ -232,6 +247,7 @@
   if(!clean(run.date))missing.push('Указать дату');
   if(!clean(run.performer))missing.push('Указать ФИО исполнителя');
   if(!clean(run.shift))missing.push('Указать смену');
+  if(run.dueEntries?.length)missing.push(...(global.LubricaRouteDue?.completionErrors(run)||['Модуль индивидуальных сроков недоступен']));
   return{ok:missing.length===0,progress:p,missing}
  }
  function completeRun(runId,route=null){
@@ -243,9 +259,10 @@
   r.updatedAt=now();r.completionProgress=validation.progress;
   const frvFact=global.LubricaFRV?.freeze?.(r)||null;r.executionFact={actualStartAt:r.actualStartAt||r.startedAt||'',actualEndAt:r.actualEndAt||r.completedAt||'',actualDurationMinutes:r.actualDurationMinutes,performer:r.performer||'',shift:r.shift||'',comments:r.comments||'',tasks:clone(r.taskResults||{}),frv:frvFact?clone(frvFact):null};
   for(const stale of activeRuns(r.routeId,d)){if(stale.id===r.id)continue;stale.status='superseded';stale.supersededAt=now();stale.updatedAt=now();stale.supersededBy=r.id}
-  global.LubricaCore.State.setDatabase(d);global.LubricaRoutePlanning?.syncFromRun?.(r,d);return r
+  if(r.dueEntries?.length){global.LubricaRouteDue.advanceCompleted(r,d);global.LubricaRoutePlanning?.syncFromRun?.(r,d,{persist:false})}
+  global.LubricaCore.State.setDatabase(d);if(!r.dueEntries?.length)global.LubricaRoutePlanning?.syncFromRun?.(r,d);return r
  }
- function cancelRun(runId,{reason=''}={}){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;r.status='cancelled';r.cancelledAt=now();r.cancelReason=clean(reason);r.updatedAt=now();global.LubricaCore.State.setDatabase(d);global.LubricaRoutePlanning?.syncFromRun?.(r,d);return r}
+ function cancelRun(runId,{reason=''}={}){const d=db(),r=runs(d).find(x=>x.id===runId);if(!r||r.status!=='in_progress')return null;r.status='cancelled';r.cancelledAt=now();r.cancelReason=clean(reason);r.updatedAt=now();if(r.dueEntries?.length)global.LubricaRoutePlanning?.syncFromRun?.(r,d,{persist:false});global.LubricaCore.State.setDatabase(d);if(!r.dueEntries?.length)global.LubricaRoutePlanning?.syncFromRun?.(r,d);return r}
  function lifecycleState(routeId,route=null,d=db()){
   if(!d)return{state:'unavailable',active:null,last:null,runs:[],progress:{done:0,total:0,percent:0,complete:false},canStart:false,canComplete:false,canCancel:false};
   const active=normalizeActiveRuns(routeId,d),history=routeRuns(routeId,d),last=history[0]||null,current=active||last;
