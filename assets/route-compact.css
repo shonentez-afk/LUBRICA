@@ -90,3 +90,28 @@
  .route-view-switch,.route-visit-toolbar{display:none!important}
  .route-visit-workspace{display:none!important}
 }
+
+/* R3A: compact scope selection and explicit automatic-route preview. */
+.route-r3-dialog{display:flex;flex-direction:column;max-height:min(86vh,850px);min-width:0;overflow:hidden}
+.route-r3-body{padding:12px 18px;overflow:auto;min-height:0}
+.route-r3-scope{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;align-items:end;gap:10px;margin-bottom:14px}
+.route-r3-scope label{display:grid;gap:5px;font-size:11px;font-weight:700;color:var(--muted);min-width:0}
+.route-r3-scope select{min-width:0;width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;background:#fff;font:inherit;color:var(--ink)}
+.route-r3-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.route-r3-summary>div{border:1px solid var(--line);background:#f7f9f9;border-radius:8px;padding:10px;display:grid;gap:4px}
+.route-r3-summary b{font-size:21px;color:var(--ink)}
+.route-r3-summary small{font-size:11px;color:var(--muted)}
+.route-r3-note{font-size:11px;color:var(--muted);line-height:1.45;margin:10px 0}
+.route-r3-list{display:grid;gap:7px}
+.route-r3-row{display:flex;justify-content:space-between;align-items:start;gap:12px;border:1px solid var(--line);border-radius:8px;padding:11px;background:white;overflow-wrap:anywhere}
+.route-r3-row>div{display:grid;gap:5px;min-width:0}
+.route-r3-row b{font-size:12px}.route-r3-row small,.route-r3-row span{font-size:11px;color:var(--muted)}
+.route-r3-row strong{font-size:10px;min-width:105px;text-align:right;color:#42635c}
+.route-r3-row.blocked strong,.route-r3-warning{color:#936321}
+.route-r3-exclusions{margin-top:14px;border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.route-r3-exclusions summary{font-weight:700;font-size:12px;cursor:pointer}
+.route-r3-issues{max-height:240px;overflow:auto;margin-top:8px}
+.route-r3-issues table{width:100%;border-collapse:collapse;table-layout:auto;font-size:11px}
+.route-r3-issues th,.route-r3-issues td{padding:7px;text-align:left;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.route-r3-dialog menu{flex:none;display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:620px){.route-r3-scope{grid-template-columns:1fr}.route-r3-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.route-r3-row{flex-direction:column;gap:6px}.route-r3-row strong{text-align:left}.route-r3-dialog menu{flex-wrap:wrap}}
