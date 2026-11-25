@@ -15,7 +15,7 @@
    const C=global.LubricaStructureContext;
    const raw=norm(lp?.category);
    const cat=global.LubricaCore?.DatabaseSchema?.normalizePointCategory?.(raw)||({motor:'bearing',fan:'bearing',gearbox:'gearbox_oil'}[raw]||raw);
-   const categoryLabel=labels[cat]||global.LubricaClassifier?.pointLabels?.[cat];
+   const categoryLabel=labels[cat]||C?.categoryLabels?.[cat];
    if(!cat||cat==='other'||!categoryLabel)return bad('SERVICE_CATEGORY_UNKNOWN','Не подтверждена категория физической точки');
    const explicit=clean(t?.activityType),fromLabel=C?.activityTypeForLabel?.(t?.operation)||'custom';
    const alias=v=>({relubrication:'regrease'}[v]||v);
@@ -69,8 +69,8 @@
    return r?.groupingMode===MODE?JSON.stringify([String(r.lineId||''),String(r.areaId||''),String(r.serviceKey||''),String(r.scheduleKey||'')]):'';
  }
  function describe(c){
-   if(!c?.lp?.id||!c.eq?.id||!c.node?.id||!c.line?.id||!c.area?.id||String(c.area.lineId||'')!==String(c.lineId))return bad('PHYSICAL_SCOPE_MISSING','Не подтверждены физическая точка, линия или участок');
-   const excluded=x=>['disabled','excluded','archived','not_applicable','no_lube','non_lubricated'].includes(norm(x?.status));
+   if(!c?.lp?.id||!c.eq?.id||!c.node?.id||!c.line?.id||!c.area?.id||String(c.area.lineId||'')!==String(c.lineId)||String(c.node.equipmentId||'')!==String(c.eq.id))return bad('PHYSICAL_SCOPE_MISSING','Не подтверждены физическая точка, линия или участок');
+   const excluded=x=>[x?.status,x?.serviceMode,x?.serviceability,x?.candidateState].some(v=>['disabled','excluded','archived','not_applicable','no_lube','non_lubricated','non_serviceable','sealed','dry'].includes(norm(v)));
    if(excluded(c.lp)||excluded(c.eq)||excluded(c.node)||c.task?.obsoleteByBearingPolicy)return bad('NOT_SERVICEABLE','Точка или мероприятие исключены из обслуживания');
    const service=serviceFor(c.task,c.lp);if(!service.ok)return service;
    const schedule=scheduleFor(c.task);if(!schedule.ok)return schedule;
@@ -79,17 +79,17 @@
  }
  function matches(r,c){if(r?.groupingMode!==MODE)return true;const info=describe(c);return info.ok&&routeKey(r)===info.key}
  function preview(d,{lineId='',areaId=''}={},engine=global.LubricaRouteEngine){
-   const issues=[],groups=new Map(),contexts=new Map(),valid=new Map();
+   const issues=[],groups=new Map(),valid=new Map();
    if(!d||!engine)return{ok:false,reason:'База недоступна',groups:[],issues:[],token:''};
-   const readiness=engine.readinessIndex(d);
+   const readiness=engine.readinessIndex(d),contexts=engine.contextIndex(d);
    if(!readiness)return{ok:false,reason:'Инженерный контроль недоступен',groups:[],issues:[],token:''};
    const scope=c=>(!lineId||c.lineId===lineId)&&(!areaId||c.areaId===areaId);
    const report=(id,code,message,routeId='')=>issues.push({taskId:id,code,message,routeId});
    for(const t of arr(d.tasks)){
-     const id=String(t.id),c=engine.taskContext(d,t);contexts.set(id,c);
+     const id=String(t.id),c=contexts.get(id);
      if(!scope(c))continue;
      if(!readiness.has(id)){report(id,'QA_MISSING','Отсутствует запись инженерного контроля');continue}
-     const gate=engine.routeEligibility(t,d,readiness);
+     const gate=engine.routeEligibility(t,d,readiness,c);
      if(!gate.ok){report(id,gate.code,gate.message);continue}
      const g=describe(c);if(!g.ok){report(id,g.code,g.message);continue}
      valid.set(id,g);
