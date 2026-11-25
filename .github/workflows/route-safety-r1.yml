@@ -1,4 +1,4 @@
-name: LUBRICA Routes R1–R4 Regression and Preview
+name: LUBRICA Routes R1–R4.1 Regression and Preview
 
 on:
   pull_request:
@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R4_PREVIEW"
+          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R4_1_PREVIEW"
           mkdir -p "$STAGE"
           rsync -a ./ "$STAGE/" \
             --exclude '.git/' \
@@ -90,7 +90,7 @@ jobs:
             --exclude 'README.md' \
             --exclude 'START_NEW_CHAT_RU.md'
           find "$STAGE" -maxdepth 1 -type f \( -name 'RELEASE_*.md' -o -name 'LUBRICA_*.md' -o -name 'LUBRICA_*.txt' -o -name 'LUBRICA_*.json' -o -name 'LUBRICA_*.csv' \) -delete
-          printf '%s\n' 'LUBRICA ROUTES STAGE R1-R4' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check individual due jobs, workload, line-specific 14-day PPR phase, shift assignment and exact execution. PPR and shift capacity must be set explicitly.' > "$STAGE/ROUTES_R4_README.txt"
+          printf '%s\n' 'LUBRICA ROUTES STAGE R1-R4' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check individual due jobs, workload, line-specific 14-day PPR phase, shift assignment and exact execution. PPR and shift capacity must be set explicitly.' > "$STAGE/ROUTES_R4_1_README.txt"
           test -f "$STAGE/index.html"
           test -f "$STAGE/manifest.json"
           test -f "$STAGE/routes/route-engine.js"
@@ -110,17 +110,17 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R4_PREVIEW.zip" LUBRICA_ROUTES_R4_PREVIEW
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R4_1_PREVIEW.zip" LUBRICA_ROUTES_R4_1_PREVIEW
           cd "$GITHUB_WORKSPACE"
-          unzip -tq LUBRICA_ROUTES_R4_PREVIEW.zip
-          sha256sum LUBRICA_ROUTES_R4_PREVIEW.zip > LUBRICA_ROUTES_R4_PREVIEW.zip.sha256
-          sha256sum -c LUBRICA_ROUTES_R4_PREVIEW.zip.sha256
+          unzip -tq LUBRICA_ROUTES_R4_1_PREVIEW.zip
+          sha256sum LUBRICA_ROUTES_R4_1_PREVIEW.zip > LUBRICA_ROUTES_R4_1_PREVIEW.zip.sha256
+          sha256sum -c LUBRICA_ROUTES_R4_1_PREVIEW.zip.sha256
       - name: Upload ZIP for manual Edge QA
         uses: actions/upload-artifact@v4
         with:
-          name: LUBRICA_ROUTES_R4_PREVIEW
+          name: LUBRICA_ROUTES_R4_1_PREVIEW
           path: |
-            LUBRICA_ROUTES_R4_PREVIEW.zip
-            LUBRICA_ROUTES_R4_PREVIEW.zip.sha256
+            LUBRICA_ROUTES_R4_1_PREVIEW.zip
+            LUBRICA_ROUTES_R4_1_PREVIEW.zip.sha256
           if-no-files-found: error
           retention-days: 30

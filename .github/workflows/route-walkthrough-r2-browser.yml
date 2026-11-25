@@ -1,4 +1,4 @@
-name: LUBRICA Routes R2–R4 Chromium UX
+name: LUBRICA Routes R2–R4.1 Chromium UX
 
 on:
   pull_request:
@@ -52,7 +52,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: LUBRICA_ROUTES_R4_CHROMIUM_SCREENSHOTS
+          name: LUBRICA_ROUTES_R4_1_CHROMIUM_SCREENSHOTS
           path: |
             test-artifacts/routes-r2/*.png
             test-artifacts/routes-r3a/*.png

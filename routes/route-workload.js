@@ -30,9 +30,10 @@
   if(!weekdays.length||days.some(n=>!Number.isInteger(n)||n<1||n>7))return fail('WORKDAYS_REQUIRED','Выберите рабочие дни');
   const seen=new Set();
   for(const s of arr(v?.shifts)){
-   const id=str(s.id),minutes=Number(s.minutes);
-   if(!/^[1-3]$/.test(id)||seen.has(id)||!Number.isInteger(minutes)||minutes<1||minutes>10080)return fail('CAPACITY_INVALID','Для каждой включённой смены укажите целое доступное время от 1 до 10080 мин');
-   seen.add(id);shifts.push({id,minutes});
+   const id=str(s.id),legacy=s.legacyAggregate===true||(s.workers==null&&s.minutesPerWorker==null);
+   const workers=legacy?1:Number(s.workers),minutesPerWorker=legacy?Number(s.minutes):Number(s.minutesPerWorker);
+   if(!/^[1-3]$/.test(id)||seen.has(id)||!Number.isInteger(workers)||workers<1||workers>100||!Number.isInteger(minutesPerWorker)||minutesPerWorker<1||minutesPerWorker>(legacy?10080:1440))return fail('CAPACITY_INVALID','Укажите 1–100 смазчиков и целое доступное время одного смазчика (до 1440 мин в смену)');
+   seen.add(id);shifts.push({id,workers,minutesPerWorker,minutes:workers*minutesPerWorker,...(legacy?{legacyAggregate:true}:{})});
   }
   if(!shifts.length)return fail('CAPACITY_REQUIRED','Задайте доступные минуты хотя бы одной смены');
   shifts.sort((a,b)=>Number(a.id)-Number(b.id));
@@ -45,6 +46,41 @@
   ppr.sort((a,b)=>a.lineId.localeCompare(b.lineId));
   const pprRouteIds=[...new Set(arr(v?.pprRouteIds).map(str).filter(Boolean))].sort();
   return{ok:true,settings:{weekdays,shifts,ppr,pprRouteIds}};
+ }
+ // Anonymous worker capacity, not a named personnel roster. Largest-first
+ // best-fit prevents assigning an indivisible job to an imaginary pooled worker.
+ function fits(slot,values){
+  const jobs=arr(values).slice().sort((a,b)=>b-a);
+  if(jobs.some(x=>!Number.isFinite(x)||x<=0)||jobs.reduce((n,x)=>n+x,0)>slot.capacity)return false;
+  if(slot.legacyAggregate)return true;
+  const bins=Array.from({length:slot.workers},()=>slot.minutesPerWorker);
+  for(const value of jobs){
+   let best=-1;
+   for(let i=0;i<bins.length;i++)if(bins[i]>=value&&(best<0||bins[i]<bins[best]))best=i;
+   if(best<0)return false;
+   bins[best]-=value;
+  }
+  return true;
+ }
+ function weekGroups(days){
+  const map=new Map();
+  for(const d of days){const start=rangeFor('week',d.date).startDate;
+   if(!map.has(start))map.set(start,{startDate:start,endDate:dateAt(start,6),days:[],capacity:0,assignedMinutes:0,unassignedMinutes:0,staffConflicts:0,pprDays:0});
+   const w=map.get(start);w.days.push(d);w.capacity+=d.capacity;w.assignedMinutes+=d.assignedMinutes;w.unassignedMinutes+=d.unassignedMinutes;w.staffConflicts+=d.staffConflicts||0;if(d.pprLines.length)w.pprDays++;
+  }
+  return[...map.values()];
+ }
+ function routeCycles(d=db()){
+  const groups=new Map();
+  for(const r of arr(d?.routes).filter(x=>x.status!=='archived')){
+   const m=/^days:(\d+)$/.exec(str(r.scheduleKey));
+   const spec=r.intervalMode==='mixed'?null:m?{ok:true,kind:'days',value:Number(m[1])}:r.scheduleKey?null:global.LubricaRouteAutoGrouping?.scheduleFor({schedule:{legacyText:r.interval}});
+   const weeks=spec?.ok&&spec.kind==='days'&&spec.value>=7&&spec.value%7===0?spec.value/7:0;
+   const key=weeks?'week:'+weeks:'other';
+   if(!groups.has(key))groups.set(key,{weeks,label:weeks?weeks+' нед.':'Другие технические интервалы',routes:[]});
+   groups.get(key).routes.push({id:r.id,name:r.name||r.code||r.id,interval:r.interval||'Не задан'});
+  }
+  return [...groups.values()].sort((a,b)=>(a.weeks||Infinity)-(b.weeks||Infinity));
  }
  function settings(d=db()){const s=normalizeSettings(d?.routeWorkload);return s.ok?s.settings:null}
  function saveSettings(input,d=db()){
@@ -99,7 +135,7 @@
   const cfg=settings(d),all=states(d),dates=new Map(),unassigned=[],problems=[];
   for(const date of r.dates){
    const working=!!cfg?.weekdays.includes(weekday(date));
-   dates.set(date,{date,working,pprLines:pprLines(date,d),pprConflicts:[],slots:(cfg?.shifts||[]).map(s=>({date,shiftId:s.id,capacity:working?s.minutes:0,minutes:0,jobs:[]})),unknownMinutes:0,unknownJobs:[],unassigned:[]});
+   dates.set(date,{date,working,pprLines:pprLines(date,d),pprConflicts:[],slots:(cfg?.shifts||[]).map(s=>({date,shiftId:s.id,capacity:working?s.minutes:0,workers:s.workers,minutesPerWorker:s.minutesPerWorker,legacyAggregate:!!s.legacyAggregate,minutes:0,jobs:[],proposedMinutes:[]})),unknownMinutes:0,unknownJobs:[],unassigned:[]});
   }
   const report=(row,code,message)=>problems.push({id:row.item.id,code,message,date:row.date});
   for(const row of all){
@@ -125,20 +161,23 @@
    slot.jobs.push(row);slot.minutes+=minutes;
   }
   const days=[...dates.values()];
-  const totals={capacity:0,assignedMinutes:0,unassignedMinutes:0,unknownMinutes:0,overloadMinutes:0,overloadedDays:0,unassigned:unassigned.length,unknownJobs:0,lateJobs:0,pprConflicts:0};
+  const totals={capacity:0,assignedMinutes:0,unassignedMinutes:0,unknownMinutes:0,overloadMinutes:0,overloadedDays:0,unassigned:unassigned.length,unknownJobs:0,lateJobs:0,pprConflicts:0,staffConflicts:0};
   for(const b of days){
    b.capacity=b.slots.reduce((n,s)=>n+s.capacity,0);b.assignedMinutes=b.slots.reduce((n,s)=>n+s.minutes,0);
    b.unassignedMinutes=b.unassigned.reduce((n,x)=>n+(x.minutes||0),0);
    b.overloadMinutes=b.slots.reduce((n,s)=>n+Math.max(0,s.minutes-s.capacity),0);
-   for(const s of b.slots){s.overloadMinutes=Math.max(0,s.minutes-s.capacity);s.remaining=Math.max(0,s.capacity-s.minutes);totals.lateJobs+=s.jobs.filter(x=>s.date>technicalDate(x.item)).length}
+   b.staffConflicts=0;
+   for(const s of b.slots){s.overloadMinutes=Math.max(0,s.minutes-s.capacity);s.staffConflict=!s.legacyAggregate&&!s.overloadMinutes&&!fits(s,s.jobs.map(x=>x.minutes));if(s.staffConflict)b.staffConflicts++;s.remaining=Math.max(0,s.capacity-s.minutes);totals.lateJobs+=s.jobs.filter(x=>s.date>technicalDate(x.item)).length}
+   totals.staffConflicts+=b.staffConflicts;
    totals.capacity+=b.capacity;totals.assignedMinutes+=b.assignedMinutes;totals.unknownMinutes+=b.unknownMinutes;totals.unknownJobs+=b.unknownJobs.length;totals.pprConflicts+=b.pprConflicts.length;totals.overloadMinutes+=b.overloadMinutes;if(b.overloadMinutes)totals.overloadedDays++;
   }
   totals.unassignedMinutes=unassigned.reduce((n,x)=>n+(x.minutes||0),0);
-  return{ok:true,...r,settings:cfg,days,unassigned,problems,totals};
+  return{ok:true,...r,settings:cfg,days,weeks:weekGroups(days),unassigned,problems,totals};
  }
  function preview(options={},d=db()){
   const L=load(options,d);if(!L.ok)return L;
   if(!L.settings)return fail('CAPACITY_REQUIRED','Сначала сохраните доступное время и рабочие дни');
+  if(L.settings.shifts.some(s=>s.legacyAggregate))return fail('STAFF_CONFIRMATION_REQUIRED','Уточните число смазчиков и чистое время одного человека вместо прежнего суммарного ресурса');
   const allowDelay=options.allowDelay===true,reason=str(options.reason);
   if(allowDelay&&!reason)return fail('DELAY_REASON_REQUIRED','Укажите причину разрешённого переноса');
   const proposals=[],remaining=[],current=today();
@@ -151,16 +190,16 @@
    if(row.minutes!=null&&earliest<=latest){
     for(const b of L.days){
      if(b.date<earliest||b.date>latest||!b.working||b.unknownJobs.length||!allowedWindow(item,b.date,d))continue;
-     slot=b.slots.find(s=>s.capacity-s.minutes>=row.minutes);
+     slot=b.slots.find(s=>fits(s,[...s.jobs.map(x=>x.minutes),...s.proposedMinutes,row.minutes]));
      if(slot)break;
     }
    }
    if(!slot){
     const next=pprOnly(item,d)?nextPpr(lineFor(item,d),earliest,d):'';
-    const why=row.minutes==null?'Не подтверждена длительность':pprOnly(item,d)&&!next?'Не задана дата ППР линии':pprOnly(item,d)&&next>latest?'Ближайший ППР '+next+' вне допустимого срока; требуется согласованный перенос':earliest>latest?'Нужен разрешённый перенос':row.minutes>Math.max(...L.settings.shifts.map(s=>s.minutes))?'Задание длиннее доступной смены; требуется отдельное решение':pprOnly(item,d)?'Нет свободной смены на ППР своей линии':'Нет свободной смены в разрешённом диапазоне';
+    const why=row.minutes==null?'Не подтверждена длительность':pprOnly(item,d)&&!next?'Не задана дата ППР линии':pprOnly(item,d)&&next>latest?'Ближайший ППР '+next+' вне допустимого срока; требуется согласованный перенос':earliest>latest?'Нужен разрешённый перенос':row.minutes>Math.max(...L.settings.shifts.map(s=>s.legacyAggregate?s.minutes:s.minutesPerWorker))?'Задание длиннее доступного времени одного смазчика; требуется отдельное решение':pprOnly(item,d)?'Нет свободной смены на ППР своей линии':'Нет свободной смены в разрешённом диапазоне';
     remaining.push({id:item.id,routeName:item.routeName||item.routeId,plannedDate:base,minutes:row.minutes,nextPpr:next,reason:why});continue
    }
-   slot.minutes+=row.minutes;
+   slot.minutes+=row.minutes;slot.proposedMinutes.push(row.minutes);
    const delayed=slot.date>base;
    proposals.push({id:item.id,routeName:item.routeName||item.routeId,plannedDate:base,technicalDate:technicalDate(item),date:slot.date,shiftId:slot.shiftId,minutes:row.minutes,delayDays:distance(base,slot.date),reason:delayed?reason:'Распределение в исходный день',pprOnly:pprOnly(item,d)});
   }
@@ -199,9 +238,10 @@
    const L=load({startDate:date,endDate:date},d);if(!L.ok)return L;
    const b=L.days[0],slot=b.slots.find(x=>x.shiftId===shiftId);
    if(!slot||!b.working)return fail('SHIFT_UNAVAILABLE','Смена не работает в выбранный день');
+   if(slot.legacyAggregate)return fail('STAFF_CONFIRMATION_REQUIRED','Сначала подтвердите число смазчиков и доступное время одного человека в смене');
    if(b.unknownJobs.length)return fail('LOAD_UNKNOWN','В этот день есть работы с неопределённой сменой или длительностью');
-   const occupied=slot.jobs.filter(x=>String(x.item.id)!==String(id)).reduce((n,x)=>n+x.minutes,0);
-   if(occupied+row.minutes>slot.capacity)return fail('SHIFT_OVERLOADED','Недостаточно свободного времени в выбранной смене');
+   const occupied=slot.jobs.filter(x=>String(x.item.id)!==String(id)).map(x=>x.minutes);
+   if(!fits(slot,[...occupied,row.minutes]))return fail('SHIFT_OVERLOADED','Недостаточно свободного времени одного смазчика или всей смены');
   }
   if((clear||row.a||date>row.item.plannedDate)&&!reason)return fail('REASON_REQUIRED','Укажите причину переноса или снятия назначения');
   const w=clone(d),item=w.routePlanItems.find(x=>String(x.id)===String(id));
@@ -217,7 +257,7 @@
   const L=load({startDate:a.date,endDate:a.date},d);
   if(!L.ok)return L;
   const b=L.days[0],s=b.slots.find(s=>s.shiftId===a.shiftId);
-  if(!b.working||!s||b.unknownJobs.length||s.minutes>s.capacity)return fail('WORK_SLOT_UNAVAILABLE','Назначенная смена перегружена или недоступна. Проверьте нагрузку в плане');
+  if(!b.working||!s||b.unknownJobs.length||s.minutes>s.capacity||s.staffConflict)return fail('WORK_SLOT_UNAVAILABLE','Назначенная смена перегружена или недоступна. Проверьте нагрузку в плане');
   return{ok:true};
  }
  function startPolicy(routeId,planId,date,shift,d=db()){
@@ -229,5 +269,5 @@
   const result=validateStart(item,date,shift,d);
   return result.ok?{ok:true,assignment:assignment(item),pprRequired:pprOnly(item,d),lineId:lineFor(item,d)}:result;
  }
- global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,settings,saveSettings,assignment,effectiveDate,technicalDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,move,validateStart,startPolicy});
+ global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,saveSettings,assignment,effectiveDate,technicalDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,move,validateStart,startPolicy});
 })(window);

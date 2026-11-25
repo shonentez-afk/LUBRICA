@@ -9,7 +9,7 @@ SETUP=r'''
 window.global=window;window.__writes=0;
 window.LubricaSystem={registerModule(){}};
 window.LubricaApp={showToast(){}};
-window.__db={lines:[{id:'L1',name:'Линия 1'},{id:'L2',name:'Линия 2'}],routes:[{id:'A',name:'Подшипники',code:'A',lineId:'L1',status:'active'},{id:'B',name:'Цепи',code:'B',lineId:'L2',status:'active'}],routePlanItems:[],checklistRuns:[]};
+window.__db={lines:[{id:'L1',name:'Линия 1'},{id:'L2',name:'Линия 2'}],routes:[{id:'A',name:'Подшипники',code:'A',lineId:'L1',status:'active',scheduleKey:'days:7',interval:'1 нед.'},{id:'B',name:'Цепи',code:'B',lineId:'L2',status:'active',scheduleKey:'days:14',interval:'2 нед.'}],routePlanItems:[],checklistRuns:[]};
 window.LubricaCore={State:{getDatabase:()=>window.__db,setDatabase:x=>{window.__db=x;window.__writes++}}};
 window.LubricaRouteEngine={routeRevisions:()=>[]};
 '''
@@ -34,7 +34,9 @@ def check(browser,width,height,label):
  dlg.locator('[data-rw-open]').click()
  assert dlg.locator('.rw-shell').is_visible()
  for box in dlg.locator('[data-rw-weekday]').all():box.check()
- dlg.locator('[data-rw-capacity="1"]').fill('60')
+ dlg.locator('[data-rw-workers="1"]').fill('2')
+ dlg.locator('[data-rw-capacity="1"]').fill('30')
+ assert '1 ч' in dlg.locator('[data-rw-total="1"]').inner_text()
  dlg.locator('[data-rw-ppr-line="L1"]').fill(today)
  dlg.locator('[data-rw-ppr-line="L2"]').fill(tomorrow)
  dlg.locator('.rw-ppr-routes summary').click()
@@ -43,6 +45,8 @@ def check(browser,width,height,label):
  page.screenshot(path=str(OUT/(label+'_settings.png')))
  dlg.locator('[data-rw-save-settings]').click()
  assert page.evaluate('window.__writes')==1
+ assert page.evaluate('window.__db.routeWorkload.shifts[0].workers')==2
+ assert page.evaluate('window.__db.routeWorkload.shifts[0].minutes')==60
  assert 'Линия 1' in dlg.locator('[data-rw-day="'+today+'"] .rw-ppr-marker').inner_text()
  assert 'Линия 2' in dlg.locator('[data-rw-day="'+tomorrow+'"] .rw-ppr-marker').inner_text()
  dlg.locator('[data-rw-preview]').click()
@@ -69,8 +73,12 @@ def check(browser,width,height,label):
  page.screenshot(path=str(OUT/(label+'_calendar.png')))
  dlg.locator('[data-rw-range="week"]').click()
  assert dlg.locator('[data-rw-day]').count()==7
+ assert dlg.locator('.rw-week').count()==1
  dlg.locator('[data-rw-range="month"]').click()
  assert 28<=dlg.locator('[data-rw-day]').count()<=31
+ assert dlg.locator('.rw-week').count()>=4
+ dlg.locator('.rw-cadences > summary').click()
+ assert dlg.locator('.rw-cycle').count()==2
  dlg.locator('[data-rw-back]').click()
  assert dlg.locator('[data-rw-open]').is_visible()
  assert not errors,errors

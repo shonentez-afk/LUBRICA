@@ -85,7 +85,7 @@ console.log('R3B TASK DUE PASS: exact subset, overdue, reserve, material totals,
 /* R4 integration: real R3B plan + checklist start gate, no direct bypass. */
 vm.runInThisContext(fs.readFileSync('routes/route-workload.js','utf8'),{filename:'route-workload.js'});
 const W=LubricaRouteWorkload;
-assert(W.saveSettings({weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',minutes:480},{id:'2',minutes:480}],ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[cr]},d).ok);
+assert(W.saveSettings({weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:480},{id:'2',workers:2,minutesPerWorker:480}],ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[cr]},d).ok);
 assert(P.commit({startDate:today,endDate:today},d).ok);
 const pprJob=d.routePlanItems.find(x=>x.routeId===cr&&x.status==='planned'&&x.taskIds.includes('C2'));
 assert(pprJob,'skipped/cancelled task replanned');

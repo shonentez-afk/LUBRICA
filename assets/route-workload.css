@@ -62,3 +62,17 @@
 .rw-shell [hidden]{display:none!important}
 @media(max-width:960px){.rw-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.rw-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.rw-body{padding:10px}.rw-shell .dialog-head{padding:12px}.rw-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.rw-shifts,.rw-ppr-lines,.rw-fields{grid-template-columns:1fr}.rw-shell menu{flex-wrap:wrap}.rw-toolbar label{flex:1 1 110px;min-width:0}.rw-proposal{flex-direction:column}.rw-proposal strong{max-width:none;text-align:left}}
+
+/* R4.1 — staffing and week-aligned workload */
+.rw-shift-setting{border:1px solid var(--line);padding:10px;display:grid;gap:8px;border-radius:8px;min-width:0;background:#f8faf9}
+.rw-shift-setting>b{font-size:12px}
+.rw-staff{font-size:10px;color:var(--muted)}
+.rw-weeks{display:grid;gap:15px;margin-top:10px}
+.rw-week{min-width:0;border:1px solid var(--line);padding:10px;border-radius:10px;background:#f8faf9}
+.rw-week-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.rw-week-head b{font-size:13px}
+.rw-week-head small{font-size:11px;color:var(--muted)}
+.rw-cycle{border:1px solid var(--line);border-radius:7px;padding:8px}
+.rw-cycle summary{cursor:pointer;font-size:12px;font-weight:700}
+.rw-cycle-list{display:grid;gap:6px;max-height:180px;overflow:auto;margin-top:8px}
+.rw-cycle-list>div{display:flex;justify-content:space-between;gap:8px;align-items:start;font-size:11px;overflow-wrap:anywhere}

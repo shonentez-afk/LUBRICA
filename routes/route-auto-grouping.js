@@ -35,7 +35,7 @@
    if(kind==='years')return spec('months',v*12);
    const units={days:'дн.',months:'мес.',runtime_hours:'ч'};
    if(!units[kind])return null;
-   return{ok:true,kind,value:v,key:kind+':'+v,label:v+' '+units[kind]};
+   return{ok:true,kind,value:v,key:kind+':'+v,label:kind==='days'&&v%7===0?v/7+' нед.':v+' '+units[kind]};
  }
  function textSpec(value){
    const s=norm(value).replace(/,/g,'.').replace(/\.$/,'');
