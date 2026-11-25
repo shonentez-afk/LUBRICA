@@ -3,8 +3,8 @@
 (function(global){
  const clean=v=>String(v??'').trim();
  const clone=x=>JSON.parse(JSON.stringify(x));
- const isoDate=v=>{if(!v)return'';const d=new Date(`${String(v).slice(0,10)}T00:00:00`);return Number.isNaN(d.getTime())?'':d.toISOString().slice(0,10)};
- const today=()=>new Date().toISOString().slice(0,10);
+ const isoDate=v=>{if(!v)return'';const s=String(v).slice(0,10);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return'';const d=new Date(s+'T00:00:00Z');return Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==s?'':s};
+ const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
  function db(){return global.LubricaCore?.State?.getDatabase?.()||null}
  function parseInterval(text){
   const raw=clean(text).toLowerCase().replace(/ё/g,'е').replace(/,/g,'.');if(!raw||/без период|по состояни|по событ|по требован/.test(raw))return null;
@@ -54,6 +54,12 @@
   for(const route of routes){
    const check=global.LubricaRouteEngine?.validateRoute?.(route.id,d);
    if(check&&!check.valid){rejected.add(route.id);warnings.push({code:'ROUTE_NOT_READY',routeId:route.id,message:`${route.code||route.id}: маршрут не готов (${check.errors.length} ошибок)`});continue}
+   if(global.LubricaRouteDue?.typed(route)){
+    const D=global.LubricaRouteDue,report=D.preview(route,d,start,end),revision=currentRevision(route.id,d);
+    warnings.push(...report.warnings);
+    for(const g of report.groups){const selected=D.selectRoute(route,g);if(!selected){warnings.push({code:'TASK_DUE_MISSING',routeId:route.id,message:'Не удалось получить физические точки планового задания'});continue}pushItem(selected,g.date,revision,g.taskIds,{planningBasis:'task_due',runtimeForecast:g.entries.some(x=>x.forecast)});const item=items[items.length-1];item.dueEntries=clone(g.entries);item.serviceKey=route.serviceKey;item.planKey=route.id+'|'+g.date+'|task_due|'+JSON.stringify(g.entries.map(x=>[x.taskId,x.dueDate,x.nextHours]));}
+    continue;
+   }
    if(route.intervalMode==='mixed'){warnings.push({code:'MIXED_INTERVAL',routeId:route.id,message:`${route.code||route.id}: смешанная периодичность — календарная дата должна задаваться вручную`});continue}
    const runtimeSpec=parseRuntimeInterval(route.interval);
    if(runtimeSpec){
@@ -82,9 +88,18 @@
   return{items,warnings,summary:{skippedRoutes:rejected.size,skippedRouteIds:[...rejected],routes:new Set(items.map(x=>x.routeId)).size,items:items.length,minutes:items.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0),warningCount:warnings.length,startDate:start,endDate:end}}
  }
  function commit(options={},d=db()){
-  if(!d)return{ok:false,reason:'База данных недоступна'};const result=preview(options,d);if(result.warnings.some(x=>['INVALID_RANGE','ROUTE_NOT_READY','MIXED_INTERVAL','ANCHOR_MISSING','INTERVAL_UNSUPPORTED','RUNTIME_ANCHOR_MISSING'].includes(x.code)))return{ok:false,reason:'Сначала исправьте настройки и ошибки маршрутов',preview:result};const store=planStore(d),existing=new Set(store.filter(x=>!['cancelled'].includes(x.status)).map(x=>x.planKey||`${x.routeId}|${x.plannedDate}`));let created=0;
-  for(const item of result.items){if(existing.has(item.planKey))continue;const revResult=global.LubricaRouteEngine?.ensureRouteRevision?.(item.routeId,d,{note:'Автофиксация перед планированием смазочных работ',reason:'planning'}),rev=revResult?.revision||currentRevision(item.routeId,d);const frozen={...item,routeRevision:Number(rev?.revision)||item.routeRevision||1,routeRevisionId:rev?.id||item.routeRevisionId||'',taskIds:clone(rev?.snapshot?.taskIds||item.taskIds||[])};store.push({...frozen,id:nextPlanId(d),status:'planned',runId:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});existing.add(item.planKey);created++}
-  global.LubricaCore?.State?.setDatabase?.(d);global.LubricaApp?.showToast?.(`План смазочных работ обновлён · добавлено ${created}`);return{ok:true,created,preview:result}
+  if(!d)return{ok:false,reason:'База данных недоступна'};const result=preview(options,d);if(result.warnings.some(x=>['INVALID_RANGE','ROUTE_NOT_READY','MIXED_INTERVAL','ANCHOR_MISSING','INTERVAL_UNSUPPORTED','RUNTIME_ANCHOR_MISSING','TASK_DUE_MISSING','TASK_METER_MISSING'].includes(x.code)))return{ok:false,reason:'Сначала исправьте настройки и ошибки маршрутов',preview:result};const hasTyped=result.items.some(x=>x.planningBasis==='task_due');const work=hasTyped?clone(d):d,store=planStore(work),existing=new Set(store.filter(x=>x.planningBasis==='task_due'?['planned','in_progress'].includes(x.status):x.status!=='cancelled').map(x=>x.planKey||`${x.routeId}|${x.plannedDate}`));let created=0;const routes=hasTyped?new Map((global.LubricaRouteEngine?.routeEntries?.(work,{preview:false})||[]).map(r=>[r.id,r])):null;
+  for(const item of result.items){if(existing.has(item.planKey))continue;
+   const revResult=global.LubricaRouteEngine?.ensureRouteRevision?.(item.routeId,work,{note:'Автофиксация перед планированием смазочных работ',reason:'planning'}),rev=revResult?.revision||currentRevision(item.routeId,work);
+   const frozen={...item,routeRevision:Number(rev?.revision)||item.routeRevision||1,routeRevisionId:rev?.id||item.routeRevisionId||'',taskIds:clone(item.planningBasis==='task_due'?item.taskIds:(rev?.snapshot?.taskIds||item.taskIds||[]))};
+   if(item.planningBasis==='task_due'){
+    const snapshot=global.LubricaRouteDue?.snapshot(routes.get(item.routeId),frozen,work);
+    if(!snapshot)return{ok:false,reason:'Не удалось зафиксировать состав индивидуального задания',preview:result};
+    frozen.checklistSnapshot=clone(snapshot);
+   }
+   store.push({...frozen,id:nextPlanId(work),status:'planned',runId:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});existing.add(item.planKey);created++
+  }
+  if(created||!hasTyped)global.LubricaCore?.State?.setDatabase?.(work);global.LubricaApp?.showToast?.(`План смазочных работ обновлён · добавлено ${created}`);return{ok:true,created,preview:result}
  }
  function syncFromRuns(d=db()){
   if(!d)return[];const runs=new Map((d.checklistRuns||[]).map(r=>[String(r.id),r]));for(const item of planStore(d)){if(!item.runId)continue;const run=runs.get(String(item.runId));if(!run)continue;item.status=run.status==='completed'?'completed':run.status==='cancelled'?'cancelled':run.status==='in_progress'?'in_progress':item.status;item.updatedAt=new Date().toISOString();if(run.completedAt)item.completedAt=run.completedAt;if(run.cancelledAt)item.cancelledAt=run.cancelledAt}return planStore(d)
@@ -92,7 +107,7 @@
  function items({startDate='',endDate='',status='all'}={},d=db()){if(!d)return[];syncFromRuns(d);const start=isoDate(startDate),end=isoDate(endDate),td=today();return planStore(d).filter(x=>(!start||x.plannedDate>=start)&&(!end||x.plannedDate<=end)&&(status==='all'||status==='overdue'?(status!=='overdue'||(x.status==='planned'&&x.plannedDate<td)):x.status===status)).map(x=>({...x,displayStatus:x.status==='planned'&&x.plannedDate<td?'overdue':x.status,revisionOutdated:(global.LubricaRouteEngine?.routeRevisions?.(x.routeId,d)?.[0]?.id||'')!==clean(x.routeRevisionId)})).sort((a,b)=>a.plannedDate.localeCompare(b.plannedDate)||a.routeName.localeCompare(b.routeName,'ru'))}
  function remove(planId,d=db()){if(!d)return{ok:false,reason:'База данных недоступна'};const x=planStore(d).find(i=>i.id===planId);if(!x)return{ok:false,reason:'Плановое задание не найдено'};if(x.status!=='planned')return{ok:false,reason:'Удалять можно только незапущенное плановое задание'};d.routePlanItems=d.routePlanItems.filter(i=>i.id!==planId);global.LubricaCore?.State?.setDatabase?.(d);return{ok:true}}
  function linkRun(planId,runId,d=db()){const x=planStore(d).find(i=>i.id===planId);if(!x)return null;x.runId=runId;x.status='in_progress';x.startedAt=new Date().toISOString();x.updatedAt=x.startedAt;global.LubricaCore?.State?.setDatabase?.(d);return x}
- function syncFromRun(run,d=db()){if(!d||!run?.plannedItemId)return null;const x=planStore(d).find(i=>i.id===run.plannedItemId);if(!x)return null;x.runId=run.id;x.status=run.status==='completed'?'completed':run.status==='cancelled'?'cancelled':'in_progress';x.updatedAt=new Date().toISOString();if(run.completedAt)x.completedAt=run.completedAt;if(run.cancelledAt)x.cancelledAt=run.cancelledAt;global.LubricaCore?.State?.setDatabase?.(d);return x}
+ function syncFromRun(run,d=db(),{persist=true}={}){if(!d||!run?.plannedItemId)return null;const x=planStore(d).find(i=>i.id===run.plannedItemId);if(!x)return null;x.runId=run.id;x.status=run.status==='completed'?'completed':run.status==='cancelled'?'cancelled':'in_progress';x.updatedAt=new Date().toISOString();if(run.completedAt)x.completedAt=run.completedAt;if(run.cancelledAt)x.cancelledAt=run.cancelledAt;if(persist)global.LubricaCore?.State?.setDatabase?.(d);return x}
  function summary(options={},d=db()){const rows=items(options,d);return{total:rows.length,planned:rows.filter(x=>x.displayStatus==='planned').length,overdue:rows.filter(x=>x.displayStatus==='overdue').length,inProgress:rows.filter(x=>x.displayStatus==='in_progress').length,completed:rows.filter(x=>x.displayStatus==='completed').length,minutes:rows.reduce((s,x)=>s+(Number(x.plannedMinutes)||0),0)}}
  global.LubricaRoutePlanning=Object.freeze({parseInterval,parseRuntimeInterval,addInterval,runtimeStepDays,lastCompletedDate,preview,commit,items,summary,remove,linkRun,syncFromRun,syncFromRuns});
  global.LubricaSystem?.registerModule?.('План смазочных работ','ok','Календарное планирование смазочных работ');
