@@ -8,7 +8,9 @@ function routeExecutionBadge(route){const E=window.LubricaChecklistEngine;if(!E)
 function checklistMarkup(route,selectedRunId='',displayMode='compact',visitFilter='all',plannedItem=null){
   if(!route)return '<div class="route-empty"><b>Маршрут не выбран</b><span>Выберите маршрут слева.</span></div>';
   const E=window.LubricaChecklistEngine,activeRun=E?.latestRun?.(route.id,{includeCompleted:false})||null;
-  const selectedRun=selectedRunId?E?.getRun?.(selectedRunId):null,historyRun=selectedRun?.routeId===route.id?selectedRun:null,otherRun=!!(plannedItem&&activeRun&&activeRun.plannedItemId!==plannedItem.id),run=plannedItem?(historyRun?.plannedItemId===plannedItem.id?historyRun:otherRun?null:activeRun||null):historyRun||activeRun||null;
+  const selectedRun=selectedRunId?E?.getRun?.(selectedRunId):null,historyRun=selectedRun?.routeId===route.id?selectedRun:null,otherRun=!!(plannedItem&&activeRun&&activeRun.plannedItemId!==plannedItem.id);
+  let run=historyRun||activeRun||null;
+  if(plannedItem)run=historyRun?.plannedItemId===plannedItem.id?historyRun:otherRun?null:activeRun||null;
   const editable=!!(activeRun&&run?.id===activeRun.id&&run.status==='in_progress'),model=run?E?.modelForRun?.(route,run):(plannedItem?.checklistSnapshot||E?.model?.(route)),progress=E?.progress?.(run,route)||{done:0,total:route.points.length,percent:0,complete:false};
   if(!model)return '<div class="route-empty"><b>Чек-лист недоступен</b><span>Не удалось сформировать модель маршрута.</span></div>';
   const validation=editable?E.validateCompletion(run,route):null,result=id=>run?.taskResults?.[id]||{},allRuns=E?.routeRuns?.(route.id)||[];
