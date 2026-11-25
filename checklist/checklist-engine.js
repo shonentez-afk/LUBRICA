@@ -195,6 +195,9 @@
  function executionNumber(routeId,d){return runs(d).filter(r=>r.routeId===routeId&&!['superseded'].includes(r.status)).length+1}
  function createRun(routeId,{route=null,date='',performer='',shift='',forceNew=false,planItemId=''}={}){
   const d=db();if(!d)return null;
+  // R3A routes are deliberately draft-only until task-level due planning is ready.
+  const currentRoute=(d.routes||[]).find(r=>String(r.id)===String(routeId));
+  if(currentRoute?.groupingMode===global.LubricaRouteAutoGrouping?.MODE&&currentRoute?.groupingMode)return null;
   const existing=normalizeActiveRuns(routeId,d);if(existing&&!forceNew){global.LubricaCore.State.setDatabase(d);return existing}
   if(existing&&forceNew){existing.status='superseded';existing.supersededAt=now();existing.updatedAt=now()}
   const ids=(route?.points||[]).map(taskId).filter(Boolean);
