@@ -33,6 +33,19 @@ const ordinaryBefore=clone(d),ordinary=M.preview({lineId:'L',areaId:'A',activate
 assert(ordinary.ok,ordinary.reason);assert.equal(ordinary.forecast,null);assert.equal(ordinary.report.summary.create,4);
 assert(ordinary.report.groups.filter(g=>g.action==='create').every(g=>g.nextStatus==='draft'));
 assert.deepEqual(d,ordinaryBefore);
+// R6.3 one route + explicit first date, no policy or settings required.
+const groupKey=[...M.eligible(d).valid.values()].find(g=>g.scheduleKey==='days:7').key;
+const one={lineId:'L',areaId:'A',groupKey,activateReady:true,recoverHistory:true,initial:{mode:'next',date:tomorrow},forecast:false};
+const onePreview=M.preview(one,d);assert(onePreview.ok,onePreview.reason);
+assert.equal(onePreview.report.summary.create,1);assert.equal(onePreview.report.groups.length,1);
+assert.deepEqual(onePreview.prep.changes.map(x=>x.taskId).sort(),['C1','C2','C3','C4','C5']);
+assert.equal(onePreview.report.groups[0].nextStatus,'active');assert.deepEqual(d,ordinaryBefore);
+assert.equal(M.preview({...one,groupKey:'invalid'},d).code,'GROUP_SCOPE');
+assert(M.apply(one,onePreview.token,d).ok);assert.equal(d.routes.length,1);assert.equal(d.routes[0].status,'active');
+assert(d.tasks.filter(x=>x.routeDue).every(x=>x.routeDue.nextDate===tomorrow&&x.id.startsWith('C')));
+assert.equal(d.tasks.filter(x=>x.routeDue).length,5);assert.equal(d.routePlanItems.length,0);
+const oneAgain=M.preview(one,d);assert(oneAgain.ok);assert.equal(oneAgain.report.summary.create+oneAgain.report.summary.update,0);
+d=clone(ordinaryBefore);writes=0;
 const invalid=M.preview({lineId:'L',areaId:'A',policy:{taskIds:['H1'],earlyDays:1,earlyReason:'Test'},forecast:false},d);
 assert.equal(invalid.code,'EARLY_INVALID');assert(invalid.message.includes('моточасам')&&invalid.details[0].taskId==='H1');
 assert.deepEqual(d,ordinaryBefore);

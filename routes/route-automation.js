@@ -6,6 +6,7 @@
  const E=()=>global.LubricaRouteEngine,A=()=>global.LubricaRouteAutoGrouping,D=()=>global.LubricaRouteDue,W=()=>global.LubricaRouteWorkload,P=()=>global.LubricaRoutePlanning;
  const db=()=>global.LubricaCore?.State?.getDatabase?.(),fail=(code,message)=>({ok:false,code,message,reason:message});
  const scope=(x,o={})=>(!o.lineId||String(x?.lineId)===String(o.lineId))&&(!o.areaId||String(x?.areaId)===String(o.areaId));
+ const groupScope=(x,o={})=>scope(x,o)&&(!o.groupKey||A().routeKey(x)===o.groupKey);
  const integer=(v,min,max)=>str(v)!==''&&Number.isInteger(Number(v))&&Number(v)>=min&&Number(v)<=max;
  const number=(v,min,max)=>str(v)!==''&&Number.isFinite(Number(v))&&Number(v)>=min&&Number(v)<=max;
  const add=(date,n)=>P().addInterval(date,{kind:'days',value:n});
@@ -72,14 +73,14 @@
  function reconcile(d,o={},engine=E()){
   const info=eligible(d);if(!info.ok)return fail('QA_MISSING','Инженерный контроль недоступен');
   const {ix,valid}=info,issues=info.issues.filter(x=>scope(ix.get(x.taskId),o)),working=arr(d.routes).filter(r=>r.status!=='archived'),owners=new Map(),groups=new Map(),routeByKey=new Map(),excluded=new Set();
-  const key=r=>A().routeKey(r),editable=r=>r&&r.source==='auto'&&D().typed(r)&&['active','draft'].includes(r.status)&&scope(r,o)&&!locked(d,r);
+  const key=r=>A().routeKey(r),editable=r=>r&&r.source==='auto'&&D().typed(r)&&['active','draft'].includes(r.status)&&groupScope(r,o)&&!locked(d,r);
   const issue=(id,code,message,routeId='')=>issues.push({taskId:id,code,message,routeId});
   for(const r of working){for(const id of uniq(r.taskIds)){if(!owners.has(id))owners.set(id,[]);owners.get(id).push(r)}
    for(const id of uniq(r.excludedTaskIds))excluded.add(id);
    if(key(r)){if(!routeByKey.has(key(r)))routeByKey.set(key(r),[]);routeByKey.get(key(r)).push(r)}
   }
-  for(const [id,g] of valid){if(!scope(g,o))continue;if(!groups.has(g.key))groups.set(g.key,{...g,ids:[]});groups.get(g.key).ids.push(id)}
-  for(const r of working){if(!D().typed(r)||!scope(r,o))continue;const k=key(r);if(!groups.has(k))groups.set(k,{key:k,lineId:r.lineId,areaId:r.areaId,name:r.name||r.code||r.id,groupingMode:r.groupingMode,serviceKey:r.serviceKey,serviceLabel:r.serviceLabel,scheduleKey:r.scheduleKey,interval:r.interval,ids:[]})}
+  for(const [id,g] of valid){if(!groupScope(g,o))continue;if(!groups.has(g.key))groups.set(g.key,{...g,ids:[]});groups.get(g.key).ids.push(id)}
+  for(const r of working){if(!D().typed(r)||!groupScope(r,o))continue;const k=key(r);if(!groups.has(k))groups.set(k,{key:k,lineId:r.lineId,areaId:r.areaId,name:r.name||r.code||r.id,groupingMode:r.groupingMode,serviceKey:r.serviceKey,serviceLabel:r.serviceLabel,scheduleKey:r.scheduleKey,interval:r.interval,ids:[]})}
   const blocked=new Map();
   for(const [k,rs] of routeByKey){
    if(rs.length>1)blocked.set(k,'Несколько маршрутов одной группы');
@@ -90,7 +91,7 @@
   while(changed){changed=false;for(const [k,rs] of routeByKey){
    if(blocked.has(k)||!editable(rs[0]))continue;
    for(const id of uniq(rs[0].taskIds)){
-    const target=valid.get(id);if(target&&target.key!==k&&(!scope(target,o)||blocked.has(target.key))){blocked.set(k,'Перенос '+id+' требует доступного маршрута назначения в выбранном охвате');changed=true;break}
+    const target=valid.get(id);if(target&&target.key!==k&&(!groupScope(target,o)||blocked.has(target.key))){blocked.set(k,'Перенос '+id+' требует доступного маршрута назначения в выбранном охвате');changed=true;break}
    }
   }}
   const out=[];
@@ -136,8 +137,8 @@
   return null;
  }
  function setup(d,o,info){
-  const {ix,valid}=info,scopeIds=[...valid].filter(([id,g])=>scope(g,o)&&(!o.serviceKey||g.serviceKey===o.serviceKey)).map(([id])=>id);
-  const usable=id=>!reserved(d,id)&&!ownedByManual(d,id);
+  const {ix,valid}=info,scopeIds=[...valid].filter(([id,g])=>groupScope(g,o)&&(!o.serviceKey||g.serviceKey===o.serviceKey)).map(([id])=>id);
+  const usable=id=>!reserved(d,id)&&!ownedByManual(d,id)&&(!o.groupKey||!arr(d.routes).some(r=>r.status!=='archived'&&(ids(r.excludedTaskIds).includes(id)||ids(r.taskIds).includes(id)&&(!groupScope(r,o)||locked(d,r)))));
   const settings=config(d),changes=[],issues=[];
   if(o.walkOrder){
    const areaId=str(o.areaId),actual=equipmentOrder(d,areaId).map(e=>String(e.id)),order=ids(o.walkOrder);
@@ -211,11 +212,11 @@
  }
  // Forecast only. A projection repeats the current obligation on an assumed
  // successful future cadence; it NEVER creates plan items or facts.
- function forecast({weeks=12,startDate=D().today(),lineId='',areaId=''}={},d=db()){
+ function forecast({weeks=12,startDate=D().today(),lineId='',areaId='',groupKey=''}={},d=db()){
   if(![4,12,26,52].includes(Number(weeks))||!D().day(startDate))return fail('FORECAST_RANGE','Выберите 4, 12, 26 или 52 недели');
   const start=W().rangeFor('week',startDate).startDate,end=add(start,Number(weeks)*7-1),rows=Array.from({length:Number(weeks)},(_,i)=>({startDate:add(start,i*7),endDate:add(start,i*7+6),minutes:0,tasks:0,runtimeTasks:0,pprConflicts:0,capacity:null}));
   const cfg=W().settings(d),shared=E().validationContext?.(d),ix=shared?.contexts||E().contextIndex(d),unknown=[],seen=new Set(),jobs=new Map();
-  for(const r of E().routeEntries(d,{preview:false}).filter(r=>r.status==='active'&&D().typed(r)&&scope(r,{lineId,areaId}))){
+  for(const r of E().routeEntries(d,{preview:false}).filter(r=>r.status==='active'&&D().typed(r)&&groupScope(r,{lineId,areaId,groupKey}))){
    if(!E().validateRoute(r.id,d,shared).valid){unknown.push({routeId:r.id,message:'Маршрут не готов'});continue}
    for(const id of ids(r.taskIds)){
     if(seen.has(id)){unknown.push({taskId:id,message:'Дублирующее назначение'});continue}seen.add(id);
@@ -245,14 +246,15 @@
   let work=copy(d);
   if(o.workloadSettings){const res=W().saveSettings(o.workloadSettings,work,{persist:false});if(!res.ok)return res;work=res.database||work}
   const info=eligible(work);if(!info.ok)return fail('QA_MISSING','Инженерный контроль недоступен');
-  const prep=setup(work,o,info);if(!prep.ok)return prep;
-  const options={lineId:o.lineId||'',areaId:o.areaId||'',advanced:true,applyOrder:o.applyOrder===true,activateReady:o.activateReady===true};
+  if(o.groupKey&&![...info.valid.values(),...arr(work.routes).filter(r=>r.status!=='archived')].some(g=>groupScope(g,o)))return fail('GROUP_SCOPE','Выберите актуальный маршрут в выбранном участке');
+   const prep=setup(work,o,info);if(!prep.ok)return prep;
+  const options={lineId:o.lineId||'',areaId:o.areaId||'',groupKey:o.groupKey||'',advanced:true,applyOrder:o.applyOrder===true,activateReady:o.activateReady===true};
   const report=reconcile(work,options);
   if(!report.ok)return report;
   const result=E().applyAutoGrouping(options,report.token,work,{persist:false});
   if(!result.ok)return fail('RECONCILE_FAILED',result.reason||'Проверка состава не пройдена');
   let next=result.database||work,plan=null,allocation=null,preparation=[];
-  const selected=arr(next.routes).filter(r=>r.source==='auto'&&D().typed(r)&&r.status==='active'&&scope(r,o)).map(r=>r.id);
+  const selected=arr(next.routes).filter(r=>r.source==='auto'&&D().typed(r)&&r.status==='active'&&groupScope(r,o)).map(r=>r.id);
   if(o.plan){
    const rg=W().range(o.startDate,o.endDate);if(!rg.ok)return rg;
    const po={startDate:rg.startDate,endDate:rg.endDate,routeIds:selected};
@@ -267,7 +269,7 @@
     const a=W().apply(wo,allocation.token,next,{persist:false});if(!a.ok)return a;next=a.database||next;
    }
   }
-  return{ok:true,report,prep,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId},next),database:next};
+  return{ok:true,report,prep,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId,groupKey:o.groupKey},next),database:next};
  }
  function preview(o={},d=db()){
   const result=simulate(o,d);if(!result.ok)return result;
