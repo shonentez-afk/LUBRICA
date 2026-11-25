@@ -37,6 +37,10 @@ def basics(browser):
         view(p,'settings')
         shot(p,'01-settings-overview.png','.settings-tile-database')
         shot(p,'23-backup-recovery.png','.settings-tile-backup')
+        # Load a disposable copy of the built-in demo data as a working JSON.
+        # The application itself must enable import/export; never bypass the demo guard.
+        demo=p.evaluate("""() => {const d=JSON.parse(JSON.stringify(LubricaCore.State.getDatabase()));d.project={...d.project,name:'Учебная рабочая база — руководство'};return JSON.stringify(d)}""")
+        upload(p,demo,'guide-demo-copy.json')
         p.locator('#importBtn').click()
         shot(p,'03-import-dialog.png','#importDialog')
         close(p)

@@ -61,6 +61,7 @@ def check(browser):
  capture(page,'36-revisions.png')
  rev.locator('[data-close]').last.click()
  page.locator('#editRoute').click()
+ wizard.locator('[data-route-parameters] > summary').click()
  wizard.locator('[data-route-archive]').click()
  wizard.locator('[data-archive-confirm]').click()
  page.locator('#deleteArchivedRoute').click()
