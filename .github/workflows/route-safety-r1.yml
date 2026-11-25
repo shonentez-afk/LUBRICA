@@ -1,4 +1,4 @@
-name: LUBRICA Routes R1 + R2 + R3A Regression and Preview
+name: LUBRICA Routes R1 + R2 + R3A + R3B Regression and Preview
 
 on:
   pull_request:
@@ -12,6 +12,7 @@ on:
       - 'test/test_route_safety_stage_r1.js'
       - 'test/test_route_execution_compact_r2.js'
       - 'test/test_route_auto_grouping_r3a.js'
+      - 'test/test_route_due_r3b.js'
       - 'test/test_route_execution_compact_r2_ui.py'
       - 'assets/route-compact.css'
       - 'index.html'
@@ -40,6 +41,8 @@ jobs:
         run: |
           node --check routes/route-engine.js
           node --check routes/route-auto-grouping.js
+          node --check routes/route-due.js
+          node --check test/test_route_due_r3b.js
           node --check test/test_route_auto_grouping_r3a.js
           node --check routes/route-planning.js
           node --check routes/route-preparation.js
@@ -57,13 +60,15 @@ jobs:
           python3 test/test_route_execution_compact_r2_ui.py
       - name: Route auto grouping R3A
         run: node test/test_route_auto_grouping_r3a.js
+      - name: Individual due R3B
+        run: node test/test_route_due_r3b.js
       - name: Full regression
         run: bash test/run_all.sh
       - name: Build isolated Edge file preview
         shell: bash
         run: |
           set -euo pipefail
-          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R3A_PREVIEW"
+          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R3B_PREVIEW"
           mkdir -p "$STAGE"
           rsync -a ./ "$STAGE/" \
             --exclude '.git/' \
@@ -77,11 +82,12 @@ jobs:
             --exclude 'README.md' \
             --exclude 'START_NEW_CHAT_RU.md'
           find "$STAGE" -maxdepth 1 -type f \( -name 'RELEASE_*.md' -o -name 'LUBRICA_*.md' -o -name 'LUBRICA_*.txt' -o -name 'LUBRICA_*.json' -o -name 'LUBRICA_*.csv' \) -delete
-          printf '%s\n' 'LUBRICA ROUTES STAGE R1+R2+R3A' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check auto grouping by area, service and cadence, draft-only, archive, dates and compact walkthrough.' > "$STAGE/ROUTES_R3A_README.txt"
+          printf '%s\n' 'LUBRICA ROUTES STAGE R1+R2+R3A+R3B' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check auto grouping, individual due setup, explicit activation, selected task jobs, actual meter readings, archive and compact walkthrough.' > "$STAGE/ROUTES_R3B_README.txt"
           test -f "$STAGE/index.html"
           test -f "$STAGE/manifest.json"
           test -f "$STAGE/routes/route-engine.js"
           test -f "$STAGE/routes/route-auto-grouping.js"
+          test -f "$STAGE/routes/route-due.js"
           test -f "$STAGE/routes/route-planning.js"
           test -f "$STAGE/routes/route-compact-ui.js"
           test -f "$STAGE/assets/route-compact.css"
@@ -93,17 +99,17 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R3A_PREVIEW.zip" LUBRICA_ROUTES_R3A_PREVIEW
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R3B_PREVIEW.zip" LUBRICA_ROUTES_R3B_PREVIEW
           cd "$GITHUB_WORKSPACE"
-          unzip -tq LUBRICA_ROUTES_R3A_PREVIEW.zip
-          sha256sum LUBRICA_ROUTES_R3A_PREVIEW.zip > LUBRICA_ROUTES_R3A_PREVIEW.zip.sha256
-          sha256sum -c LUBRICA_ROUTES_R3A_PREVIEW.zip.sha256
+          unzip -tq LUBRICA_ROUTES_R3B_PREVIEW.zip
+          sha256sum LUBRICA_ROUTES_R3B_PREVIEW.zip > LUBRICA_ROUTES_R3B_PREVIEW.zip.sha256
+          sha256sum -c LUBRICA_ROUTES_R3B_PREVIEW.zip.sha256
       - name: Upload ZIP for manual Edge QA
         uses: actions/upload-artifact@v4
         with:
-          name: LUBRICA_ROUTES_R3A_PREVIEW
+          name: LUBRICA_ROUTES_R3B_PREVIEW
           path: |
-            LUBRICA_ROUTES_R3A_PREVIEW.zip
-            LUBRICA_ROUTES_R3A_PREVIEW.zip.sha256
+            LUBRICA_ROUTES_R3B_PREVIEW.zip
+            LUBRICA_ROUTES_R3B_PREVIEW.zip.sha256
           if-no-files-found: error
           retention-days: 30
