@@ -122,4 +122,5 @@ echo '[ROUTE INDIVIDUAL DUE R3B]'; node test/test_route_due_r3b.js
 echo '[ROUTE WORKLOAD AND PPR R4]'; node test/test_route_workload_r4.js
 echo '[ROUTE AUTOMATION R5]'; node test/test_route_automation_r5.js
 echo '[R6 REAL MODULES AND MASS ROUTES]'; node test/test_route_r6_integration.js
+echo '[R7 ROUTE ENGINE CONSOLIDATION]'; node test/test_route_r7_consolidation.js
 echo 'ALL INTEGRATION TESTS PASS'

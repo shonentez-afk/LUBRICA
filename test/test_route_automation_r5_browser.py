@@ -138,7 +138,9 @@ def check(browser,width,height,label):
  dlg.locator('[data-confirm-complete]').click()
  assert page.evaluate('window.__db.checklistRuns[0].status')=='completed'
  assert page.evaluate('window.__db.tasks.find(t=>t.id==="C1").routeDue.nextDate')==page.evaluate('LubricaRoutePlanning.addInterval(LubricaRouteDue.today(),{kind:"days",value:7})')
- page.locator('#syncRoutes').click()
+ assert page.locator('#syncRoutes').count()==0
+ page.locator('#autoCreateRoute').click()
+ f('create-mode').select_option('bulk')
  f('preview').click()
  assert '2. Результат проверки' in f('report').inner_text()
  assert not f('apply').is_enabled(),f('report').inner_text()

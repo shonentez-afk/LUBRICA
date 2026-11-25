@@ -101,7 +101,9 @@ def check(browser):
  field('apply').click()
  assert not dlg.is_visible()
  assert page.evaluate('''() => {const d=LubricaCore.State.getDatabase();return d.routes.flatMap(r=>r.taskIds).length===45&&d.routes.every(r=>r.status==='draft')&&d.routePlanItems.length===0&&d.tasks.every(t=>!t.routeDue&&!t.routePolicy)}''')
- page.locator('#syncRoutes').click()
+ assert page.locator('#syncRoutes').count()==0
+ page.locator('#autoCreateRoute').click()
+ field('create-mode').select_option('bulk')
  assert field('create-mode').input_value()=='bulk'
  field('preview').click()
  assert not field('apply').is_enabled(),field('report').inner_text()

@@ -8,6 +8,7 @@ const run={id:'RUN-1',routeId:'R1',executionNo:2,routeRevision:3,status:'complet
  {taskId:'T2',pointId:'LP-2',pointName:'NDE',operation:'Досмазка',materialCode:'M1',materialName:'Grease',quantityPrimary:'20 г'}
  ]}]}
 };
+vm.runInThisContext(fs.readFileSync('checklist/checklist-engine.js','utf8'));
 global.LubricaChecklistEngine={routeRuns:()=>[run],modelForRun:()=>run.routeSnapshot};
 vm.runInThisContext(fs.readFileSync('routes/route-plan-fact.js','utf8'));
 const A=global.LubricaRoutePlanFact,a=(x,m)=>{if(!x)throw Error(m)};

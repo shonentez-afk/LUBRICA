@@ -78,66 +78,23 @@
    return{ok:true,...group,key:routeKey(group),name:[c.line.name,c.area.name,service.label,schedule.label].filter(Boolean).join(' — ')};
  }
  function matches(r,c){if(r?.groupingMode!==MODE)return true;const info=describe(c);return info.ok&&routeKey(r)===info.key}
- function preview(d,{lineId='',areaId=''}={},engine=global.LubricaRouteEngine){
-   const issues=[],groups=new Map(),valid=new Map();
-   if(!d||!engine)return{ok:false,reason:'База недоступна',groups:[],issues:[],token:''};
-   const readiness=engine.readinessIndex(d),contexts=engine.contextIndex(d);
-   if(!readiness)return{ok:false,reason:'Инженерный контроль недоступен',groups:[],issues:[],token:''};
-   const scope=c=>(!lineId||c.lineId===lineId)&&(!areaId||c.areaId===areaId);
-   const report=(id,code,message,routeId='')=>issues.push({taskId:id,code,message,routeId});
-   for(const t of arr(d.tasks)){
-     const id=String(t.id),c=contexts.get(id);
-     if(!scope(c))continue;
-     if(!readiness.has(id)){report(id,'QA_MISSING','Отсутствует запись инженерного контроля');continue}
-     const gate=engine.routeEligibility(t,d,readiness,c);
-     if(!gate.ok){report(id,gate.code,gate.message);continue}
-     const g=describe(c);if(!g.ok){report(id,g.code,g.message);continue}
-     valid.set(id,g);
-     if(!groups.has(g.key))groups.set(g.key,{...g,ids:[]});
-     groups.get(g.key).ids.push(id);
-   }
-   const working=arr(d.routes).filter(r=>r.status!=='archived');
-   const assigned=new Map(),excluded=new Set(),typed=new Map();
-   for(const r of working){
-     for(const id of uniq(r.taskIds)){if(!assigned.has(id))assigned.set(id,[]);assigned.get(id).push(r)}
-     for(const id of uniq(r.excludedTaskIds))excluded.add(id);
-     const k=routeKey(r);if(k){if(!typed.has(k))typed.set(k,[]);typed.get(k).push(r)}
-   }
-   const compare=(a,b)=>{const x=contexts.get(a),y=contexts.get(b);return (clean(x?.eq?.externalCode)+' '+clean(x?.eq?.name)+' '+clean(x?.lp?.name)+' '+a).localeCompare(clean(y?.eq?.externalCode)+' '+clean(y?.eq?.name)+' '+clean(y?.lp?.name)+' '+b,'ru',{numeric:true})};
-   const changes=[];
-   for(const g of groups.values()){
-     const existing=typed.get(g.key)||[],r=existing.length===1?existing[0]:null;
-     const pending=[],owned=[];
-     for(const id of g.ids){
-       const owners=assigned.get(id)||[];
-       if(owners.length){owned.push(id);if(owners.length>1||!r||owners.some(x=>x.id!==r.id))report(id,'ALREADY_ASSIGNED','Уже в маршруте: '+owners.map(x=>x.code||x.id).join(', '),owners[0].id);continue}
-       if(excluded.has(id)){report(id,'MANUALLY_EXCLUDED','Мероприятие исключено вручную');continue}
-       pending.push(id);
-     }
-     const ids=uniq(r?.taskIds),invalid=ids.filter(id=>valid.get(id)?.key!==g.key||(assigned.get(id)||[]).length!==1);
-     const locked=r&&(r.status!=='draft'||arr(d.checklistRuns).some(x=>String(x.routeId)===String(r.id)&&x.status==='in_progress')||arr(d.routePlanItems).some(x=>String(x.routeId)===String(r.id)&&!['completed','cancelled'].includes(x.status)));
-     let action='none',reason='';
-     if(existing.length>1){action='blocked';reason='Несколько текущих маршрутов одной группы; проверьте дубли'}
-     else if(invalid.length){action='blocked';reason='Состав маршрута изменился или утратил готовность; требуется ручная сверка'}
-     else if(pending.length&&locked){action='blocked';reason='Сначала проверьте активный маршрут, выполнение и план; автоматически изменяются только свободные черновики'}
-     else if(pending.length)action=r?'update':'create';
-     if(action==='blocked')for(const id of pending)report(id,'GROUP_BLOCKED',reason,r?.id||'');
-     const add=pending.sort(compare),next=action==='create'||action==='update'?[...ids,...add]:ids;
-     changes.push({...g,ids:undefined,action,reason,routeId:r?.id||'',currentTaskIds:ids,taskIds:next,addTaskIds:add,invalidTaskIds:invalid,ownedCount:owned.length,pointCount:new Set(next.map(id=>contexts.get(id)?.lp?.id).filter(Boolean)).size});
-   }
-   // Show typed routes which no longer have even one valid member, without modifying them.
-   for(const [k,rs] of typed){
-     if(groups.has(k))continue;
-     for(const r of rs){
-       if(lineId&&r.lineId!==lineId||areaId&&r.areaId!==areaId)continue;
-       const ids=uniq(r.taskIds);if(!ids.length)continue;
-       changes.push({key:k,name:r.name||r.code||r.id,action:'blocked',reason:'В группе нет готовых мероприятий; проверьте состав вручную',routeId:r.id,currentTaskIds:ids,taskIds:ids,addTaskIds:[],invalidTaskIds:ids,ownedCount:ids.length,pointCount:0});
-     }
-   }
-   changes.sort((a,b)=>a.name.localeCompare(b.name,'ru',{numeric:true}));
-   const actionable=changes.filter(g=>g.action==='create'||g.action==='update');
-   const token=JSON.stringify(actionable.map(g=>[g.key,g.action,g.routeId,g.currentTaskIds,g.taskIds,g.name,g.serviceLabel,g.interval]));
-   return{ok:true,groups:changes,issues,token,summary:{create:actionable.filter(g=>g.action==='create').length,update:actionable.filter(g=>g.action==='update').length,blocked:changes.filter(g=>g.action==='blocked').length,add:actionable.reduce((n,g)=>n+g.addTaskIds.length,0),issues:issues.length}};
+ // R7: shared task ownership and protection.
+ const workingRoutes=d=>arr(d?.routes).filter(r=>r.status!=='archived');
+ const openPlan=x=>!['completed','cancelled'].includes(x?.status);
+ const runningTask=(d,id)=>arr(d?.checklistRuns).some(x=>x.status==='in_progress'&&arr(x.routeTaskIds).map(String).includes(String(id)));
+ const taskReserved=(d,id)=>arr(d?.routePlanItems).some(x=>openPlan(x)&&arr(x.taskIds).map(String).includes(String(id)))||runningTask(d,id);
+ const routeLocked=(d,r)=>!!r&&(arr(d?.routePlanItems).some(x=>String(x.routeId)===String(r.id)&&openPlan(x))||arr(d?.checklistRuns).some(x=>String(x.routeId)===String(r.id)&&x.status==='in_progress'));
+ function ownership(d){
+  const routes=workingRoutes(d),owners=new Map(),byGroup=new Map(),excluded=new Set(),reserved=new Set(),locked=new Set();
+  for(const r of routes){for(const id of uniq(r.taskIds)){if(!owners.has(id))owners.set(id,[]);owners.get(id).push(r)}for(const id of uniq(r.excludedTaskIds))excluded.add(id);if(routeLocked(d,r))locked.add(String(r.id));const k=routeKey(r);if(k){if(!byGroup.has(k))byGroup.set(k,[]);byGroup.get(k).push(r)}}
+  for(const x of arr(d?.routePlanItems).filter(openPlan))for(const id of arr(x.taskIds))reserved.add(String(id));
+  for(const x of arr(d?.checklistRuns).filter(x=>x.status==='in_progress'))for(const id of arr(x.routeTaskIds))reserved.add(String(id));
+  return {routes,owners,byGroup,excluded,reserved,locked};
  }
- global.LubricaRouteAutoGrouping=Object.freeze({MODE,serviceFor,scheduleFor,describe,routeKey,matches,preview});
+ function preview(d,o={},engine=global.LubricaRouteEngine){
+  const R=global.LubricaRouteAutomation;
+  if(!R)return{ok:false,code:'AUTOMATION_REQUIRED',reason:'Модуль автоматизации маршрутов недоступен',groups:[],issues:[],token:''};
+  return R.reconcile(d,{...o,compatDraftOnly:true},engine);
+ }
+ global.LubricaRouteAutoGrouping=Object.freeze({MODE,serviceFor,scheduleFor,parseText:textSpec,describe,routeKey,matches,preview,workingRoutes,openPlan,runningTask,taskReserved,routeLocked,ownership});
 })(window);

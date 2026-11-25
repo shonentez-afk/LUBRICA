@@ -12,7 +12,7 @@ global.LubricaCore={State:{getDatabase:()=>d,setDatabase:v=>{d=v;writes++}},Data
 global.LubricaApp={refreshFromCore(){},showToast(){}};
 global.LubricaTaskReadiness={summarize:db=>({items:db.tasks.map(t=>({taskId:t.id,status:'ready',steps:[{ok:true}]}))})};
 global.LubricaProgramQA={audit:()=>({issues:[]})};
-for(const p of ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-due.js','routes/route-engine.js','routes/route-planning.js','checklist/checklist-engine.js','routes/route-preparation.js','routes/route-plan-fact.js'])vm.runInThisContext(fs.readFileSync(p,'utf8'),{filename:p});
+for(const p of ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-due.js','routes/route-automation.js','routes/route-engine.js','routes/route-planning.js','checklist/checklist-engine.js','routes/route-preparation.js','routes/route-plan-fact.js'])vm.runInThisContext(fs.readFileSync(p,'utf8'),{filename:p});
 const E=LubricaRouteEngine,D=LubricaRouteDue,P=LubricaRoutePlanning,C=LubricaChecklistEngine,R=LubricaRoutePreparation,F=LubricaRoutePlanFact;
 const today=D.today(),yesterday=P.addInterval(today,{kind:'days',value:-1}),tomorrow=P.addInterval(today,{kind:'days',value:1}),later=P.addInterval(today,{kind:'days',value:20});
 function task(id,interval,qty){
@@ -85,7 +85,10 @@ console.log('R3B TASK DUE PASS: exact subset, overdue, reserve, material totals,
 /* R4 integration: real R3B plan + checklist start gate, no direct bypass. */
 vm.runInThisContext(fs.readFileSync('routes/route-workload.js','utf8'),{filename:'route-workload.js'});
 const W=LubricaRouteWorkload;
-assert(W.saveSettings({weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:480},{id:'2',workers:2,minutesPerWorker:480}],ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[cr]},d).ok);
+const pprConfig={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:480},{id:'2',workers:2,minutesPerWorker:480}],ppr:[{lineId:'L',anchorDate:today}],pprRouteIds:[cr]};
+assert.equal(W.saveSettings(pprConfig,d).code,'PPR_ROUTE_LOCKED','existing open jobs protect route PPR mode');
+for(const job of d.routePlanItems.filter(x=>x.routeId===cr&&x.status==='planned'))assert(P.remove(job.id,d).ok,'explicitly remove unstarted jobs before changing mode');
+assert(W.saveSettings(pprConfig,d).ok);
 assert(P.commit({startDate:today,endDate:today},d).ok);
 const pprJob=d.routePlanItems.find(x=>x.routeId===cr&&x.status==='planned'&&x.taskIds.includes('C2'));
 assert(pprJob,'skipped/cancelled task replanned');

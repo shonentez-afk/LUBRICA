@@ -120,14 +120,27 @@
  }
  function numeric(v){if(v==null||String(v).trim()==='')return null;const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null}
  function fmtNumber(v,max=2){if(!Number.isFinite(v))return'';return Number(v.toFixed(max)).toLocaleString('ru-RU',{maximumFractionDigits:max})}
- function unitAmount(value,unit,targetUnit){
-  const n=numeric(value);if(n==null)return null;const u=clean(unit).toLowerCase().replace(/³/g,'3'),t=clean(targetUnit).toLowerCase().replace(/³/g,'3');
-  const mass={г:1,'g':1,кг:1000,'kg':1000};
-  const volume={мл:1,'ml':1,'см3':1,'cm3':1,л:1000,'l':1000};
-  if(mass[u]!=null&&mass[t]!=null)return n*mass[u]/mass[t];
-  if(volume[u]!=null&&volume[t]!=null)return n*volume[u]/volume[t];
-  return u===t?n:null
+ // R7: canonical quantity units, shared by checklist, preparation and plan/fact.
+ const unitInfo=value=>{
+  const raw=clean(value).toLowerCase().replace(/³/g,'3').replace(/\s+/g,'').replace(/\.$/,'');
+  const alias={г:['mass','g',1,'г'],гр:['mass','g',1,'г'],g:['mass','g',1,'г'],кг:['mass','g',1000,'кг'],kg:['mass','g',1000,'кг'],мл:['volume','ml',1,'мл'],ml:['volume','ml',1,'мл'],см3:['volume','ml',1,'мл'],'см^3':['volume','ml',1,'мл'],cm3:['volume','ml',1,'мл'],cc:['volume','ml',1,'мл'],л:['volume','ml',1000,'л'],l:['volume','ml',1000,'л'],литр:['volume','ml',1000,'л'],литра:['volume','ml',1000,'л'],литров:['volume','ml',1000,'л']};
+  const x=Object.hasOwn(alias,raw)?alias[raw]:null;if(x)return{dim:x[0],base:x[1],factor:x[2],label:x[3]};
+  if(!raw||!/^\p{L}+(?:\/\p{L}+)?$/u.test(raw))return null;
+  return{dim:'other',base:raw,factor:1,label:raw};
+ };
+ const qtyBase=q=>{const u=unitInfo(q?.unit),n=numeric(q?.value);return u&&n!=null&&n>=0?{amount:n*u.factor,dim:u.dim,base:u.base,unit:u.dim==='mass'?'г':u.dim==='volume'?'мл':u.label}:null};
+ function parseQuantity(value,defaultUnit=''){
+  const text=clean(value);if(!text)return null;
+  const match=text.match(/^(\d+(?:[.,]\d+)?)\s*(.*?)\s*$/);if(!match)return null;
+  const suffix=match[2].replace(/\s+\([^)]*\)$/,'').trim(),u=unitInfo(suffix||defaultUnit),n=numeric(match[1]);
+  return u&&n!=null&&n>=0?{value:n,unit:u.label}:null;
  }
+ function convertQuantity(value,unit,targetUnit){
+  const n=numeric(value),from=unitInfo(unit),to=unitInfo(targetUnit);
+  return n!=null&&n>=0&&from&&to&&from.dim===to.dim&&from.base===to.base?n*from.factor/to.factor:null;
+ }
+ global.LubricaRouteUnits=Object.freeze({unitInfo,parse:parseQuantity,base:qtyBase,convert:convertQuantity});
+ function unitAmount(value,unit,targetUnit){return convertQuantity(value,unit,targetUnit)}
  function deliveryDenominatorLabel(unit,count){
   const u=clean(unit).toLowerCase();
   if(/кач/.test(u))return`${fmtNumber(count,1)} кач.`;

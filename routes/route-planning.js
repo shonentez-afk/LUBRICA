@@ -7,7 +7,8 @@
  const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
  function db(){return global.LubricaCore?.State?.getDatabase?.()||null}
  function parseInterval(text){
-  const raw=clean(text).toLowerCase().replace(/ё/g,'е').replace(/,/g,'.');if(!raw||/без период|по состояни|по событ|по требован/.test(raw))return null;
+  const A=global.LubricaRouteAutoGrouping;if(A){const x=A.parseText(text);if(!x||x.kind==='runtime_hours')return null;const raw=clean(text).toLowerCase();return x.kind==='days'&&/недел|нед\.?$/.test(raw)?{kind:'weeks',value:x.value/7,label:clean(text)}:x.kind==='months'&&/год|лет/.test(raw)?{kind:'years',value:x.value/12,label:clean(text)}:{kind:x.kind,value:x.value,label:clean(text)}}
+  const raw=clean(text).toLowerCase().replace(/ё/g,'е').replace(/,/g,'.');if(/[\/;]|\d\s*[-–—]\s*\d/.test(raw))return null;if(!raw||/без период|по состояни|по событ|по требован/.test(raw))return null;
   if(/ежеднев|кажд(ый|ые)?\s*день/.test(raw))return{kind:'days',value:1,label:clean(text)};
   if(/еженедел|кажд(ую|ые)?\s*недел/.test(raw))return{kind:'weeks',value:1,label:clean(text)};
   if(/ежемесяч|кажд(ый|ые)?\s*месяц/.test(raw))return{kind:'months',value:1,label:clean(text)};
@@ -36,7 +37,7 @@
   }else return'';
   return d.toISOString().slice(0,10)
  }
- function parseRuntimeInterval(text){const raw=clean(text).toLowerCase().replace(/,/g,'.');const m=raw.match(/(\d+(?:\.\d+)?)\s*(?:ч|час(?:а|ов)?|моточас(?:а|ов)?)/i);if(!m)return null;const n=Number(m[1]);return n>0?{kind:'runtime_hours',value:n,label:clean(text)}:null}
+ function parseRuntimeInterval(text){const A=global.LubricaRouteAutoGrouping;if(A){const x=A.parseText(text);return x?.kind==='runtime_hours'?{kind:x.kind,value:x.value,label:clean(text)}:null}const raw=clean(text).toLowerCase().replace(/,/g,'.');const m=raw.match(/^(?:каждые\s+|через\s+|раз в\s+)?(\d+(?:\.\d+)?)\s*(?:ч|час(?:а|ов)?|моточас(?:а|ов)?|мч)\.?$/i);if(!m)return null;const n=Number(m[1]);return n>0?{kind:'runtime_hours',value:n,label:clean(text)}:null}
  function runtimeStepDays(route,spec){const hpd=Number(route?.runtimePlanningHoursPerDay)||0;return hpd>0?Math.max(1,Math.ceil(spec.value/hpd)):0}
  function runtimeAnchorForRoute(route,spec,d){const last=lastCompletedDate(route.id,d),step=runtimeStepDays(route,spec);if(last&&step)return{date:addInterval(last,{kind:'days',value:step}),source:'last_completed_runtime_forecast',lastCompleted:last};const anchor=isoDate(route.planningAnchorDate);if(anchor)return{date:anchor,source:'route_runtime_anchor',lastCompleted:last||''};return{date:'',source:'missing',lastCompleted:last||''}}
  function completedRuns(routeId,d=db()){return(d?.checklistRuns||[]).filter(r=>String(r.routeId)===String(routeId)&&r.status==='completed').sort((a,b)=>String(b.completedAt||b.date||'').localeCompare(String(a.completedAt||a.date||'')))}

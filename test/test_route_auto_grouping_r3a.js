@@ -9,7 +9,7 @@ global.LubricaCore={State:{getDatabase:()=>d,setDatabase:x=>{d=x;writes++}},Data
 global.LubricaApp={refreshFromCore(){},showToast(){}};
 global.LubricaTaskReadiness={summarize:db=>({items:db.tasks.map(t=>({taskId:t.id,status:t.qaBlocked?'attention':'ready',steps:[{ok:!t.qaBlocked,label:'Источники'}]}))})};
 global.LubricaProgramQA={audit:()=>({issues:[]})};
-for(const p of ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-engine.js','routes/route-planning.js','checklist/checklist-engine.js'])vm.runInThisContext(fs.readFileSync(p,'utf8'),{filename:p});
+for(const p of ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-due.js','routes/route-automation.js','routes/route-engine.js','routes/route-planning.js','checklist/checklist-engine.js'])vm.runInThisContext(fs.readFileSync(p,'utf8'),{filename:p});
 const E=LubricaRouteEngine,A=LubricaRouteAutoGrouping,C=LubricaStructureContext;
 function task(id,category,activity,interval,areaId='A1',type='conveyor',extra={}){
  const area=d.areas.find(a=>a.id===areaId),e='E-'+id,n='N-'+id,p='P-'+id;

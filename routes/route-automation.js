@@ -10,9 +10,12 @@
  const integer=(v,min,max)=>str(v)!==''&&Number.isInteger(Number(v))&&Number(v)>=min&&Number(v)<=max;
  const number=(v,min,max)=>str(v)!==''&&Number.isFinite(Number(v))&&Number(v)>=min&&Number(v)<=max;
  const add=(date,n)=>P().addInterval(date,{kind:'days',value:n});
- const locked=(d,r)=>arr(d.routePlanItems).some(x=>String(x.routeId)===String(r.id)&&(!['completed','cancelled'].includes(x.status)||x.runId&&x.status==='planned'))||arr(d.checklistRuns).some(x=>String(x.routeId)===String(r.id)&&x.status==='in_progress');
- const reserved=(d,id)=>arr(d.routePlanItems).some(x=>['planned','in_progress'].includes(x.status)&&ids(x.taskIds).includes(id))||arr(d.checklistRuns).some(x=>x.status==='in_progress'&&ids(x.routeTaskIds).includes(id));
- const ownedByManual=(d,id)=>arr(d.routes).some(r=>r.status!=='archived'&&(r.source!=='auto'||!D().typed(r))&&ids(r.taskIds).includes(id));
+ const locked=(d,r)=>A().routeLocked(d,r),reserved=(d,id)=>A().taskReserved(d,id);
+ function setupAllowed(d,id,o={},ownership=A().ownership(d),group=null){
+  const key=String(id),rs=ownership.owners.get(key)||[],target=group?ownership.byGroup.get(group.key)||[]:[];
+  const editable=r=>r.source==='auto'&&D().typed(r)&&!ownership.locked.has(String(r.id))&&groupScope(r,o);
+  return !ownership.reserved.has(key)&&!ownership.excluded.has(key)&&rs.length<=1&&rs.every(editable)&&target.length<=1&&target.every(editable);
+ }
  function eligible(d){
   const ix=E().contextIndex(d),ready=E().readinessIndex(d),valid=new Map(),issues=[];
   if(!ready)return{ok:false,ix,valid,issues:[{code:'QA_MISSING',message:'Инженерный контроль недоступен'}]};
@@ -72,20 +75,17 @@
  // cannot accept it. Manual routes and exclusions are never modified.
  function reconcile(d,o={},engine=E()){
   const info=eligible(d);if(!info.ok)return fail('QA_MISSING','Инженерный контроль недоступен');
-  const {ix,valid}=info,issues=info.issues.filter(x=>scope(ix.get(x.taskId),o)),working=arr(d.routes).filter(r=>r.status!=='archived'),owners=new Map(),groups=new Map(),routeByKey=new Map(),excluded=new Set();
-  const key=r=>A().routeKey(r),editable=r=>r&&r.source==='auto'&&D().typed(r)&&['active','draft'].includes(r.status)&&groupScope(r,o)&&!locked(d,r);
+  const {ix,valid}=info,issues=info.issues.filter(x=>scope(ix.get(x.taskId),o)),own=A().ownership(d),working=own.routes,owners=own.owners,groups=new Map(),routeByKey=own.byGroup,excluded=own.excluded,draftOnly=o.compatDraftOnly===true,ownershipReserved=own.reserved;
+  const key=r=>A().routeKey(r),editable=r=>r&&r.source==='auto'&&D().typed(r)&&(draftOnly?r.status==='draft':['active','draft'].includes(r.status))&&groupScope(r,o)&&!own.locked.has(String(r.id));
   const issue=(id,code,message,routeId='')=>issues.push({taskId:id,code,message,routeId});
-  for(const r of working){for(const id of uniq(r.taskIds)){if(!owners.has(id))owners.set(id,[]);owners.get(id).push(r)}
-   for(const id of uniq(r.excludedTaskIds))excluded.add(id);
-   if(key(r)){if(!routeByKey.has(key(r)))routeByKey.set(key(r),[]);routeByKey.get(key(r)).push(r)}
-  }
   for(const [id,g] of valid){if(!groupScope(g,o))continue;if(!groups.has(g.key))groups.set(g.key,{...g,ids:[]});groups.get(g.key).ids.push(id)}
   for(const r of working){if(!D().typed(r)||!groupScope(r,o))continue;const k=key(r);if(!groups.has(k))groups.set(k,{key:k,lineId:r.lineId,areaId:r.areaId,name:r.name||r.code||r.id,groupingMode:r.groupingMode,serviceKey:r.serviceKey,serviceLabel:r.serviceLabel,scheduleKey:r.scheduleKey,interval:r.interval,ids:[]})}
   const blocked=new Map();
   for(const [k,rs] of routeByKey){
    if(rs.length>1)blocked.set(k,'Несколько маршрутов одной группы');
    else if(!editable(rs[0]))blocked.set(k,'Ручной маршрут, другой охват или незавершённое задание');
-   else if(uniq(rs[0].taskIds).length!==arr(rs[0].taskIds).length||uniq(rs[0].taskIds).some(id=>(owners.get(id)||[]).length>1||excluded.has(id)||reserved(d,id)))blocked.set(k,'Дубли или противоречивые ручные исключения');
+   else if(uniq(rs[0].taskIds).length!==arr(rs[0].taskIds).length||uniq(rs[0].taskIds).some(id=>(owners.get(id)||[]).length>1||excluded.has(id)||own.reserved.has(id)))blocked.set(k,'Дубли или противоречивые ручные исключения');
+    else if(draftOnly&&uniq(rs[0].taskIds).some(id=>valid.get(id)?.key!==k))blocked.set(k,'Состав маршрута изменился или утратил готовность; требуется ручная сверка');
   }
   let changed=true;
   while(changed){changed=false;for(const [k,rs] of routeByKey){
@@ -102,16 +102,16 @@
     const own=owners.get(id)||[];
     if(excluded.has(id)){issue(id,'MANUALLY_EXCLUDED','Исключено вручную');continue}
     if(own.length>1||own.length===1&&own[0].id!==r?.id&&(!editable(own[0])||blocked.has(key(own[0])))){issue(id,'ALREADY_ASSIGNED','Назначено в защищённом маршруте '+own.map(x=>x.code||x.id).join(', '),own[0]?.id);continue}
-    if(reserved(d,id)&&!old.includes(id)){issue(id,'TASK_RESERVED','Есть открытое задание',own[0]?.id);continue}
+    if(ownershipReserved.has(id)&&!old.includes(id)){issue(id,'TASK_RESERVED','Есть открытое задание',own[0]?.id);continue}
     desired.push(id);
    }
    const ds=new Set(desired),removed=old.filter(id=>!ds.has(id)),adds=desired.filter(id=>!old.includes(id)).sort(compare(d,ix,g.areaId));
    let next=[...old.filter(id=>ds.has(id)),...adds];
-   if(!r||o.applyOrder===true)next.sort(compare(d,ix,g.areaId));
+   if(!r||o.applyOrder===true&&!draftOnly)next.sort(compare(d,ix,g.areaId));
    const basisMissing=next.filter(id=>!D().parseBasis(ix.get(id).task,d,ix).ok);
-   const nextStatus=r?.status==='active'&&basisMissing.length===0?'active':o.activateReady===true&&next.length&&!basisMissing.length?'active':'draft';
+   const nextStatus=draftOnly?(r?.status||'draft'):r?.status==='active'&&basisMissing.length===0?'active':o.activateReady===true&&next.length&&!basisMissing.length?'active':'draft';
    const contentSig=JSON.stringify(next.map(id=>{const c=ix.get(id),t=c?.task;return [id,t?.materialId,t?.materialName,t?.materialMode,t?.quantity,t?.toolId,c?.lp?.targetMaterialId,rawPolicy(t),taskMinutes(t,d,r||g,ix),config(d).transitionMinutes]}));
-   const different=JSON.stringify(old)!==JSON.stringify(next),metadataChanged=!!r&&r.automationContent!==contentSig;
+   const different=JSON.stringify(old)!==JSON.stringify(next),metadataChanged=!draftOnly&&!!r&&r.automationContent!==contentSig;
    let action='none',why='';
    if(reason){if(adds.length||removed.length||rs.length>1||metadataChanged||o.applyOrder===true&&different){action='blocked';why=reason}}
    else if(!next.length&&r){action='archive';why='В группе не осталось готовых мероприятий; история сохранится'}
@@ -138,8 +138,8 @@
  }
  function setup(d,o,info){
   const {ix,valid}=info,scopeIds=[...valid].filter(([id,g])=>groupScope(g,o)&&(!o.serviceKey||g.serviceKey===o.serviceKey)).map(([id])=>id);
-  const usable=id=>!reserved(d,id)&&!ownedByManual(d,id)&&(!o.groupKey||!arr(d.routes).some(r=>r.status!=='archived'&&(ids(r.excludedTaskIds).includes(id)||ids(r.taskIds).includes(id)&&(!groupScope(r,o)||locked(d,r)))));
-  const settings=config(d),changes=[],issues=[];
+  const ownership=A().ownership(d),usable=id=>setupAllowed(d,id,o,ownership,valid.get(id));
+   const settings=config(d),changes=[],issues=[];
   if(o.walkOrder){
    const areaId=str(o.areaId),actual=equipmentOrder(d,areaId).map(e=>String(e.id)),order=ids(o.walkOrder);
    if(!areaId||order.length!==actual.length||new Set(order).size!==order.length||order.some(id=>!actual.includes(id)))return fail('ORDER_INVALID','Порядок должен содержать все оборудование выбранного участка ровно один раз');
@@ -185,7 +185,7 @@
     if(!date||date>D().today()||!number(initial.lastHours,0,1e12)||!number(initial.readingHours,Number(initial.lastHours),1e12)||!number(rate,0,24)||initial.confirmMeter!==true)return fail('METER_INITIAL','Подтвердите общий счётчик выбранного оборудования, последнее обслуживание, текущее показание и дату');
     b={key,nextHours:Number(initial.lastHours)+s.value,readingHours:Number(initial.readingHours),readingDate:date,hoursPerDay:rate};source='Явно введённые показания общего счётчика';
    }
-   if(b){const prev=t.routeDue;t.routeDue=b;if(!D().parseBasis(t,d,ix).ok){t.routeDue=prev;return fail('BASIS_INVALID',id+': не удалось проверить исходный срок')}changes.push({taskId:id,action:'basis',detail:source,value:b.nextDate||b.nextHours})}
+   if(b){const written=D().writeBasis(t,b,d,ix,{initialOnly:true});if(!written.ok)return {...written,reason:written.message};if(written.changed)changes.push({taskId:id,action:'basis',detail:source,value:b.nextDate||b.nextHours})}
   }
   return{ok:true,changes,issues};
  }
@@ -325,5 +325,5 @@
   if(JSON.stringify(result.database)!==JSON.stringify(d)){global.LubricaCore.State.setDatabase(result.database);global.LubricaApp?.refreshFromCore?.()}
   const {database,...rest}=result;return rest;
  }
- global.LubricaRouteAutomation=Object.freeze({eligible,config,equipmentOrder,policy,taskPpr,taskMinutes,duration,earlyDate,allowedEarliest,reconcile,historyFor,partition,forecast,preview,apply});
+ global.LubricaRouteAutomation=Object.freeze({eligible,setupAllowed,config,equipmentOrder,policy,taskPpr,taskMinutes,duration,earlyDate,allowedEarliest,reconcile,historyFor,partition,forecast,preview,apply});
 })(window);

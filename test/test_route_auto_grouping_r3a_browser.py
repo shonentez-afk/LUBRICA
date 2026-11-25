@@ -33,33 +33,39 @@ def check(browser,width,height,label):
  page=browser.new_page(viewport={'width':width,'height':height})
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.set_content('<!doctype html><html lang="ru"><head><meta charset="utf-8"></head><body><div id="routes" style="display:block;width:100%;height:100%;min-width:0"></div><dialog id="routeExecutionDialog" class="route-execution-dialog"></dialog><dialog id="actionDialog"></dialog></body></html>')
- for path in ['assets/app.css','assets/route-compact.css']:page.add_style_tag(content=(ROOT/path).read_text(encoding='utf-8'))
+ for path in ['assets/app.css','assets/route-compact.css','assets/route-automation.css']:page.add_style_tag(content=(ROOT/path).read_text(encoding='utf-8'))
  page.add_style_tag(content='html,body{min-width:0!important;width:100%;max-width:100%;margin:0;overflow-x:hidden} #routes{position:relative!important;inset:auto!important;display:block!important;overflow:visible!important}')
  page.evaluate('() => {'+setup+'}')
- for path in ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-engine.js','checklist/checklist-engine.js','routes/route-compact-ui.js','routes/routes-ui.js']:page.add_script_tag(content=(ROOT/path).read_text(encoding='utf-8'))
+ for path in ['core/database-schema.js','structure/context.js','routes/route-auto-grouping.js','routes/route-due.js','routes/route-workload.js','routes/route-automation.js','routes/route-engine.js','routes/route-planning.js','routes/route-automation-ui.js','checklist/checklist-engine.js','routes/route-compact-ui.js','routes/routes-ui.js']:page.add_script_tag(content=(ROOT/path).read_text(encoding='utf-8'))
  page.evaluate('() => renderRoutes(document.getElementById("routes"))')
  assert page.locator('.route-list-item').count()==0,'no implicit auto routes'
  page.locator('#autoCreateRoute').click()
  dlg=page.locator('#routeExecutionDialog')
  assert dlg.is_visible()
- dlg.locator('[data-r3-line]').select_option('L1')
- dlg.locator('[data-r3-area]').select_option('A1')
- assert dlg.locator('.route-r3-row.create').count()==2
- assert '2 физ. точек' in dlg.locator('.route-r3-row.create').all_text_contents()[0] or '2 физ. точек' in dlg.locator('.route-r3-row.create').all_text_contents()[1]
+ f=lambda n:dlg.locator('[data-r5="'+n+'"]')
+ assert page.locator('#syncRoutes').count()==0
+ f('create-mode').select_option('bulk')
+ f('line').select_option('L1')
+ f('area').select_option('A1')
+ f('preview').click()
+ assert '2 точек' in f('report').inner_text()
+ assert 'Новых маршрутов' in f('report').inner_text()
  assert page.evaluate('window.__writes')==0
- assert dlg.locator('[data-r3-apply]').is_enabled()
+ assert f('apply').is_enabled()
  page.screenshot(path=str(OUT/(label+'_preview.png')))
- dlg.locator('[data-r3-apply]').click()
+ f('apply').click()
  assert page.evaluate('window.__writes')==1
  assert page.evaluate('window.__db.routes.length')==2
  assert page.evaluate('window.__db.routes.every(r=>r.status==="draft")')
  assert page.evaluate('window.__db.routes.find(r=>r.serviceKey==="bearing:regrease").taskIds.join(",")')=='T1,T2'
  assert page.locator('.route-list-item').count()==2
- page.locator('#syncRoutes').click()
- dlg.locator('[data-r3-area]').select_option('A1')
- assert dlg.locator('[data-r3-apply]').is_disabled()
+ page.locator('#autoCreateRoute').click()
+ f('create-mode').select_option('bulk')
+ f('area').select_option('A1')
+ f('preview').click()
+ assert f('apply').is_disabled()
  assert page.evaluate('window.__writes')==1
- dlg.locator('[data-r3-close]').last.click()
+ f('close').click()
  assert not errors,errors
  page.close()
 with sync_playwright() as pw:

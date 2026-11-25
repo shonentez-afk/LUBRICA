@@ -31,8 +31,19 @@
    return{id:String(id),key:t?signature(t,d,ix):'',pointId:c?.lp?.legacyId||c?.lp?.id||'',pointName:c?.lp?.name||'',equipment:c?.eq?.name||'',equipmentCode:c?.eq?.externalCode||'',operation:t?.operation||'',spec:t?spec(t):null,basis:t?parseBasis(t,d,ix):fail('TASK_MISSING','Мероприятие не найдено'),raw:t?.routeDue||{},locked:reserved(d,id),running:runningTask(d,id)};
   });
  }
- function reserved(d,id){return arr(d?.routePlanItems).some(x=>['planned','in_progress'].includes(x.status)&&arr(x.taskIds).map(String).includes(String(id)))||runningTask(d,id)}
- function runningTask(d,id){return arr(d?.checklistRuns).some(x=>x.status==='in_progress'&&arr(x.routeTaskIds).map(String).includes(String(id)))}
+ function reserved(d,id){return global.LubricaRouteAutoGrouping.taskReserved(d,id)}
+ function runningTask(d,id){return global.LubricaRouteAutoGrouping.runningTask(d,id)}
+ function writeBasis(t,b,d,index,{initialOnly=false}={}){
+  const id=str(t?.id),key=t&&signature(t,d,index),old=t&&parseBasis(t,d,index),s=t&&spec(t);
+  if(!key||!s?.ok||b?.key!==key)return fail('STALE_BASIS','Изменилось мероприятие '+id+'; откройте настройки повторно');
+  if(initialOnly&&old.ok)return{ok:true,changed:false};
+  if(runningTask(d,id))return fail('RUNNING','Мероприятие '+id+' уже выполняется');
+  if(s.kind==='runtime_hours'&&old.ok&&(b.readingHours<old.readingHours||b.readingDate<old.readingDate))return fail('METER_ROLLBACK',id+': сброс/замена счётчика требуют отдельного согласования');
+  if(reserved(d,id)&&(!old.ok||(s.kind==='runtime_hours'?b.nextHours!==old.nextHours:b.nextDate!==old.nextDate)))return fail('BASIS_RESERVED',id+': сначала снимите незапущенное задание, срок уже зафиксирован');
+  const before=t.routeDue;t.routeDue=b;const result=parseBasis(t,d,index);
+  if(!result.ok){if(before===undefined)delete t.routeDue;else t.routeDue=before;return fail(result.code,id+': '+result.message)}
+  return{ok:true,changed:JSON.stringify(before)!==JSON.stringify(b)};
+ }
  function validateRouteBasis(route,d,index=null){const ix=index||engine()?.contextIndex(d)||new Map(),out=[];for(const id of arr(route?.taskIds)){const t=ix.get(String(id))?.task,b=t?parseBasis(t,d,ix):fail('TASK_MISSING','Мероприятие не найдено');if(!b.ok)out.push({code:b.code,taskId:String(id),message:id+': '+b.message})}return out}
  // A single explicit transaction. Existing pending jobs freeze the due basis;
  // meter readings may be refreshed until actual execution starts.
@@ -48,20 +59,18 @@
    seen.add(id);
    const key=signature(t,work,ix),s=spec(t),old=parseBasis(t,work,ix);
    if(!key||!s?.ok||row.key!==key)return fail('STALE_BASIS','Изменилось мероприятие '+id+'; откройте настройки повторно');
-   if(runningTask(work,id))return fail('RUNNING','Мероприятие '+id+' уже выполняется');
+   
    let b={...(old.ok?{lastRunId:t.routeDue?.lastRunId||'',lastServiceDate:t.routeDue?.lastServiceDate||''}:{}),key};
    if(s.kind==='runtime_hours'){
     if(str(row.hoursPerDay)&&num(row.hoursPerDay)==null)return fail('INVALID_RATE',id+': некорректная плановая наработка');
     b={...b,nextHours:num(row.nextHours),readingHours:num(row.readingHours),readingDate:day(row.readingDate),hoursPerDay:num(row.hoursPerDay)||0};
-    if(old.ok&&(b.readingHours<old.readingHours||b.readingDate<old.readingDate))return fail('METER_ROLLBACK',id+': сброс/замена счётчика требуют отдельного согласования');
-    if(reserved(work,id)&&(!old.ok||b.nextHours!==old.nextHours))return fail('BASIS_RESERVED',id+': сначала снимите незапущенное задание, порог уже зафиксирован');
+    
+    
    }else{
     b.nextDate=day(row.nextDate);
-    if(reserved(work,id)&&(!old.ok||b.nextDate!==old.nextDate))return fail('BASIS_RESERVED',id+': сначала снимите незапущенное задание, срок уже зафиксирован');
+    
    }
-   const before=t.routeDue;t.routeDue=b;
-   const result=parseBasis(t,work,ix);
-   if(!result.ok){t.routeDue=before;return fail(result.code,id+': '+result.message)}
+   const result=writeBasis(t,b,work,ix);if(!result.ok)return result;
   }
   global.LubricaCore.State.setDatabase(work);
   global.LubricaApp?.refreshFromCore?.();
@@ -162,5 +171,5 @@
    b.lastRunId=run.id;b.lastServiceDate=run.date;
   }
  }
- global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,validateRouteBasis,configure,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,advanceCompleted});
+ global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,writeBasis,validateRouteBasis,configure,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,advanceCompleted});
 })(window);

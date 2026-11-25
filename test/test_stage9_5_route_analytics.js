@@ -21,6 +21,7 @@ const runs=[
  {id:'search',label:'Поиск инструмента / материала',productive:false,minutes:12,count:1}]}}}
 ];
 const db={checklistRuns:runs};global.LubricaCore={State:{getDatabase:()=>db}};
+vm.runInThisContext(fs.readFileSync('checklist/checklist-engine.js','utf8'));
 global.LubricaChecklistEngine={routeRuns:(id)=>runs.filter(x=>x.routeId===id),modelForRun:(route,run)=>run.routeSnapshot};
 vm.runInThisContext(fs.readFileSync('routes/route-plan-fact.js','utf8'));
 vm.runInThisContext(fs.readFileSync('routes/route-analytics.js','utf8'));
