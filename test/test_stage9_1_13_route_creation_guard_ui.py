@@ -15,7 +15,7 @@ checks={
  'creation commit flag starts false':'creationCommitted=false' in js,
  'creation commit only after success':'creationCommitted=true;view.dataset.selectedRoute=res.route.id' in js,
  'close cleanup does not create':"if(!creationCommitted){selectedTaskIds.clear();delete dlg.dataset.pendingRouteId}" in js,
- 'area selector remains correct':'<option value="">Все участки</option>' in js,
+ 'manual scope guard remains correct':'<option value="">Выберите участок</option>' in js and 'name="serviceKey"' in js and "(!data.areaId||!data.serviceKey)" in js,
 }
 # Structural guard: createRoute / cloneRoute must only occur inside submit handler region.
 start=js.index("f.addEventListener('submit'")
