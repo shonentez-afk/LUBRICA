@@ -338,7 +338,7 @@
    if(existing){existing.reasons.push(issue);continue}
    const group=A().describe(c),was=old.owners.get(id)||[],will=now.owners.get(id)||[],inScope=!scoped||group.ok&&groupScope(group,o)||was.some(r=>groupScope(r,o));
    const newly=will.some(r=>!was.some(x=>String(x.id)===String(r.id)));
-   let outcome=will.length?(newly?'included':'retained'):was.length?'removed':scoped&&group.ok&&!inScope?'outside':'excluded';
+   let outcome=issue.manualUnselected?'unselected':will.length?(newly?'included':'retained'):was.length?'removed':scoped&&group.ok&&!inScope?'outside':'excluded';
    byTask.set(id,{taskId:id,...identity(c),outcome,scope:!scoped||inScope?'selected':group.ok?'outside':'unknown',routes:refs(will),previousRoutes:refs(was),reasons:[issue]});
   }
   const rows=[...byTask.values()].map(x=>{
@@ -347,7 +347,7 @@
    return{...x,reasons,codes,actions};
   });
   const missing=[];
-  for(const r of now.routes.filter(r=>r.source==='auto'&&D().typed(r)&&groupScope(r,o)))for(const id of arr(r.taskIds)){
+  for(const r of now.routes.filter(r=>(Array.isArray(o.routeIds)?o.routeIds.includes(r.id):r.source==='auto')&&D().typed(r)&&groupScope(r,o)))for(const id of arr(r.taskIds)){
    const c=ix.get(String(id)),basis=c&&D().parseBasis(c.task,after,ix);if(!basis?.ok)missing.push({taskId:String(id),...identity(c),routeName:r.name||r.code||r.id,routeStatus:r.status,reason:basis?.message||'Не найдено мероприятие'});
   }
   return{rows,missing,general};
@@ -453,5 +453,5 @@
   if(JSON.stringify(result.database)!==JSON.stringify(d)){global.LubricaCore.State.setDatabase(result.database);global.LubricaApp?.refreshFromCore?.()}
   const {database,...rest}=result;return rest;
  }
- global.LubricaRouteAutomation=Object.freeze({eligible,candidates,setupAllowed,config,equipmentOrder,policy,taskPpr,taskMinutes,duration,earlyDate,allowedEarliest,reconcile,historyFor,partition,projectRange,forecast,preview,apply});
+ global.LubricaRouteAutomation=Object.freeze({eligible,candidates,resultDiagnostics,setupAllowed,config,equipmentOrder,policy,taskPpr,taskMinutes,duration,earlyDate,allowedEarliest,reconcile,historyFor,partition,projectRange,forecast,preview,apply});
 })(window);

@@ -11,6 +11,20 @@
  const checkbox=(name,label,checked=false)=>'<label class="r5-check"><input type="checkbox" data-r5="'+name+'" '+(checked?'checked':'')+'>'+label+'</label>';
  const input=(name,label,type='text',v='',extra='')=>'<label>'+label+'<input data-r5="'+name+'" type="'+type+'" value="'+esc(v)+'" '+extra+'></label>';
 
+  function diagnosticItem(x){
+   const name=[x.equipment,x.operation,x.interval].filter(Boolean).join(' · ')||x.taskId;
+   const labels={excluded:'Не войдёт в маршрут',removed:'Будет исключено из текущего состава',retained:'Останется в существующем маршруте',included:'Будет включено',outside:'Не входит в выбранную группу',unselected:'Не выбрано вручную'};
+   const status=labels[x.outcome]||'Требуется проверка';
+   const where=x.routes.length?'Маршрут: '+x.routes.map(r=>r.name+' ('+(r.status==='draft'?'черновик':'активный')+')').join('; '):x.previousRoutes.length?'Прежний маршрут: '+x.previousRoutes.map(r=>r.name).join('; '):'Маршрут после сохранения: не назначен';
+   return '<article class="r82-issue-card" data-r82-issue="'+esc(x.taskId)+'" data-outcome="'+esc(x.outcome)+'"><div class="r82-issue-status">'+esc(status)+'</div><b>'+esc(name)+'</b><small>'+esc([x.location,x.taskId].filter(Boolean).join(' · '))+'</small><small>'+esc(where)+'</small>'+(x.scope==='outside'?'<small>Замечание относится к другой группе обслуживания выбранного участка.</small>':x.scope==='unknown'?'<small>Группа маршрута не определена.</small>':'')+'<div><strong>Причина:</strong> '+esc(x.reasons.join(' · '))+'</div>'+(x.actions.length?'<div><strong>Что сделать:</strong> '+esc(x.actions.join(' · '))+'</div>':'')+'</article>';
+  }
+  function diagnosticResult(res){
+   const d=res.diagnostics||{},rows=arr(d.rows),missing=arr(d.missing),general=arr(d.general);
+   const groups=[['Не войдут в маршрут',rows.filter(x=>['excluded','removed'].includes(x.outcome))],['Останутся в существующих маршрутах',rows.filter(x=>x.outcome==='retained')],['Войдут в маршрут с замечаниями',rows.filter(x=>x.outcome==='included')],['Не выбраны вручную',rows.filter(x=>x.outcome==='unselected')],['Другие группы выбранного участка',rows.filter(x=>x.outcome==='outside')]];
+   const sections=groups.filter(([,xs])=>xs.length).map(([title,xs])=>'<details class="r5-result-detail r82-issue-section" '+(title==='Не войдут в маршрут'?'open':'')+'><summary>'+title+' · '+xs.length+'</summary><div class="r5-scroll">'+xs.map(diagnosticItem).join('')+'</div></details>').join('');
+   return sections+(missing.length?'<details class="r5-result-detail r82-issue-section"><summary>В составе маршрутов, но требуют настройки сроков · '+missing.length+'</summary><p class="r5-note">Эти мероприятия включены в состав. Без подтверждённого срока по ним нельзя сформировать новое задание.</p><div class="r5-scroll">'+missing.map(x=>'<article class="r82-issue-card" data-r82-missing-due="'+esc(x.taskId)+'"><b>'+esc([x.equipment,x.operation,x.interval].filter(Boolean).join(' · '))+'</b><small>'+esc([x.location,x.taskId].filter(Boolean).join(' · '))+'</small><small>'+esc(x.routeName+' · '+(x.routeStatus==='draft'?'черновик':'активный'))+'</small><div>'+esc(x.reason)+'</div><small>Настройте сроки в карточке маршрута.</small></article>').join('')+'</div></details>':'')+(general.length?'<details class="r5-result-detail"><summary>Общие замечания · '+general.length+'</summary><div class="r5-scroll">'+general.map(x=>'<div class="r5-item"><b>'+esc(x.routeId||x.code||'Проверка')+'</b><small>'+esc(x.message||x.reason)+'</small></div>').join('')+'</div></details>':'');
+  }
+
  function open(view,dlg,{onApplied,bulk=false,resume=null}={}){
   const R=global.LubricaRouteAutomation,W=global.LubricaRouteWorkload,D=global.LubricaRouteDue,E=global.LubricaRouteEngine,d=db();
   if(!R||!W||!D||!E||!d||!dlg)return;
@@ -113,19 +127,6 @@
   }
   const detailList=(heading,items,fn)=>items.length?'<details class="r5-result-detail"><summary>'+heading+' · '+items.length+'</summary><div class="r5-scroll">'+items.map(fn).join('')+'</div></details>':'';
   const item=(title,sub,more='')=>'<div class="r5-item"><div><b>'+esc(title)+'</b><small>'+esc(sub)+'</small></div>'+(more?'<strong>'+esc(more)+'</strong>':'')+'</div>';
-  function diagnosticItem(x){
-   const name=[x.equipment,x.operation,x.interval].filter(Boolean).join(' · ')||x.taskId;
-   const labels={excluded:'Не войдёт в маршрут',removed:'Будет исключено из текущего состава',retained:'Останется в существующем маршруте',included:'Будет включено',outside:'Не входит в выбранную группу'};
-   const status=labels[x.outcome]||'Требуется проверка';
-   const where=x.routes.length?'Маршрут: '+x.routes.map(r=>r.name+' ('+(r.status==='draft'?'черновик':'активный')+')').join('; '):x.previousRoutes.length?'Прежний маршрут: '+x.previousRoutes.map(r=>r.name).join('; '):'Маршрут после сохранения: не назначен';
-   return '<article class="r82-issue-card" data-r82-issue="'+esc(x.taskId)+'" data-outcome="'+esc(x.outcome)+'"><div class="r82-issue-status">'+esc(status)+'</div><b>'+esc(name)+'</b><small>'+esc([x.location,x.taskId].filter(Boolean).join(' · '))+'</small><small>'+esc(where)+'</small>'+(x.scope==='outside'?'<small>Замечание относится к другой группе обслуживания выбранного участка.</small>':x.scope==='unknown'?'<small>Группа маршрута не определена.</small>':'')+'<div><strong>Причина:</strong> '+esc(x.reasons.join(' · '))+'</div>'+(x.actions.length?'<div><strong>Что сделать:</strong> '+esc(x.actions.join(' · '))+'</div>':'')+'</article>';
-  }
-  function diagnosticResult(res){
-   const d=res.diagnostics||{},rows=arr(d.rows),missing=arr(d.missing),general=arr(d.general);
-   const groups=[['Не войдут в маршрут',rows.filter(x=>['excluded','removed'].includes(x.outcome))],['Останутся в существующих маршрутах',rows.filter(x=>x.outcome==='retained')],['Войдут в маршрут с замечаниями',rows.filter(x=>x.outcome==='included')],['Другие группы выбранного участка',rows.filter(x=>x.outcome==='outside')]];
-   const sections=groups.filter(([,xs])=>xs.length).map(([title,xs])=>'<details class="r5-result-detail r82-issue-section" '+(title==='Не войдут в маршрут'?'open':'')+'><summary>'+title+' · '+xs.length+'</summary><div class="r5-scroll">'+xs.map(diagnosticItem).join('')+'</div></details>').join('');
-   return sections+(missing.length?'<details class="r5-result-detail r82-issue-section"><summary>В составе маршрутов, но требуют настройки сроков · '+missing.length+'</summary><p class="r5-note">Эти мероприятия включены в состав. Без подтверждённого срока по ним нельзя сформировать новое задание.</p><div class="r5-scroll">'+missing.map(x=>'<article class="r82-issue-card" data-r82-missing-due="'+esc(x.taskId)+'"><b>'+esc([x.equipment,x.operation,x.interval].filter(Boolean).join(' · '))+'</b><small>'+esc([x.location,x.taskId].filter(Boolean).join(' · '))+'</small><small>'+esc(x.routeName+' · '+(x.routeStatus==='draft'?'черновик':'активный'))+'</small><div>'+esc(x.reason)+'</div><small>Настройте сроки в карточке маршрута.</small></article>').join('')+'</div></details>':'')+detailList('Общие замечания',general,x=>item(x.routeId||x.code||'Проверка',x.message||x.reason));
-  }
   function pprResult(p){
    if(!p)return'';
    const rows=arr(p.dates),issues=rows.filter(x=>x.conflict);
@@ -182,5 +183,5 @@
   el('apply').onclick=()=>{if(!report)return;try{const result=R.apply(report.options,report.token);if(!result.ok){report=null;renderResult(result);return}dlg.close();onApplied?.(result);global.LubricaApp?.showToast?.('Выбранные маршруты сохранены')}catch(e){report=null;renderResult({ok:false,message:e.message||String(e)})}};
   if(resume)el('line').value=resume.line;refreshScope(true);if(bulk)ui('[data-r8-select-all]').click();if(!dlg.open)dlg.showModal();
  }
- global.LubricaRouteAutomationUI=Object.freeze({open});
+ global.LubricaRouteAutomationUI=Object.freeze({open,diagnosticResult});
 })(window);

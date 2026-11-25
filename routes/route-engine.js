@@ -243,6 +243,23 @@
    const m=maps(d||{}),intervals=[...new Set((d?.tasks||[]).filter(approved).map(intervalForTask).filter(isPeriodic))].sort((a,b)=>a.localeCompare(b,'ru'));
    return {lines:[...(d?.lines||[])].map(x=>({id:x.id,name:x.name||x.id})),areas:[...(d?.areas||[])].map(x=>({id:x.id,lineId:x.lineId||'',name:x.name||x.id})),intervals,routes:(d?.routes||[]).map(normalizeRoute).filter(r=>r.status!=='archived')};
  }
+ // Read-only manual catalog uses the same eligible index, canonical identity and ownership as automation.
+ function manualCreationCatalog({lineId='',areaId=''}={},d=database()){
+  const A=global.LubricaRouteAutoGrouping,M=global.LubricaRouteAutomation;
+  if(!d||!A||!M)return{ok:false,reason:'Модуль формирования маршрутов недоступен',groups:[]};
+  if(!lineId||!areaId||!(d.areas||[]).some(a=>String(a.id)===String(areaId)&&String(a.lineId)===String(lineId)))return{ok:true,groups:[],issues:0};
+  const info=M.eligible(d);if(!info.ok)return{ok:false,reason:'Инженерный контроль недоступен',groups:[]};
+  const own=A.ownership(d),groups=new Map(),scope=g=>String(g?.lineId)===String(lineId)&&String(g?.areaId)===String(areaId);
+  const ensure=g=>{const key=A.routeKey(g);if(!groups.has(key))groups.set(key,{key,lineId:g.lineId,areaId:g.areaId,groupingMode:g.groupingMode,serviceKey:g.serviceKey,serviceLabel:g.serviceLabel,scheduleKey:g.scheduleKey,interval:g.interval,name:g.name,eligibleIds:[],freeIds:[],routes:[],issueCount:0});return groups.get(key)};
+  for(const [id,g] of info.valid){if(!scope(g))continue;const x=ensure(g);x.eligibleIds.push(id);if(!own.owners.has(id)&&!own.excluded.has(id)&&!own.reserved.has(id))x.freeIds.push(id)}
+  // Also show recognizable groups with engineering gaps, rather than hiding them as absent.
+  const issues=info.issues.filter(i=>scope(info.ix.get(i.taskId)));
+  for(const i of issues){const g=A.describe(info.ix.get(i.taskId));if(g.ok)ensure(g).issueCount++}
+  for(const r of own.routes){if(!typed(r)||!scope(r))continue;ensure(r).routes.push({id:r.id,code:r.code||r.id,name:r.name||r.code||r.id,status:r.status,taskCount:(r.taskIds||[]).length,locked:own.locked.has(String(r.id))})}
+  const rank=k=>k.startsWith('days:')?0:k.startsWith('months:')?1:2;
+  const result=[...groups.values()].map(x=>({...x,freePointCount:new Set(x.freeIds.map(id=>info.ix.get(id)?.lp?.id).filter(Boolean)).size,canCreate:x.routes.length===0&&x.freeIds.length>0})).sort((a,b)=>rank(a.scheduleKey)-rank(b.scheduleKey)||Number(a.scheduleKey.split(':')[1])-Number(b.scheduleKey.split(':')[1])||(a.serviceLabel||'').localeCompare(b.serviceLabel||'','ru'));
+  return{ok:true,groups:result,issues:issues.length};
+ }
  function suggestRouteName({lineId='',areaId='',interval=''}={},d=database()){
    const m=maps(d||{}),line=m.lines.get(lineId),area=m.areas.get(areaId);return [line?.name||lineId,area?.name||areaId,interval].filter(Boolean).join(' — ')||'Новый маршрут';
  }
@@ -262,13 +279,15 @@
     const catalog=previewPointTaskCatalog(input,d),points=catalog.points.map(g=>{const tasks=g.tasks.filter(t=>t.matchesInterval);return{...g,tasks,taskIds:tasks.map(t=>t.id)}}).filter(g=>g.taskIds.length);
     const taskIds=points.flatMap(g=>g.taskIds);return{points,variants:points,taskIds,pointCount:points.length,physicalPointCount:points.length,taskCount:taskIds.length};
   }
-  function createRoute(input={},d=database()){
+  function createRoute(input={},d=database(),{persist=true}={}){
    if(!d)return {ok:false,reason:'База данных недоступна'};
    const routes=d.routes||[],A=global.LubricaRouteAutoGrouping;if(!validTiming(input))return{ok:false,code:'TIME_INVALID',reason:'Укажите допустимый норматив времени'};
    const lineId=clean(input.lineId),areaId=clean(input.areaId),interval=clean(input.interval);
    if(!lineId)return {ok:false,reason:'Выберите линию'};if(!interval&&input.intervalMode!=='mixed')return {ok:false,reason:'Выберите периодичность'};
    const code=clean(input.code)||nextRouteCode(routes,lineId,areaId);if(routes.some(r=>clean(r.code)&&clean(r.code)===code))return {ok:false,reason:`Код маршрута ${code} уже используется`};
    let r=normalizeRoute({id:nextRouteId(routes,d),code,name:clean(input.name)||suggestRouteName({lineId,areaId,interval},d),description:clean(input.description),lineId,areaId,interval,intervalMode:input.intervalMode||'fixed',routeType:input.routeType||'lubrication',...typedMeta(input),sequenceMode:'manual',assignee:clean(input.assignee)||'Смазчик',estimatedMinutesPerTask:Number(input.estimatedMinutesPerTask)||5,fixedMinutes:input.fixedMinutes==null?10:Number(input.fixedMinutes),planningAnchorDate:input.planningAnchorDate||'',runtimePlanningHoursPerDay:Number(input.runtimePlanningHoursPerDay)||0,status:input.status||'draft',source:input.source||'manual',taskIds:[],excludedTaskIds:[]});
+   if(!persist&&!input.manualGroupKey)return{ok:false,code:'MANUAL_SELECTION_REQUIRED',reason:'Для проверки выберите конкретную группу'};
+   if(input.manualGroupKey&&(!lineId||!areaId||!input.serviceKey||!Array.isArray(input.taskIds)||!input.taskIds.length||input.status!=='draft'||!typed(r)))return{ok:false,code:'MANUAL_SELECTION_REQUIRED',reason:'Выберите группу и хотя бы одно мероприятие; маршрут создаётся черновиком'};
    if(input.fillMode==='automatic')return{ok:false,code:'USE_AUTOMATION_MASTER',reason:'Автоматическое создание доступно только через мастер автоматических маршрутов'};
     if(Array.isArray(input.taskIds))for(const id of input.taskIds.map(String))if(!r.taskIds.includes(id))r.taskIds.push(id);
     if(A&&r.taskIds.length){const free=new Set(previewRouteCandidates(r,d).taskIds),bad=r.taskIds.filter(id=>!free.has(id));if(bad.length)return{ok:false,code:'TASK_UNAVAILABLE',reason:'Мероприятия уже назначены, исключены, защищены или не соответствуют маршруту: '+bad.join(', ')}}
@@ -278,10 +297,20 @@
       if(infos.some(x=>!x.ok)||r.taskIds.some(id=>!eligible.valid.has(id)))return{ok:false,code:'TASK_UNAVAILABLE',reason:'Не подтверждена инженерная готовность выбранного мероприятия'};
       const possible=[...new Map((infos.length?infos:[...eligible.valid.values()].filter(g=>g.lineId===lineId&&(!areaId||g.areaId===areaId)&&g.scheduleKey===rule?.key&&(!input.serviceKey||g.serviceKey===input.serviceKey))).map(g=>[g.key,g])).values()];
       if(possible.length!==1||!possible[0].areaId||input.intervalMode==='mixed')return{ok:false,code:'GROUP_SCOPE',reason:'Выберите один участок, один вид обслуживания и одну периодичность'};
-      const g=possible[0];if(routes.some(x=>x.status!=='archived'&&A.routeKey(x)===g.key))return{ok:false,code:'GROUP_EXISTS',reason:'Маршрут этой группы уже существует. Настройте его вместо создания дубля'};
+      const g=possible[0];if(input.manualGroupKey&&g.key!==input.manualGroupKey)return{ok:false,code:'GROUP_SCOPE',reason:'Выбранная группа изменилась. Вернитесь к выбору состава'};if(routes.some(x=>x.status!=='archived'&&A.routeKey(x)===g.key))return{ok:false,code:'GROUP_EXISTS',reason:'Маршрут этой группы уже существует. Настройте его вместо создания дубля'};
       Object.assign(r,{lineId:g.lineId,areaId:g.areaId,groupingMode:g.groupingMode,serviceKey:g.serviceKey,serviceLabel:g.serviceLabel,scheduleKey:g.scheduleKey,interval:g.interval,source:'manual'});
       if(!clean(input.name))r.name=g.name;
-      const work=clone(d);r.status='draft';work.routes=[...(work.routes||[]),r];
+      let work=clone(d);r.status='draft';work.routes=[...(work.routes||[]),r];
+      if(input.manualGroupKey){
+       const mode=input.pprMode||'normal',initial=input.initialSchedule||null;
+       if(!['normal','ppr'].includes(mode))return{ok:false,code:'PPR_SCOPE_INVALID',reason:'Выберите условия доступа'};
+       if(initial){
+        const result=global.LubricaRouteDue.configureRoute(r.id,{...initial,pprMode:mode},work,{persist:false,activate:false});if(!result.ok)return{...result,reason:result.message||result.reason};work=result.database;
+       }else if(mode==='ppr'){
+        const result=global.LubricaRouteWorkload.saveRoutePpr(r.id,mode,'',work,{persist:false});if(!result.ok)return{...result,reason:result.message||result.reason};work=result.database;
+       }
+       ensureRouteRevision(r.id,work,{note:'Исходная версия маршрута',reason:'create'});const created=rawRoute(work,r.id);if(persist)save(work,'Маршрут создан');return{ok:true,route:created,database:work};
+      }
       if(input.planningAnchorDate&&!g.scheduleKey.startsWith('runtime_hours:')&&r.taskIds.length){const result=global.LubricaRouteDue.configureRoute(r.id,{date:input.planningAnchorDate},work,{persist:false,activate:input.status==='active'});if(!result.ok)return{...result,reason:result.message};save(result.database,'Маршрут создан');return{ok:true,route:result.route}}
       if(input.status==='active')return{ok:false,code:'ROUTE_SCHEDULE_REQUIRED',reason:'Сначала настройте общий срок маршрута'};
       ensureRouteRevision(r.id,work,{note:'Исходная версия маршрута',reason:'create'});save(work,'Маршрут создан');return{ok:true,route:r};
@@ -289,6 +318,27 @@
      if(!Array.isArray(d.routes))d.routes=[];d.routes.push(r);
     if(r.status==='active'){const report=validateRoute(r.id,d);if(!report.valid){d.routes=d.routes.filter(x=>x!==r);return{ok:false,reason:'Маршрут не готов к активации',report}}}
    ensureRouteRevision(r.id,d,{note:'Исходная версия маршрута',reason:'create'});save(d,'Маршрут создан');return {ok:true,route:r};
+ }
+ // Simulate exactly what will be committed. No route, revision, due or access write occurs in preview.
+ function previewManualCreation(input={},d=database()){
+  if(!input.manualGroupKey)return{ok:false,reason:'Выберите конкретную группу'};
+  const result=createRoute(input,d,{persist:false});if(!result.ok)return result;
+  const M=global.LubricaRouteAutomation,A=global.LubricaRouteAutoGrouping,after=result.database,r=result.route,info=M.eligible(d),own=A.ownership(d),chosen=new Set(r.taskIds),issues=[];
+  const matches=id=>{const g=A.describe(info.ix.get(id));return g.ok&&g.key===input.manualGroupKey};
+  for(const issue of info.issues)if(matches(issue.taskId))issues.push(issue);
+  for(const [id,g] of info.valid){if(g.key!==input.manualGroupKey||chosen.has(id))continue;
+   const owners=own.owners.get(id)||[];
+   issues.push({taskId:id,message:owners.length?'Уже назначено в другом маршруте':own.reserved.has(id)?'Есть незавершённое задание':own.excluded.has(id)?'Ранее исключено вручную':'Не выбрано пользователем',...(owners.length||own.reserved.has(id)||own.excluded.has(id)?{}:{manualUnselected:true})});
+  }
+  const diagnostics=M.resultDiagnostics({issues},{issues:[]},d,after,{groupKey:input.manualGroupKey,routeIds:[r.id]});
+  const ix=contextIndex(after),pointCount=new Set(r.taskIds.map(id=>ix.get(id)?.lp?.id)).size,minutes=M.duration(r,r.taskIds,after,ix);
+  const token=JSON.stringify([r.id,r.code,r.name,A.routeKey(r),r.taskIds,input.pprMode||'normal',r.taskIds.map(id=>ix.get(id)?.task?.routeDue||null),diagnostics,minutes]);
+  return{...result,diagnostics,pointCount,minutes,token};
+ }
+ function commitManualCreation(input,token,d=database()){
+  const result=previewManualCreation(input,d);if(!result.ok)return result;
+  if(!token||result.token!==token)return{ok:false,code:'STALE_PREVIEW',reason:'Данные изменились. Повторите проверку состава перед созданием'};
+  save(result.database,'Маршрут создан');return result;
  }
  function cloneRoute(routeId,input={},d=database()){
    const src=rawRoute(d,routeId);if(!src)return {ok:false,reason:'Маршрут не найден'};const result=createRoute({...src,...input,id:undefined,code:input.code||'',name:input.name||`${src.name||src.id} — копия`,status:'draft',source:'copy',groupingMode:'',serviceKey:'',serviceLabel:'',scheduleKey:'',fillMode:'empty',taskIds:(src.taskIds||[]).filter(id=>!global.LubricaRouteAutoGrouping||previewRouteCandidates({...src,...input},d).taskIds.includes(String(id)))},d);return result;
@@ -396,6 +446,6 @@
    return{ok:true,created,updated,archived,routeIds,preview:report,database:work};
  }
 
- window.LubricaRouteEngine=Object.freeze({contextIndex,previewAutoGrouping,applyAutoGrouping,routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,updateRouteSettings,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,routeDeletionAssessment,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute,validationContext,transitionCheck,validTiming,routeAssessment});
+ window.LubricaRouteEngine=Object.freeze({contextIndex,previewAutoGrouping,applyAutoGrouping,routeEntries,routeRevisions,revisionState,ensureRouteRevision,commitRouteRevision,compareRouteRevisions,syncRoutes,syncAndSave,updateRoute,updateRouteSettings,moveTask,excludeTask,restoreTask,taskContext,routeEligibility,readinessIndex,eligibleGroups,pointGroupsForRoute,pointTaskCandidates,taskCandidate,previewPointTaskCatalog,availablePoints,queueState,setPointOrder,movePoint,movePointToIndex,movePointBefore,addTasksToRoute,removeTaskFromRoute,addPointToRoute,removePointFromRoute,routeCreationOptions,manualCreationCatalog,previewManualCreation,commitManualCreation,suggestRouteName,previewRouteCandidates,createRoute,cloneRoute,archiveRoute,restoreRoute,setRouteStatus,deleteRoute,routeDeletionAssessment,candidatePointVariants,addPointVariantToRoute,movePointToRoute,validateRoute,validationContext,transitionCheck,validTiming,routeAssessment});
  global.LubricaSystem?.registerModule?.('Маршруты','ok','Создание, ревизии и календарное планирование маршрутов');
 })(window);
