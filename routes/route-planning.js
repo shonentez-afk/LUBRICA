@@ -104,7 +104,7 @@
    }
    store.push({...frozen,id:nextPlanId(work),status:'planned',runId:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});existing.add(item.planKey);created++
   }
-  if(persist&&(created||!hasTyped)){global.LubricaCore?.State?.setDatabase?.(work);global.LubricaApp?.showToast?.(`План смазочных работ обновлён · добавлено ${created}`)}return{ok:true,created,preview:result,database:work}
+  if(persist&&created){global.LubricaCore?.State?.setDatabase?.(work);global.LubricaApp?.showToast?.(`План смазочных работ обновлён · добавлено ${created}`)}return{ok:true,created,preview:result,database:work}
  }
  function projectedItems(d){
   const runs=new Map((d?.checklistRuns||[]).map(r=>[String(r.id),r]));

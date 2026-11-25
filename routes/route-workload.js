@@ -115,7 +115,7 @@
   if(mode==='ppr')pprRouteIds.push(id);
   const guard=pprModeGuard(d,pprRouteIds);if(!guard.ok)return guard;
   w.routeWorkload={...raw,ppr:addPhase?[...rawPhase,{lineId,anchorDate:given,intervalDays:14}]:rawPhase,pprRouteIds:pprRouteIds.sort()};
-  if(persist&&r.status==='active'&&global.LubricaRouteDue?.typed(r)){const issue=global.LubricaRouteDue.activationIssues(r,w).find(x=>['PPR_CYCLE','PPR_ANCHOR_REQUIRED'].includes(x.code));if(issue)return fail(issue.code,issue.message)}
+  if(global.LubricaRouteDue?.typed(r)){const issue=global.LubricaRouteDue.activationIssues(r,w).find(x=>['PPR_CYCLE','PPR_ANCHOR_REQUIRED'].includes(x.code));if(issue)return fail(issue.code,issue.message)}
   if(persist)global.LubricaCore.State.setDatabase(w);
   return{ok:true,changed:true,database:w};
  }
@@ -323,6 +323,7 @@
  }
  function validateStart(item,date,shift,d=db()){
   const a=assignment(item);if(!a)return pprOnly(item,d)?fail('PPR_ASSIGNMENT_REQUIRED','Для работ только в ППР сначала назначьте задание на ППР своей линии'):{ok:true};
+  if(item.status!=='planned'||item.runId)return fail('JOB_LOCKED','Задание уже запущено или закрыто');
   if(a.date<earliestDate(item,d))return fail('WORK_DATE_INVALID','Дата вне согласованного окна');
   if(!allowedWindow(item,a.date,d))return fail('PPR_CONFLICT','Назначенная дата не является ППР своей линии. Перенесите задание');
   if(item.status!=='planned'||item.runId)return fail('JOB_LOCKED','Задание уже запущено или закрыто');

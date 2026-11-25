@@ -78,12 +78,12 @@
  }
  function reserved(d,id){return global.LubricaRouteAutoGrouping.taskReserved(d,id)}
  function runningTask(d,id){return global.LubricaRouteAutoGrouping.runningTask(d,id)}
- function writeBasis(t,b,d,index,{initialOnly=false}={}){
+ function writeBasis(t,b,d,index,{initialOnly=false,replaceSource=false}={}){
   const id=str(t?.id),key=t&&signature(t,d,index),old=t&&parseBasis(t,d,index),s=t&&spec(t);
   if(!key||!s?.ok||b?.key!==key)return fail('STALE_BASIS','Изменилось мероприятие '+id+'; откройте настройки повторно');
   if(initialOnly&&old.ok)return{ok:true,changed:false};
   if(runningTask(d,id))return fail('RUNNING','Мероприятие '+id+' уже выполняется');
-  if(s.kind==='runtime_hours'&&old.ok&&old.kind==='runtime_hours'&&b.planningMode!=='calendar_runtime'&&(b.readingHours<old.readingHours||b.readingDate<old.readingDate))return fail('METER_ROLLBACK',id+': сброс/замена счётчика требуют отдельного согласования');
+  if(s.kind==='runtime_hours'&&old.ok&&old.kind==='runtime_hours'&&b.planningMode!=='calendar_runtime'&&!(replaceSource&&b.meterKey&&b.meterKey!==old.meterKey)&&(b.readingHours<old.readingHours||b.readingDate<old.readingDate))return fail('METER_ROLLBACK',id+': сброс/замена счётчика требуют отдельного согласования');
   if(reserved(d,id)&&(!old.ok||(old.kind==='runtime_hours'?b.planningMode==='calendar_runtime'||b.nextHours!==old.nextHours||b.meterKey!==old.meterKey:b.planningMode!==t.routeDue?.planningMode||b.nextDate!==old.nextDate||b.cycleDays!==t.routeDue?.cycleDays||b.maxHoursPerDay!==t.routeDue?.maxHoursPerDay)))return fail('BASIS_RESERVED',id+': сначала снимите незапущенное задание, срок уже зафиксирован');
   const before=t.routeDue;t.routeDue=b;const result=parseBasis(t,d,index);
   if(!result.ok){if(before===undefined)delete t.routeDue;else t.routeDue=before;return fail(result.code,id+': '+result.message)}
@@ -132,7 +132,6 @@
   if(global.LubricaRouteAutoGrouping.routeLocked(work,r))return fail('ROUTE_LOCKED','Сначала завершите или снимите открытые задания');
   const date=day(input.date),mode=input.mode||'next',runtime=r.scheduleKey.startsWith('runtime_hours:'),calendar=runtime&&input.planningMode==='calendar_runtime',ppr=input.pprMode?input.pprMode==='ppr':W?.requiresPpr(r.id,work);
   if(!date||!['next','last'].includes(mode)||mode==='last'&&date>today())return fail('INITIAL_DATE','Укажите допустимую исходную дату');
-  if(input.pprMode){const result=W.saveRoutePpr(r.id,input.pprMode,'',work,{persist:false});if(!result.ok)return result;work.routeWorkload=result.database.routeWorkload}
   let updated=0;
   for(const id of arr(r.taskIds)){
    const t=ix.get(String(id))?.task;if(!t)return fail('TASK_MISSING','Нет мероприятия '+id);
@@ -149,6 +148,7 @@
    if(r.cycleMode==='fixed_weekly'){b.cycleAnchor=b.nextDate;b.cycleTarget=b.nextDate}
    const changed=writeBasis(t,b,work,ix);if(!changed.ok)return changed;if(changed.changed)updated++;
   }
+  if(input.pprMode){const result=W.saveRoutePpr(r.id,input.pprMode,'',work,{persist:false});if(!result.ok)return result;work.routeWorkload=result.database.routeWorkload}
   if(calendar)r.scheduleDefaults={planningMode:'calendar_runtime',maxHoursPerDay:Number(input.maxHoursPerDay),confirmCalendar:true};
   const issues=activationIssues(r,work,ix);
   if((activate||r.status==='active')&&issues.length)return{...fail('ROUTE_SCHEDULE_BLOCKED',issues[0].message),issues};
@@ -159,6 +159,12 @@
  }
  // The same equipment meter can update all of its tasks; distinct service
  // thresholds are retained when refreshing readings.
+ function initialMeterBasis(t,d,index,input={}){
+  const c=context(t,d,index),s=spec(t),date=day(input.readingDate),reading=num(input.readingHours),last=num(input.lastHours),rate=num(input.hoursPerDay),key=meterKey(c?.eq?.id,input.meterId||'main');
+  if(!c?.eq?.id||s?.kind!=='runtime_hours'||input.confirmMeter!==true||!date||date>today()||reading==null||last==null||last<0||last>reading||str(input.hoursPerDay)&&rate==null||rate!=null&&(rate<0||rate>24))return fail('METER_INITIAL','Подтвердите общий счётчик, последнее обслуживание, показание и дату');
+  const result=writeMeter(d,key,reading,date,rate);if(!result.ok)return result;const meter=meterRecord(d,key);
+  return{ok:true,basis:{key:signature(t,d,index),meterKey:key,nextHours:last+s.value,readingHours:meter.readingHours,readingDate:meter.readingDate,hoursPerDay:meter.hoursPerDay}};
+ }
  function configureMeter(routeId,equipmentId,input={},d=db(),{persist=true,activate=false}={}){
   if(!d)return fail('DATABASE_MISSING','База недоступна');const work=copy(d),r=arr(work.routes).find(x=>String(x.id)===String(routeId)),ix=engine().contextIndex(work);
   if(!typed(r)||r.status==='archived'||!equipmentId)return fail('METER_SCOPE','Выберите маршрут и оборудование');
@@ -173,7 +179,7 @@
    let b;
    if(old.ok&&old.kind==='runtime_hours'&&!input.replaceExisting)b={...t.routeDue,readingHours:reading,readingDate:date,hoursPerDay:rate??old.hoursPerDay};
    else {if(last==null||last<0||last>reading)return fail('METER_INITIAL','Укажите подтверждённую наработку при последнем обслуживании');b={key:signature(t,work,ix),nextHours:last+s.value,readingHours:reading,readingDate:date,hoursPerDay:rate||0}}
-   if(old.ok&&old.kind==='runtime_hours'&&(reading<old.readingHours||date<old.readingDate))return fail('METER_ROLLBACK','Показание меньше подтверждённого');
+   if(old.ok&&old.kind==='runtime_hours'&&!(input.replaceExisting&&old.meterKey!==key)&&(reading<old.readingHours||date<old.readingDate))return fail('METER_ROLLBACK','Показание меньше подтверждённого');
    if(runningTask(work,t.id)||reserved(work,t.id)&&old.meterKey!==key)return fail('BASIS_RESERVED','Сначала завершите или снимите задание перед изменением источника');
    linked.push({t,b:{...b,meterKey:key}});
   }
@@ -189,7 +195,7 @@
   }
   const existing=meterRecord(work,key),meter=writeMeter(work,key,reading,date,rate??existing?.hoursPerDay??linked[0].b.hoursPerDay);if(!meter.ok)return meter;
   const actual=meterRecord(work,key);
-  for(const {t,b} of linked){const result=writeBasis(t,{...b,readingHours:actual.readingHours,readingDate:actual.readingDate,hoursPerDay:actual.hoursPerDay},work,ix);if(!result.ok)return result;}
+  for(const {t,b} of linked){const result=writeBasis(t,{...b,readingHours:actual.readingHours,readingDate:actual.readingDate,hoursPerDay:actual.hoursPerDay},work,ix,{replaceSource:input.replaceExisting===true});if(!result.ok)return result;}
   if(arr(r.taskIds).every(id=>parseBasis(ix.get(String(id))?.task||{},work,ix).kind==='runtime_hours'))delete r.scheduleDefaults;
   const issues=activationIssues(r,work,ix);
   if(activate){if(issues.length)return {...fail('ROUTE_SCHEDULE_BLOCKED',issues[0].message),issues};const gate=engine().transitionCheck(r,'active',work);if(!gate.ok)return{...fail('ROUTE_NOT_READY',gate.reason),...gate};r.status='active'}
@@ -202,7 +208,9 @@
   if(!arr(route.taskIds).length)return [{code:'ROUTE_EMPTY',message:'В маршруте нет мероприятий'}];
   for(const id of arr(route.taskIds)){
    const t=ix.get(String(id))?.task,b=t&&parseBasis(t,d,ix);
-   if(!b?.ok||!(W?.requiresPpr(route.id,d)||t?.routePolicy?.access==='ppr'))continue;
+   if(!(W?.requiresPpr(route.id,d)||M?.taskPpr?.(id,d)))continue;
+   const technical=t&&spec(t);if(technical?.kind==='days'&&technical.value<14){issues.push({code:'PPR_CYCLE',taskId:id,message:'Интервал '+technical.value+' дн. несовместим с ППР каждые 14 дней'});continue}
+   if(!b?.ok)continue;
    const phase=W?.nextPpr(route.lineId,today(),d);if(!phase){issues.push({code:'PPR_ANCHOR_REQUIRED',taskId:id,message:'Не задан ППР линии'});continue}
    if(b.kind==='runtime_hours')continue;
    if(b.kind==='days'&&b.interval<14){issues.push({code:'PPR_CYCLE',taskId:id,message:'Интервал '+b.interval+' дн. несовместим с ППР каждые 14 дней'});continue}
@@ -258,17 +266,18 @@
  function checkStart(route,item,d,date,{checkDate=true,shift}={}){
   const raw=arr(d?.routes).find(r=>String(r.id)===String(route?.id));
   if(!raw||raw.status!=='active')return fail('PLAN_REQUIRED','Маршрут не активен');
-  item=item&&planItem(route.id,item.id,d);
+  const submitted=item;item=item&&planItem(route.id,item.id,d);
+  if(submitted&&item&&JSON.stringify(submitted.workAssignment||null)!==JSON.stringify(item.workAssignment||null))return fail('PLAN_CHANGED','Назначение задания изменилось');
+  if(arr(d.checklistRuns).some(r=>String(r.routeId)===String(route.id)&&r.status==='in_progress'))return fail('RUN_ACTIVE','Сначала завершите текущее задание маршрута');
   if(!typed(route)||route.status!=='active'||!item||item.status!=='planned'||item.runId)return fail('PLAN_REQUIRED','Откройте незапущенное задание из плана смазочных работ');
   if(String(item.routeId)!==String(route.id))return fail('PLAN_ROUTE_MISMATCH','Задание относится к другому маршруту');
-  const E=engine(),validation=E.validateRoute(route.id,d,null,item.taskIds);
-  if(!validation.valid)return fail('ROUTE_NOT_READY','Маршрут изменился или не готов');
+  const E=engine();
   const selected=selectRoute(route,item,d),model=snapshot(route,item,d);
   if(!selected||!model||!item.checklistSnapshot||JSON.stringify(model)!==JSON.stringify(item.checklistSnapshot))return fail('PLAN_CHANGED','Состав, нормы или параметры задания изменились. Снимите незапущенное задание и сформируйте повторно');
   const early=!!(global.LubricaRouteAutomation&&item.workAssignment?.date===date&&date>=global.LubricaRouteAutomation.allowedEarliest(item,d));
   const meterDue=arr(item.dueEntries).length>0&&arr(item.dueEntries).every(e=>e.kind==='runtime_hours');
   if(checkDate&&(!day(date)||date>today()||date<item.plannedDate&&!early&&!meterDue))return fail('PLAN_DATE','Дата должна быть фактической и не раньше плановой или согласованного окна');
-  const prep=global.LubricaRoutePreparation?.build?.(selected,d);if(prep&&!prep.ready)return fail('PREPARATION_BLOCKED',prep.errors[0]?.message||'Задание не готово');
+  const prep=global.LubricaRoutePreparation?.build?.(selected,d),validation=prep?null:E.validateRoute(route.id,d,null,item.taskIds);if(prep&&!prep.ready||validation&&!validation.valid)return fail('PREPARATION_BLOCKED',prep?.errors[0]?.message||validation?.errors[0]?.message||'Задание не готово');
   const ix=E.contextIndex(d),entries=arr(item.dueEntries),byId=new Map(entries.map(e=>[String(e.taskId),e]));
   if(entries.length!==selected.taskIds.length||byId.size!==entries.length)return fail('PLAN_INVALID','Не подтверждены основания сроков задания');
   const startEntries=[];
@@ -283,11 +292,11 @@
     if(e.dueDate!==b.nextDate)return fail('TASK_BASIS_CHANGED',id+': изменился следующий срок');
     const allowed=global.LubricaRouteAutomation?.earlyDate(t,d,b.nextDate)||b.nextDate;if(e.earliestDate&&e.earliestDate!==allowed)return fail('TASK_BASIS_CHANGED',id+': согласованное окно изменилось');
     if(checkDate&&date<b.nextDate&&(!early||!e.earliestDate||date<e.earliestDate))return fail('TASK_NOT_DUE',id+': срок ещё не наступил');
-    startEntries.push({...e});
+    startEntries.push({...e,cycleMode:raw.cycleMode||'actual',cycleAnchor:t.routeDue?.cycleAnchor||b.nextDate,cycleTarget:t.routeDue?.cycleTarget||b.nextDate});
    }
   }
-  if(checkDate&&shift!==undefined){const work=global.LubricaRouteWorkload?.validateStart(item,date,shift,d);if(work&&!work.ok)return work;}
-  return{ok:true,route:selected,snapshot:model,dueEntries:startEntries,preparation:prep};
+  const W=global.LubricaRouteWorkload;let work={ok:true};if(checkDate&&W){work=W.startPolicy(route.id,item.id,date,shift,d);if(!work.ok)return work;}
+  return{ok:true,route:selected,snapshot:model,dueEntries:startEntries,preparation:prep,work};
  }
  function completionErrors(run,d=db()){
   if(!run?.dueEntries?.length)return[];
@@ -297,7 +306,7 @@
    const id=String(e.taskId),r=run.taskResults?.[id];
    if(!r?.done||r.resultStatus!=='completed')continue;
    const t=ix.get(id)?.task,b=t&&parseBasis(t,d,ix);
-   if(!b?.ok||b.key!==e.key||b.kind!==e.kind||b.interval!==e.interval||b.planningMode!==e.planningMode||b.maxHoursPerDay!==e.maxHoursPerDay||(e.kind==='runtime_hours'?b.nextHours!==e.nextHours:b.nextDate!==e.dueDate)){missing.push(id+': основание изменилось во время выполнения');continue}
+   if(!b?.ok||b.key!==e.key||b.kind!==e.kind||b.interval!==e.interval||b.planningMode!==e.planningMode||b.maxHoursPerDay!==e.maxHoursPerDay||b.meterKey!==e.meterKey||(e.kind==='runtime_hours'?b.nextHours!==e.nextHours:b.nextDate!==e.dueDate)){missing.push(id+': основание изменилось во время выполнения');continue}
    if(e.kind==='runtime_hours'){
     const h=num(r.runtimeMeterHours);
     const minimum=Math.max(e.nextHours,e.readingHours,!b.meterKey||b.readingDate<run.date?b.readingHours:0);if(h==null||h<minimum||b.meterKey&&b.readingDate>run.date&&h>b.readingHours)missing.push(id+': укажите согласованные фактические моточасы при обслуживании (не менее '+minimum+' ч)');
@@ -316,17 +325,38 @@
   return {nextDate:next<cap?next:cap,cycleAnchor:anchor,cycleTarget:next};
  }
  function nextCalendarDate(actual,entry,route,basis={}){return calendarStep(actual,entry,route,basis).nextDate}
+ // The next basis is part of immutable execution fact, not recalculated by history consumers.
+ function nextBasisFromFact(run,e,result,current={},route=null){
+  const base={...current,key:e.key,lastRunId:run.id,lastServiceDate:run.date};
+  if(e.kind==='runtime_hours'){
+   const h=num(result.runtimeMeterHours);if(h==null||h<0)return null;
+   return {...base,nextHours:h+e.interval,readingHours:h,readingDate:run.date,hoursPerDay:current.hoursPerDay??0,...(e.meterKey?{meterKey:e.meterKey}:{})};
+  }
+  if(e.planningMode==='calendar_runtime')Object.assign(base,{planningMode:'calendar_runtime',calendarConfirmed:true,maxHoursPerDay:e.maxHoursPerDay,cycleDays:e.interval});
+  const phase={...base,cycleAnchor:e.cycleAnchor||base.cycleAnchor,cycleTarget:e.cycleTarget||base.cycleTarget};
+  return {...base,...calendarStep(run.date,e,{cycleMode:e.cycleMode||route?.cycleMode||'actual'},phase)};
+ }
+ function historyBasis(t,d,index){
+  const id=String(t.id),key=signature(t,d,index);
+  if(!key)return null;
+  const runs=arr(d.checklistRuns).filter(r=>['completed','partial'].includes(r.status)&&day(r.date)&&r.date<=today()&&arr(r.dueEntries).some(e=>String(e.taskId)===id&&e.key===key)).sort((a,b)=>b.date.localeCompare(a.date)||str(b.completedAt).localeCompare(str(a.completedAt)));
+  for(const r of runs){const result=r.executionFact?.tasks?.[id]||r.taskResults?.[id],e=arr(r.dueEntries).find(e=>String(e.taskId)===id&&e.key===key);if(!result?.done||result.resultStatus!=='completed')continue;
+   const saved=r.executionFact?.nextBasisByTask?.[id],b=saved?.key===key?copy(saved):nextBasisFromFact(r,e,result,{},arr(d.routes).find(x=>x.id===r.routeId));if(!b)continue;
+   if(b.meterKey){const m=meterRecord(d,b.meterKey);if(!m)continue;Object.assign(b,{readingHours:m.readingHours,readingDate:m.readingDate,hoursPerDay:m.hoursPerDay})}
+   return b;
+  }return null;
+ }
  function advanceCompleted(run,d){
   if(!run?.dueEntries?.length)return;
-  const ix=engine().contextIndex(d);
+  const ix=engine().contextIndex(d),route=arr(d.routes).find(r=>String(r.id)===String(run.routeId));
   for(const e of run.dueEntries){
    const id=String(e.taskId),r=run.taskResults?.[id],t=ix.get(id)?.task;
-   if(!t||!r?.done||r.resultStatus!=='completed')continue;
-   const b=t.routeDue;if(b.lastRunId===run.id)continue;
-   if(e.kind==='runtime_hours'){const h=num(r.runtimeMeterHours);b.nextHours=h+e.interval;b.readingHours=h;b.readingDate=run.date;if(b.meterKey)writeMeter(d,b.meterKey,h,run.date,null,{fact:true})}
-   else {const route=arr(d.routes).find(r=>String(r.id)===String(run.routeId));Object.assign(b,calendarStep(run.date,e,route,b));}
-   b.lastRunId=run.id;b.lastServiceDate=run.date;
+   if(!t||!r?.done||r.resultStatus!=='completed'||t.routeDue?.lastRunId===run.id)continue;
+   const b=nextBasisFromFact(run,e,r,t.routeDue,route);if(!b)continue;
+   t.routeDue=b;
+   if(e.kind==='runtime_hours'&&b.meterKey)writeMeter(d,b.meterKey,b.readingHours,run.date,null,{fact:true});
+   if(run.executionFact){run.executionFact.nextBasisByTask=run.executionFact.nextBasisByTask||{};run.executionFact.nextBasisByTask[id]=copy(t.routeDue)}
   }
  }
- global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,writeBasis,validateRouteBasis,activationIssues,calendarRule,makeCalendarBasis,configure,configureRoute,configureMeter,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,calendarStep,nextCalendarDate,advanceCompleted,meterKey,meterRecord});
+ global.LubricaRouteDue=Object.freeze({typed,day,today,signature,rows,parseBasis,writeBasis,validateRouteBasis,activationIssues,calendarRule,makeCalendarBasis,configure,configureRoute,configureMeter,dueFor,preview,selectRoute,snapshot,planItem,checkStart,completionErrors,calendarStep,nextCalendarDate,advanceCompleted,meterKey,meterRecord,initialMeterBasis,historyBasis});
 })(window);

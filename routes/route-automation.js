@@ -129,17 +129,7 @@
   const token=JSON.stringify(actions.map(g=>[g.key,g.action,g.routeId,g.currentTaskIds,g.taskIds,g.nextStatus,g.contentSig,g.basisMissing,g.removeTaskIds]));
   return{ok:true,groups:out,issues,token,summary:{create:actions.filter(g=>g.action==='create').length,update:actions.filter(g=>g.action==='update').length,archive:actions.filter(g=>g.action==='archive').length,blocked:out.filter(g=>g.action==='blocked').length,add:actions.reduce((n,g)=>n+g.addTaskIds.length,0),remove:actions.reduce((n,g)=>n+g.removeTaskIds.length,0),issues:issues.length}};
  }
- function historyFor(t,d,ix){
-  const id=String(t.id),key=D().signature(t,d,ix),s=A().scheduleFor(t);
-  if(!key||!s.ok)return null;
-  const runs=arr(d.checklistRuns).filter(r=>['completed','partial'].includes(r.status)&&D().day(r.date)&&r.date<=D().today()&&arr(r.dueEntries).some(e=>String(e.taskId)===id&&e.key===key)).sort((a,b)=>b.date.localeCompare(a.date)||str(b.completedAt).localeCompare(str(a.completedAt)));
-  for(const r of runs){
-   const x=r.executionFact?.tasks?.[id]||r.taskResults?.[id];if(!x?.done||x.resultStatus!=='completed')continue;
-   if(s.kind==='runtime_hours'){const entry=arr(r.dueEntries).find(e=>String(e.taskId)===id&&e.key===key);if(entry?.planningMode==='calendar_runtime'){const days=Number(entry.interval),rate=Number(entry.maxHoursPerDay);if(Number.isInteger(days)&&days>0&&rate>0&&rate<=24&&days*rate<=s.value)return{key,planningMode:'calendar_runtime',calendarConfirmed:true,cycleDays:days,maxHoursPerDay:rate,nextDate:add(r.date,days),lastRunId:r.id,lastServiceDate:r.date}}if(!number(x.runtimeMeterHours,0,1e12))continue;const h=Number(x.runtimeMeterHours);return{key,nextHours:h+s.value,readingHours:h,readingDate:r.date,hoursPerDay:0,lastRunId:r.id,lastServiceDate:r.date}}
-   return{key,nextDate:P().addInterval(r.date,s),lastRunId:r.id,lastServiceDate:r.date};
-  }
-  return null;
- }
+ function historyFor(t,d,ix){return D().historyBasis(t,d,ix)}
  function setup(d,o,info){
   const {ix,valid}=info,allScopeIds=[...valid].filter(([id,g])=>groupScope(g,o)).map(([id])=>id),scopeIds=allScopeIds.filter(id=>!o.serviceKey||valid.get(id).serviceKey===o.serviceKey);
   const ownership=A().ownership(d),usable=id=>setupAllowed(d,id,o,ownership,valid.get(id));
@@ -167,8 +157,8 @@
     const t=ix.get(id).task,s=A().scheduleFor(t),old=policy(t,d),next={...old,key:D().signature(t,d,ix)};
     if(p.access==='normal'||p.access==='ppr')next.access=p.access;
     if(str(p.earlyDays)!==''){
-     const limit=s.kind==='runtime_hours'?0:Math.min(90,s.kind==='days'?s.value-1:28*s.value-1);
-     if(!integer(p.earlyDays,0,limit)||Number(p.earlyDays)>0&&!str(p.earlyReason)){const c=ix.get(id),name=[c?.eq?.name,c?.lp?.name].filter(Boolean).join(' · ')||id;return {...fail('EARLY_INVALID',Number(p.earlyDays)>0&&!str(p.earlyReason)?'Укажите основание досрочного допуска или оставьте поле дней пустым.':s.kind==='runtime_hours'?'Для обслуживания по моточасам нельзя задать досрочный допуск. Выберите подходящие календарные мероприятия.':'Досрочный допуск превышает допустимый для интервала. Уменьшите число дней или выберите подходящие мероприятия.'),details:[{taskId:id,message:name+' · '+(s.label||s.key)+' · максимально '+limit+' дн.'}]}}
+     const b=D().parseBasis(t,d,ix),effective=b.ok&&b.planningMode==='calendar_runtime'?{kind:'days',value:b.interval}:s,limit=effective.kind==='runtime_hours'?0:Math.min(90,effective.kind==='days'?effective.value-1:28*effective.value-1);
+     if(!integer(p.earlyDays,0,limit)||Number(p.earlyDays)>0&&!str(p.earlyReason)){const c=ix.get(id),name=[c?.eq?.name,c?.lp?.name].filter(Boolean).join(' · ')||id;return {...fail('EARLY_INVALID',Number(p.earlyDays)>0&&!str(p.earlyReason)?'Укажите основание досрочного допуска или оставьте поле дней пустым.':effective.kind==='runtime_hours'?'Для обслуживания по моточасам нельзя задать досрочный допуск. Выберите подходящие календарные мероприятия.':'Досрочный допуск превышает допустимый для интервала. Уменьшите число дней или выберите подходящие мероприятия.'),details:[{taskId:id,message:name+' · '+(s.label||s.key)+' · максимально '+limit+' дн.'}]}}
      next.earlyDays=Number(p.earlyDays);next.earlyReason=next.earlyDays?str(p.earlyReason):'';
     }
     if(str(p.minutes)!==''){if(!number(p.minutes,0,1440))return fail('TIME_INVALID',id+': время 0–1440 мин');next.minutes=Number(p.minutes)}
@@ -191,7 +181,7 @@
    if(!b&&s.kind==='runtime_hours'&&str(initial.equipmentId)&&String(ix.get(id)?.eq?.id)===str(initial.equipmentId)){
     const date=D().day(initial.readingDate),rate=str(initial.hoursPerDay)===''?0:Number(initial.hoursPerDay);
     if(!date||date>D().today()||!number(initial.lastHours,0,1e12)||!number(initial.readingHours,Number(initial.lastHours),1e12)||!number(rate,0,24)||initial.confirmMeter!==true)return fail('METER_INITIAL','Подтвердите общий счётчик выбранного оборудования, последнее обслуживание, текущее показание и дату');
-    b={key,nextHours:Number(initial.lastHours)+s.value,readingHours:Number(initial.readingHours),readingDate:date,hoursPerDay:rate};source='Явно введённые показания общего счётчика';
+    const made=D().initialMeterBasis(t,d,ix,initial);if(!made.ok)return made;b=made.basis;source='Явно введённые показания общего счётчика';
    }
    if(b){const written=D().writeBasis(t,b,d,ix,{initialOnly:true});if(!written.ok)return {...written,reason:written.message};if(written.changed)changes.push({taskId:id,action:'basis',detail:source,value:b.nextDate||b.nextHours})}
   }
@@ -366,7 +356,7 @@
   if(!report.ok)return report;
   if(batch&&report.groups.some(g=>g.action==='blocked'))return {...fail('GROUP_BLOCKED','Выбранные группы требуют уточнения. Снимите выбор защищённых маршрутов или устраните конфликт состава.'),report};
   const result=E().applyAutoGrouping(options,report.token,work,{persist:false});
-  if(!result.ok)return fail('RECONCILE_FAILED',result.reason||'Проверка состава не пройдена');
+  if(!result.ok)return {...fail(result.code||'RECONCILE_FAILED',result.reason||'Проверка состава не пройдена'),issues:result.issues||result.report?.errors};
   let next=result.database||work,plan=null,allocation=null,preparation=[],ppr=null;
    if(pprMode){
     const route=arr(next.routes).find(r=>r.status!=='archived'&&r.source==='auto'&&D().typed(r)&&groupScope(r,o));
@@ -404,6 +394,9 @@
     if(pprOnly||arr(route.taskIds).some(id=>taskPpr(id,next))){const issues=D().activationIssues(route,next);if(issues.some(x=>x.code==='PPR_CYCLE'||x.code==='PPR_ANCHOR_REQUIRED'))return {...fail('PPR_CYCLE',issues.find(x=>x.code==='PPR_CYCLE'||x.code==='PPR_ANCHOR_REQUIRED').message),details:issues,report,prep};}
    }
   }
+  // Policy-only and single-group changes also pass the common schedule gate.
+  const touched=new Set(prep.changes.filter(x=>['policy','basis'].includes(x.action)).map(x=>String(x.taskId)));
+  for(const route of arr(next.routes).filter(r=>r.status!=='archived'&&D().typed(r)&&groupScope(r,o))){const changed=arr(route.taskIds).filter(id=>touched.has(String(id)));if(!changed.length)continue;const issue=D().activationIssues({...route,taskIds:changed},next).find(x=>['PPR_CYCLE','PPR_ANCHOR_REQUIRED'].includes(x.code));if(issue)return {...fail(issue.code,issue.message),issues:[issue]};}
   const selected=arr(next.routes).filter(r=>r.source==='auto'&&D().typed(r)&&r.status==='active'&&groupScope(r,o)).map(r=>r.id);
   if(o.plan){
    const rg=W().range(o.startDate,o.endDate);if(!rg.ok)return rg;

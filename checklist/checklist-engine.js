@@ -212,7 +212,7 @@
   const isTyped=currentRoute?.groupingMode==='area_service_interval_v1';if(global.LubricaRouteAutomation&&global.LubricaRouteDue&&!isTyped)return null;
   const W=global.LubricaRouteWorkload,activeWork=activeRuns(routeId,d)[0];
   if(activeWork?.workAssignment&&(forceNew||clean(planItemId)&&activeWork.plannedItemId!==clean(planItemId)))return null;
-  const workCheck=activeWork&&!forceNew?{ok:true}:W?.startPolicy(routeId,planItemId,date,shift,d)||{ok:true};
+  let workCheck=isTyped||activeWork&&!forceNew?{ok:true}:W?.startPolicy(routeId,planItemId,date,shift,d)||{ok:true};
   if(!workCheck.ok||forceNew&&workCheck.assignment)return null;
   let taskPlan=null,checked=null;
   if(isTyped){
@@ -224,8 +224,7 @@
    const entry=global.LubricaRouteEngine?.routeEntries?.(d,{preview:false})?.find(r=>r.id===routeId);
    checked=D.checkStart(entry,taskPlan,d,date,{shift});
    if(!checked.ok)return null;
-   route=checked.route;
-   if(checked.preparation&&!checked.preparation.ready)return null;
+   route=checked.route;workCheck=checked.work||{ok:true};
   }
   const existing=normalizeActiveRuns(routeId,d);if(existing&&!forceNew){global.LubricaCore.State.setDatabase(d);return existing}
   if(existing&&forceNew){existing.status='superseded';existing.supersededAt=now();existing.updatedAt=now()}
