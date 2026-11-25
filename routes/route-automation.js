@@ -241,19 +241,63 @@
   for(const row of rows){if(cfg)row.capacity=cfg.weekdays.length*cfg.shifts.reduce((s,x)=>s+x.minutes,0);row.overloadMinutes=row.capacity==null?null:Math.max(0,row.minutes-row.capacity)}
   return{ok:true,startDate:start,endDate:end,weeks:rows,unknown,projected:true};
  }
+ // Compare the next obligation and one hypothetical later cycle with the PPR phase.
+ function pprSummary(route,d,anchor,firstPpr){
+  const ix=E().contextIndex(d),byDate=new Map(),unknown=[];
+  for(const id of ids(route.taskIds)){
+   const t=ix.get(id)?.task,b=t&&D().dueFor(t,d,ix);
+   if(!b?.ok||!b.dueDate){unknown.push(id);continue}
+   const dates=[{date:b.dueDate,projected:false}];
+   if(b.kind!=='runtime_hours'){const later=P().addInterval(b.dueDate,{kind:b.kind,value:b.interval});if(later)dates.push({date:later,projected:true})}
+   for(const x of dates){
+    const earliest=b.kind==='runtime_hours'?x.date:earlyDate(t,d,x.date),start=earliest<D().today()?D().today():earliest;
+    const suggested=W().nextPpr(String(route.lineId),start,d),conflict=!suggested||suggested>x.date;
+    const k=JSON.stringify([x.date,x.projected,suggested,conflict]);if(!byDate.has(k))byDate.set(k,{...x,suggested,conflict,count:0});byDate.get(k).count++;
+   }
+  }
+  return{anchor,firstPpr,dates:[...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date)||Number(a.projected)-Number(b.projected)),unknown:unknown.length,capacityConfigured:!!W().settings(d)};
+ }
  function simulate(o={},d=db()){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   let work=copy(d);
   if(o.workloadSettings){const res=W().saveSettings(o.workloadSettings,work,{persist:false});if(!res.ok)return res;work=res.database||work}
   const info=eligible(work);if(!info.ok)return fail('QA_MISSING','Инженерный контроль недоступен');
   if(o.groupKey&&![...info.valid.values(),...arr(work.routes).filter(r=>r.status!=='archived')].some(g=>groupScope(g,o)))return fail('GROUP_SCOPE','Выберите актуальный маршрут в выбранном участке');
-   const prep=setup(work,o,info);if(!prep.ok)return prep;
+   const group=o.groupKey&&[...info.valid.values(),...arr(work.routes).filter(r=>r.status!=='archived')].find(g=>groupScope(g,o)),pprMode=str(o.pprMode);
+   let anchor='',firstPpr='';
+   if(pprMode){
+    if(!group||!['normal','ppr'].includes(pprMode))return fail('PPR_SCOPE_INVALID','Выберите один маршрут для настройки режима ППР');
+    const existing=arr(work.routes).filter(r=>r.status!=='archived'&&A().routeKey(r)===o.groupKey);
+    if(existing.length>1||existing.some(r=>r.source!=='auto'||!D().typed(r)))return fail('PPR_SCOPE_INVALID','Ручной или неоднозначный маршрут защищён');
+    if(existing.some(r=>locked(work,r)&&W().requiresPpr(r.id,work)!==(pprMode==='ppr')))return fail('PPR_ROUTE_LOCKED','Сначала завершите или снимите открытые задания маршрута');
+    if(pprMode==='ppr'){
+     const saved=W().pprSettings(work).ppr.find(x=>x.lineId===String(group.lineId));
+     const given=D().day(o.pprAnchorDate);
+     if(saved&&str(o.pprAnchorDate)&&given!==saved.anchorDate)return fail('PPR_PHASE_LOCKED','Дата ППР уже задана для линии. Изменяйте её в общих настройках');
+     anchor=saved?.anchorDate||given;
+     if(!anchor)return fail('PPR_ANCHOR_REQUIRED','Укажите известную дату отсчёта ППР линии');
+     const start=!saved&&anchor>D().today()?anchor:D().today();
+     firstPpr=W().nextPprFromAnchor(anchor,start);
+    }
+   }
+   const init=o.initial||{};
+   const useFirst=pprMode==='ppr'&&o.initialFromPpr===true&&!str(init.date)&&init.mode!=='last'&&!group.scheduleKey.startsWith('runtime_hours:');
+   const prep=setup(work,useFirst?{...o,initial:{...init,mode:'next',date:firstPpr}}:o,info);if(!prep.ok)return prep;
   const options={lineId:o.lineId||'',areaId:o.areaId||'',groupKey:o.groupKey||'',advanced:true,applyOrder:o.applyOrder===true,activateReady:o.activateReady===true};
   const report=reconcile(work,options);
   if(!report.ok)return report;
   const result=E().applyAutoGrouping(options,report.token,work,{persist:false});
   if(!result.ok)return fail('RECONCILE_FAILED',result.reason||'Проверка состава не пройдена');
-  let next=result.database||work,plan=null,allocation=null,preparation=[];
+  let next=result.database||work,plan=null,allocation=null,preparation=[],ppr=null;
+   if(pprMode){
+    const route=arr(next.routes).find(r=>r.status!=='archived'&&r.source==='auto'&&D().typed(r)&&groupScope(r,o));
+    if(!route&&pprMode==='ppr')return fail('PPR_SCOPE_INVALID','Нет доступного маршрута для настройки ППР. Проверьте готовность и защищённые назначения');
+    if(route){
+     const saved=W().saveRoutePpr(route.id,pprMode,anchor,next,{persist:false});if(!saved.ok)return saved;
+     next=saved.database||next;if(saved.changed)prep.changes.push({taskId:route.id,action:'ppr',detail:pprMode==='ppr'?'Только ППР своей линии':'Обычный график маршрута',value:pprMode==='ppr'?anchor:''});
+     if(pprMode==='ppr')ppr=pprSummary(route,next,anchor,firstPpr);
+    }
+   }
   const selected=arr(next.routes).filter(r=>r.source==='auto'&&D().typed(r)&&r.status==='active'&&groupScope(r,o)).map(r=>r.id);
   if(o.plan){
    const rg=W().range(o.startDate,o.endDate);if(!rg.ok)return rg;
@@ -269,7 +313,7 @@
     const a=W().apply(wo,allocation.token,next,{persist:false});if(!a.ok)return a;next=a.database||next;
    }
   }
-  return{ok:true,report,prep,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId,groupKey:o.groupKey},next),database:next};
+  return{ok:true,report,prep,ppr,plan:plan?{created:plan.created,preview:plan.preview}:null,preparation,allocation,forecast:o.forecast===false?null:forecast({weeks:Number(o.forecastWeeks)||12,lineId:o.lineId,areaId:o.areaId,groupKey:o.groupKey},next),database:next};
  }
  function preview(o={},d=db()){
   const result=simulate(o,d);if(!result.ok)return result;

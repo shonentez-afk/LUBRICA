@@ -83,6 +83,32 @@
   return [...groups.values()].sort((a,b)=>(a.weeks||Infinity)-(b.weeks||Infinity));
  }
  function settings(d=db()){const s=normalizeSettings(d?.routeWorkload);return s.ok?s.settings:null}
+ // The line PPR phase does not depend on confirmed shift capacity.
+ function pprSettings(d=db()){
+  const raw=d?.routeWorkload||{},ppr=[],seen=new Set(),duplicate=new Set();
+  for(const x of arr(raw.ppr)){const lineId=str(x.lineId),anchorDate=day(x.anchorDate);if(!lineId||!anchorDate)continue;if(seen.has(lineId)){duplicate.add(lineId);continue}seen.add(lineId);ppr.push({lineId,anchorDate,intervalDays:14})}
+  return {ppr:ppr.filter(x=>!duplicate.has(x.lineId)).sort((a,b)=>a.lineId.localeCompare(b.lineId)),pprRouteIds:[...new Set(arr(raw.pprRouteIds).map(str).filter(Boolean))].sort()};
+ }
+ function nextPprFromAnchor(anchor,date){const a=day(anchor),s=day(date);if(!a||!s)return'';const phase=((distance(a,s)%14)+14)%14;return dateAt(s,(14-phase)%14)}
+ function saveRoutePpr(routeId,mode,anchorDate,d=db(),{persist=true}={}){
+  const id=str(routeId),r=arr(d?.routes).find(x=>String(x.id)===id&&x.status!=='archived');
+  if(!r||!['normal','ppr'].includes(mode))return fail('PPR_SCOPE_INVALID','Выберите действующий маршрут и режим ППР');
+  const lineId=str(r.lineId),existing=pprSettings(d),was=existing.pprRouteIds.includes(id);
+  if(mode==='ppr'&&(!lineId||!arr(d.lines).some(l=>String(l.id)===lineId)))return fail('PPR_SCOPE_INVALID','Для маршрута ППР должна быть определена линия');
+  const old=existing.ppr.find(x=>x.lineId===lineId),given=day(anchorDate);
+  if(mode==='ppr'&&(!given&&!old))return fail('PPR_ANCHOR_REQUIRED','Укажите известную дату отсчёта ППР этой линии');
+  if(mode==='ppr'&&old&&str(anchorDate)&&given!==old.anchorDate)return fail('PPR_PHASE_LOCKED','Дата ППР линии уже настроена. Изменяйте общий график ППР отдельно.');
+  const raw=d.routeWorkload||{},rawPhase=arr(raw.ppr),rawForLine=rawPhase.filter(x=>str(x.lineId)===lineId);
+  if(mode==='ppr'&&!old&&rawForLine.length)return fail('PPR_INVALID','Уточните некорректный график ППР линии в общих настройках');
+  const addPhase=mode==='ppr'&&!old,changed=addPhase||was!==(mode==='ppr');
+  if(!changed)return{ok:true,changed:false,database:d};
+  if(was!==(mode==='ppr')&&(arr(d.routePlanItems).some(x=>String(x.routeId)===id&&!['completed','cancelled'].includes(x.status))||arr(d.checklistRuns).some(x=>String(x.routeId)===id&&x.status==='in_progress')))return fail('PPR_ROUTE_LOCKED','Сначала завершите или снимите открытые задания маршрута');
+  const w=clone(d),pprRouteIds=existing.pprRouteIds.filter(x=>x!==id);
+  if(mode==='ppr')pprRouteIds.push(id);
+  w.routeWorkload={...raw,ppr:addPhase?[...rawPhase,{lineId,anchorDate:given,intervalDays:14}]:rawPhase,pprRouteIds:pprRouteIds.sort()};
+  if(persist)global.LubricaCore.State.setDatabase(w);
+  return{ok:true,changed:true,database:w};
+ }
  function saveSettings(input,d=db(),{persist=true}={}){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
   const v=normalizeSettings(input);if(!v.ok)return v;
@@ -100,19 +126,19 @@
  const effectiveDate=item=>assignment(item)?.date||day(item?.plannedDate);
  // PPR is a line-specific 14-day phase, NOT a lubrication interval or fact.
  const lineFor=(item,d)=>str(item?.lineId||arr(d?.routes).find(r=>String(r.id)===String(item?.routeId))?.lineId);
- function requiresPpr(routeId,d=db()){return !!settings(d)?.pprRouteIds.includes(String(routeId))}
+ function requiresPpr(routeId,d=db()){return pprSettings(d).pprRouteIds.includes(String(routeId))}
  function pprOnly(item,d=db()){return requiresPpr(item?.routeId,d)||item?.access==='ppr'||arr(item?.taskIds).some(id=>global.LubricaRouteAutomation?.taskPpr(id,d))}
  function pprOn(lineId,date,d=db()){
-  const a=settings(d)?.ppr.find(x=>x.lineId===String(lineId)),s=day(date);
+  const a=pprSettings(d).ppr.find(x=>x.lineId===String(lineId)),s=day(date);
   return !!(a&&s&&distance(a.anchorDate,s)%14===0);
  }
  function nextPpr(lineId,date,d=db()){
-  const a=settings(d)?.ppr.find(x=>x.lineId===String(lineId)),s=day(date);
+  const a=pprSettings(d).ppr.find(x=>x.lineId===String(lineId)),s=day(date);
   if(!a||!s)return'';
   const phase=((distance(a.anchorDate,s)%14)+14)%14;
   return dateAt(s,(14-phase)%14);
  }
- function pprLines(date,d=db()){return arr(settings(d)?.ppr).filter(x=>pprOn(x.lineId,date,d)).map(x=>({id:x.lineId,name:arr(d?.lines).find(l=>String(l.id)===x.lineId)?.name||x.lineId}))}
+ function pprLines(date,d=db()){return pprSettings(d).ppr.filter(x=>pprOn(x.lineId,date,d)).map(x=>({id:x.lineId,name:arr(d?.lines).find(l=>String(l.id)===x.lineId)?.name||x.lineId}))}
  function allowedWindow(item,date,d=db()){return !pprOnly(item,d)||pprOn(lineFor(item,d),date,d)}
 
  function earliestDate(item,d){return global.LubricaRouteAutomation?.allowedEarliest(item,d)||day(item?.plannedDate)}
@@ -280,5 +306,5 @@
   const result=validateStart(item,date,shift,d);
   return result.ok?{ok:true,assignment:assignment(item),pprRequired:pprOnly(item,d),lineId:lineFor(item,d)}:result;
  }
- global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,saveSettings,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,move,validateStart,startPolicy});
+ global.LubricaRouteWorkload=Object.freeze({day,today,range,rangeFor,routeCycles,weekGroups,settings,pprSettings,saveSettings,saveRoutePpr,nextPprFromAnchor,assignment,effectiveDate,technicalDate,earliestDate,lineFor,requiresPpr,pprOnly,pprOn,nextPpr,pprLines,load,preview,apply,move,validateStart,startPolicy});
 })(window);

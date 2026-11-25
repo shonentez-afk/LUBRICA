@@ -52,6 +52,22 @@ def check(browser):
  assert 'Сроков заполнено' in field('report').inner_text()
  assert page.evaluate('JSON.stringify(LubricaCore.State.getDatabase())')==before
  page.screenshot(path=str(OUT/'00a_one_route_initial_date.png'))
+ # R6.4 simple PPR phase and automatic first service without staffing.
+ field('initial-date').fill('')
+ field('route-mode').select_option('ppr')
+ assert field('ppr-anchor').is_visible()
+ field('preview').click()
+ assert not field('apply').is_enabled()
+ assert 'дату отсчёта ППР' in field('report').inner_text()
+ field('ppr-anchor').fill(today)
+ field('preview').click()
+ assert field('apply').is_enabled(),field('report').inner_text()
+ assert 'ППР линии' in field('report').inner_text()
+ assert 'Технический срок не изменён' in field('report').inner_text()
+ assert page.evaluate('JSON.stringify(LubricaCore.State.getDatabase())')==before
+ page.screenshot(path=str(OUT/'00b_ppr_master.png'))
+ field('route-mode').select_option('normal')
+ field('initial-date').fill(today)
  field('advanced').click()
  assert not field('policy-enabled').is_checked()
  page.evaluate("""() => {document.querySelector('[data-r5="early"]').value='0';document.querySelector('[data-r5="task-minutes"]').value='15'}""")

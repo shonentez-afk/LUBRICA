@@ -46,6 +46,24 @@ assert(d.tasks.filter(x=>x.routeDue).every(x=>x.routeDue.nextDate===tomorrow&&x.
 assert.equal(d.tasks.filter(x=>x.routeDue).length,5);assert.equal(d.routePlanItems.length,0);
 const oneAgain=M.preview(one,d);assert(oneAgain.ok);assert.equal(oneAgain.report.summary.create+oneAgain.report.summary.update,0);
 d=clone(ordinaryBefore);writes=0;
+// R6.4 PPR mode without shifts; phase independent of technical interval.
+const pprOne={...one,pprMode:'ppr',pprAnchorDate:today,initialFromPpr:true,initial:{mode:'next',date:''}};
+assert.equal(M.preview({...pprOne,pprAnchorDate:''},d).code,'PPR_ANCHOR_REQUIRED');
+const pprPreview=M.preview(pprOne,d);assert(pprPreview.ok,pprPreview.reason);assert.deepEqual(d,ordinaryBefore);
+assert.equal(pprPreview.report.summary.create,1);assert.equal(pprPreview.ppr.firstPpr,today);
+assert(pprPreview.ppr.dates.some(x=>!x.projected&&!x.conflict&&x.date===today));
+assert(pprPreview.ppr.dates.some(x=>x.projected&&x.conflict&&x.suggested===P.addInterval(today,{kind:'days',value:14})));
+assert.equal(pprPreview.ppr.capacityConfigured,false);
+assert(M.apply(pprOne,pprPreview.token,d).ok);assert.equal(W.settings(d),null);
+const pr=d.routes[0];assert(W.requiresPpr(pr.id,d));assert(W.pprOn('L',today,d));assert(!W.pprOn('L',tomorrow,d));assert.equal(pr.scheduleKey,'days:7');
+assert.equal(W.startPolicy(pr.id,'',today,'1',d).code,'WORK_PLAN_REQUIRED');
+assert.equal(d.tasks.filter(x=>x.routeDue).length,5);assert(d.tasks.filter(x=>x.routeDue).every(x=>x.routeDue.nextDate===today));
+assert.equal(M.preview({...pprOne,pprAnchorDate:tomorrow},d).code,'PPR_PHASE_LOCKED');
+const inherited={...pprOne,pprAnchorDate:''};const againPpr=M.preview(inherited,d);assert(againPpr.ok,againPpr.reason);assert.equal(againPpr.prep.changes.length,0);
+const secondKey=[...M.eligible(d).valid.values()].find(g=>g.scheduleKey==='days:14').key;
+const second={...inherited,groupKey:secondKey};const pp2=M.preview(second,d);assert(pp2.ok,pp2.reason);assert(M.apply(second,pp2.token,d).ok);assert.equal(W.pprSettings(d).ppr.length,1);assert.equal(W.pprSettings(d).pprRouteIds.length,2);
+const normal={...inherited,pprMode:'normal',initialFromPpr:false};const pn=M.preview(normal,d);assert(pn.ok,pn.reason);assert(M.apply(normal,pn.token,d).ok);assert(!W.requiresPpr(pr.id,d));assert(W.requiresPpr(getRoute('days:14').id,d));assert.equal(W.pprSettings(d).ppr.length,1);
+d=clone(ordinaryBefore);writes=0;
 const invalid=M.preview({lineId:'L',areaId:'A',policy:{taskIds:['H1'],earlyDays:1,earlyReason:'Test'},forecast:false},d);
 assert.equal(invalid.code,'EARLY_INVALID');assert(invalid.message.includes('моточасам')&&invalid.details[0].taskId==='H1');
 assert.deepEqual(d,ordinaryBefore);
