@@ -121,15 +121,16 @@
  }
  function saveSettings(input,d=db(),{persist=true,allowUnconfigured=false}={}){
   if(!d)return fail('DATABASE_MISSING','База недоступна');
-  const v=normalizeSettings(input,{allowUnconfigured});if(!v.ok)return v;
+  const savedIds=pprSettings(d).pprRouteIds,requested=input?.pprRouteIds;
+  if(requested!==undefined&&JSON.stringify([...new Set(arr(requested).map(str).filter(Boolean))].sort())!==JSON.stringify(savedIds))return fail('PPR_MODE_ROUTE','Режим доступа меняется в настройках конкретного маршрута');
+  const v=normalizeSettings({...input,pprRouteIds:savedIds},{allowUnconfigured});if(!v.ok)return v;
   const lines=new Set(arr(d.lines).map(x=>String(x.id))),routes=new Map(arr(d.routes).map(x=>[String(x.id),x]));
   if(v.settings.ppr.some(x=>!lines.has(x.lineId))||v.settings.pprRouteIds.some(id=>!routes.has(id)))return fail('PPR_SCOPE_INVALID','Линия или маршрут больше не существует');
   if(v.settings.pprRouteIds.some(id=>!v.settings.ppr.some(p=>p.lineId===String(routes.get(id).lineId))))return fail('PPR_ANCHOR_REQUIRED','Укажите дату отсчёта ППР для всех линий маршрутов «только ППР»');
-  const guard=pprModeGuard(d,v.settings.pprRouteIds);if(!guard.ok)return guard;
   const previous=pprSettings(d);for(const run of arr(d.checklistRuns).filter(x=>x.status==='in_progress')){const r=routes.get(String(run.routeId)),line=String(r?.lineId||run.workAssignment?.lineId||'');if(!line||!(run.workAssignment?.pprRequired||previous.pprRouteIds.includes(String(run.routeId))))continue;if(previous.ppr.find(x=>x.lineId===line)?.anchorDate!==v.settings.ppr.find(x=>x.lineId===line)?.anchorDate)return fail('PPR_ROUTE_LOCKED','Нельзя изменить график ППР линии во время выполнения маршрута')}
   if(JSON.stringify(d.routeWorkload)===JSON.stringify(v.settings))return{ok:true,changed:false,settings:v.settings,database:d};
   const w=clone(d);w.routeWorkload=v.settings;
-   if(global.LubricaRouteAutomation&&global.LubricaRouteDue){const D=global.LubricaRouteDue;for(const r of arr(w.routes).filter(x=>x.status==='active'&&D.typed(x))){const oldAnchor=previous.ppr.find(x=>x.lineId===String(r.lineId))?.anchorDate,newAnchor=v.settings.ppr.find(x=>x.lineId===String(r.lineId))?.anchorDate,oldPpr=previous.pprRouteIds.includes(String(r.id)),newPpr=v.settings.pprRouteIds.includes(String(r.id)),individual=arr(r.taskIds).some(id=>global.LubricaRouteAutomation.taskPpr(id,w));if((oldPpr||newPpr||individual)&&(oldAnchor!==newAnchor||oldPpr!==newPpr)){if(global.LubricaRouteAutoGrouping.routeLocked(d,r))return fail('PPR_ROUTE_LOCKED','Сначала завершите или снимите задания маршрута '+r.name);const issues=D.activationIssues(r,w);const issue=issues.find(x=>x.code==='PPR_CYCLE'||x.code==='PPR_ANCHOR_REQUIRED');if(issue)return fail(issue.code,r.name+': '+issue.message)}}}
+   if(global.LubricaRouteAutomation&&global.LubricaRouteDue){const D=global.LubricaRouteDue;for(const r of arr(w.routes).filter(x=>x.status!=='archived'&&D.typed(x))){const oldAnchor=previous.ppr.find(x=>x.lineId===String(r.lineId))?.anchorDate,newAnchor=v.settings.ppr.find(x=>x.lineId===String(r.lineId))?.anchorDate,oldPpr=previous.pprRouteIds.includes(String(r.id)),newPpr=v.settings.pprRouteIds.includes(String(r.id)),individual=arr(r.taskIds).some(id=>global.LubricaRouteAutomation.taskPpr(id,w));if((oldPpr||newPpr||individual)&&(oldAnchor!==newAnchor||oldPpr!==newPpr)){if(global.LubricaRouteAutoGrouping.routeLocked(d,r))return fail('PPR_ROUTE_LOCKED','Сначала завершите или снимите задания маршрута '+r.name);const issues=D.activationIssues(r,w);const issue=issues.find(x=>x.code==='PPR_CYCLE'||x.code==='PPR_ANCHOR_REQUIRED');if(issue)return fail(issue.code,r.name+': '+issue.message)}}}
    if(persist)global.LubricaCore.State.setDatabase(w);
   return{ok:true,changed:true,settings:v.settings,database:w};
  }

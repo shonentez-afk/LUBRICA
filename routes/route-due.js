@@ -54,7 +54,8 @@
   for(const t of arr(d.tasks))if(t.routeDue?.meterKey===key&&!runningTask(d,t.id))Object.assign(t.routeDue,{readingHours:next.readingHours,readingDate:next.readingDate,hoursPerDay:next.hoursPerDay});
   return{ok:true};
  }
- function parseBasis(t,d,index){
+ function sourceMatches(key,equipmentId){if(!key||!equipmentId)return false;try{const a=JSON.parse(key);return Array.isArray(a)&&a.length===2&&a[0]===String(equipmentId)&&typeof a[1]==='string'&&!!a[1].trim()&&meterKey(a[0],a[1])===key}catch{return false}}
+ function parseBasis(t,d,index,{allowUnbound=false}={}){
   const s=spec(t),key=signature(t,d,index),b=t.routeDue||{};
   if(!s?.ok||!key||b.key!==key)return fail('TASK_DUE_MISSING','Укажите основание следующего срока для актуального мероприятия');
   if(s.kind==='runtime_hours'&&b.planningMode==='calendar_runtime'){
@@ -63,9 +64,11 @@
    return {ok:true,key,kind:'days',interval:days,nextDate:date,planningMode:'calendar_runtime',technicalHours:s.value,maxHoursPerDay:rate};
   }
   if(s.kind==='runtime_hours'){
-   const meter=b.meterKey?meterRecord(d,b.meterKey):null;if(b.meterKey&&(!meter||!String(b.meterKey).startsWith(JSON.stringify([String(context(t,d,index)?.eq?.id)]).slice(0,-1)+',')))return fail('TASK_METER_MISSING','Не найден подтверждённый общий счётчик этого оборудования');const due=num(b.nextHours),reading=num(meter?.readingHours??b.readingHours),rate=num(meter?.hoursPerDay??b.hoursPerDay),date=day(meter?.readingDate??b.readingDate);
-   if(due==null||due<0||reading==null||reading<0||!date||date>today()||(rate!=null&&(rate<0||rate>24)))return fail('TASK_METER_MISSING','Укажите действительные показания, дату и следующий порог моточасов');
-   return{ok:true,key,kind:s.kind,interval:s.value,nextHours:due,readingHours:reading,readingDate:date,hoursPerDay:rate||0,...(b.meterKey?{meterKey:b.meterKey}:{})};
+   const keySource=b.meterKey,eq=context(t,d,index)?.eq?.id,meter=keySource?meterRecord(d,keySource):null;
+   if(keySource&&(!meter||!sourceMatches(keySource,eq))||!keySource&&!allowUnbound)return fail('TASK_METER_MISSING','Подтвердите привязку к физическому счётчику оборудования');
+   const due=num(b.nextHours),reading=num(meter?.readingHours??b.readingHours),rate=num(meter?.hoursPerDay??b.hoursPerDay),date=day(meter?.readingDate??b.readingDate);
+   if(due==null||due<0||reading==null||reading<0||!date||date>today()||rate!=null&&(rate<0||rate>24))return fail('TASK_METER_MISSING','Укажите действительные показания, дату и следующий порог моточасов');
+   return{ok:true,key,kind:s.kind,interval:s.value,nextHours:due,readingHours:reading,readingDate:date,hoursPerDay:rate||0,...(keySource?{meterKey:keySource}:{})};
   }
   const date=day(b.nextDate);
   return date?{ok:true,key,kind:s.kind,interval:s.value,nextDate:date}:fail('TASK_DUE_MISSING','Укажите дату следующего обслуживания');
@@ -97,7 +100,7 @@
   const r=arr(d.routes).find(x=>String(x.id)===String(routeId));
   if(!typed(r)||r.status==='archived')return fail('ROUTE_NOT_AVAILABLE','Выберите текущий автомаршрут');
   if(!Array.isArray(changes)||!changes.length)return fail('EMPTY_CHANGES','Нет изменений');
-  const work=copy(d),ix=engine().contextIndex(work),allowed=new Set(arr(r.taskIds).map(String)),seen=new Set();
+  const work=copy(d),ix=engine().contextIndex(work),allowed=new Set(arr(r.taskIds).map(String)),seen=new Set(),meterInputs=new Map();
   for(const row of changes){
    const id=str(row.id),t=ix.get(id)?.task;
    if(!allowed.has(id)||!t||seen.has(id))return fail('TASK_NOT_IN_ROUTE','Некорректное мероприятие: '+id);
@@ -105,13 +108,24 @@
    const key=signature(t,work,ix),s=spec(t),old=parseBasis(t,work,ix);
    if(!key||!s?.ok||row.key!==key)return fail('STALE_BASIS','Изменилось мероприятие '+id+'; откройте настройки повторно');
    
-   let b={...(old.ok?{lastRunId:t.routeDue?.lastRunId||'',lastServiceDate:t.routeDue?.lastServiceDate||''}:{}),key};
+   let b={...(t.routeDue?.key===key?{lastRunId:t.routeDue?.lastRunId||'',lastServiceDate:t.routeDue?.lastServiceDate||''}:{}),key};
    if(s.kind==='runtime_hours'&&old.ok&&old.planningMode==='calendar_runtime'&&row.nextDate!==undefined){
     b={...t.routeDue,nextDate:day(row.nextDate)};if(row.nextDate!==old.nextDate){b.cycleAnchor=b.nextDate;b.cycleTarget=b.nextDate}
    }else if(s.kind==='runtime_hours'){
     if(str(row.hoursPerDay)&&num(row.hoursPerDay)==null)return fail('INVALID_RATE',id+': некорректная плановая наработка');
-    b={...b,nextHours:num(row.nextHours),readingHours:num(row.readingHours),readingDate:day(row.readingDate),hoursPerDay:num(row.hoursPerDay)||0,...(old.meterKey?{meterKey:old.meterKey}:{})};
-    if(b.meterKey){const meter=writeMeter(work,b.meterKey,b.readingHours,b.readingDate,b.hoursPerDay);if(!meter.ok)return meter;}
+    const eq=ix.get(id)?.eq?.id,raw=t.routeDue||{},legacy=parseBasis(t,work,ix,{allowUnbound:true});
+    if(!eq)return fail('METER_SCOPE',id+': не определено оборудование');
+    if(raw.meterKey&&!old.ok)return fail('METER_SCOPE',id+': восстановите привязку счётчика через настройки оборудования');
+    const source=old.meterKey||meterKey(eq);
+    if(!old.meterKey&&row.confirmMeter!==true)return fail('METER_CONFIRM',id+': подтвердите общий физический счётчик оборудования');
+    if(row.meterId&&meterKey(eq,str(row.meterId))!==source)return fail('METER_SCOPE','Независимый счётчик выбирается в настройке оборудования');
+    b={...b,meterKey:source,nextHours:num(row.nextHours),readingHours:num(row.readingHours),readingDate:day(row.readingDate),hoursPerDay:str(row.hoursPerDay)===''?(meterRecord(work,source)?.hoursPerDay??0):num(row.hoursPerDay)};
+    if(legacy.ok&&legacy.kind==='runtime_hours'&&(b.readingHours<legacy.readingHours||b.readingDate<legacy.readingDate))return fail('METER_ROLLBACK',id+': показание меньше подтверждённого');
+    const values=JSON.stringify([b.readingHours,b.readingDate,b.hoursPerDay]);
+    if(meterInputs.has(source)&&meterInputs.get(source)!==values)return fail('METER_CONFLICT','Для одного физического счётчика заданы разные показания, даты или наработка');
+    meterInputs.set(source,values);
+    const meter=writeMeter(work,source,b.readingHours,b.readingDate,b.hoursPerDay);if(!meter.ok)return meter;
+    const record=meterRecord(work,source);Object.assign(b,{readingHours:record.readingHours,readingDate:record.readingDate,hoursPerDay:record.hoursPerDay});
     
     
    }else{
@@ -171,10 +185,11 @@
   const date=day(input.readingDate),reading=num(input.readingHours),last=num(input.lastHours),rate=num(input.hoursPerDay),source=str(input.meterId)||'main',key=meterKey(equipmentId,source),explicit=!!str(input.meterId);
   if(input.confirmMeter!==true||!date||date>today()||reading==null||reading<0||str(input.hoursPerDay)&&rate==null||rate!=null&&(rate<0||rate>24))return fail('METER_INITIAL','Подтвердите общий счётчик, показание и дату');
   const selected=new Set(arr(input.taskIds).map(String)),linked=[];
+  if(explicit&&source!=='main'&&!selected.size)return fail('METER_SCOPE','Для независимого счётчика отметьте его мероприятия');
   if(selected.size&&[...selected].some(id=>!arr(r.taskIds).map(String).includes(id)||String(ix.get(id)?.eq?.id)!==String(equipmentId)))return fail('METER_SCOPE','Выбранное мероприятие не относится к оборудованию маршрута');
   for(const id of arr(r.taskIds)){
    const c=ix.get(String(id));if(String(c?.eq?.id)!==String(equipmentId)||selected.size&&!selected.has(String(id)))continue;
-   const t=c.task,s=spec(t),old=parseBasis(t,work,ix);if(s?.kind!=='runtime_hours')continue;
+   const t=c.task,s=spec(t),old=parseBasis(t,work,ix,{allowUnbound:true});if(s?.kind!=='runtime_hours')continue;
    if(old.ok&&(old.kind!=='runtime_hours'||old.meterKey&&old.meterKey!==key)&&!input.replaceExisting)return fail('MODE_CHANGE_CONFIRM','Подтвердите смену источника или способа планирования');
    let b;
    if(old.ok&&old.kind==='runtime_hours'&&!input.replaceExisting)b={...t.routeDue,readingHours:reading,readingDate:date,hoursPerDay:rate??old.hoursPerDay};
@@ -184,20 +199,14 @@
    linked.push({t,b:{...b,meterKey:key}});
   }
   if(!linked.length)return fail('METER_SCOPE','Нет мероприятий выбранного оборудования');
-  // Confirmation of the default common equipment counter covers other already configured
-  // unbound runtime tasks; explicit alternative sources require explicit binding.
-  if(!explicit&&!selected.size)for(const c of ix.values()){
-   const t=c.task;if(String(c.eq?.id)!==String(equipmentId)||linked.some(x=>x.t===t))continue;
-   const old=parseBasis(t,work,ix);if(!old.ok||old.kind!=='runtime_hours'||old.meterKey)continue;
-   if(reading<old.readingHours||date<old.readingDate)return fail('METER_ROLLBACK','Показание противоречит другому маршруту этого счётчика');
-   if(reserved(work,t.id))return fail('BASIS_RESERVED','Сначала снимите задание другого маршрута перед привязкой общего счётчика');
-   linked.push({t,b:{...t.routeDue,meterKey:key,readingHours:reading,readingDate:date,hoursPerDay:rate??old.hoursPerDay}});
-  }
+  // Bind only the explicitly selected route tasks. Already linked tasks in every route share the registry.
   const existing=meterRecord(work,key),meter=writeMeter(work,key,reading,date,rate??existing?.hoursPerDay??linked[0].b.hoursPerDay);if(!meter.ok)return meter;
   const actual=meterRecord(work,key);
   for(const {t,b} of linked){const result=writeBasis(t,{...b,readingHours:actual.readingHours,readingDate:actual.readingDate,hoursPerDay:actual.hoursPerDay},work,ix,{replaceSource:input.replaceExisting===true});if(!result.ok)return result;}
   if(arr(r.taskIds).every(id=>parseBasis(ix.get(String(id))?.task||{},work,ix).kind==='runtime_hours'))delete r.scheduleDefaults;
+  if(input.pprMode){const result=global.LubricaRouteWorkload.saveRoutePpr(r.id,input.pprMode,'',work,{persist:false});if(!result.ok)return result;work.routeWorkload=result.database.routeWorkload}
   const issues=activationIssues(r,work,ix);
+  if(issues.some(x=>['PPR_CYCLE','PPR_ANCHOR_REQUIRED'].includes(x.code)))return{...fail('ROUTE_SCHEDULE_BLOCKED',issues.find(x=>['PPR_CYCLE','PPR_ANCHOR_REQUIRED'].includes(x.code)).message),issues};
   if(activate){if(issues.length)return {...fail('ROUTE_SCHEDULE_BLOCKED',issues[0].message),issues};const gate=engine().transitionCheck(r,'active',work);if(!gate.ok)return{...fail('ROUTE_NOT_READY',gate.reason),...gate};r.status='active'}
   engine().ensureRouteRevision(r.id,work,{reason:'meter'});
   if(persist){global.LubricaCore.State.setDatabase(work);global.LubricaApp?.refreshFromCore?.()}
@@ -305,7 +314,7 @@
   for(const e of run.dueEntries){
    const id=String(e.taskId),r=run.taskResults?.[id];
    if(!r?.done||r.resultStatus!=='completed')continue;
-   const t=ix.get(id)?.task,b=t&&parseBasis(t,d,ix);
+   const t=ix.get(id)?.task,b=t&&parseBasis(t,d,ix,{allowUnbound:run.status==='in_progress'&&e.kind==='runtime_hours'&&!e.meterKey});
    if(!b?.ok||b.key!==e.key||b.kind!==e.kind||b.interval!==e.interval||b.planningMode!==e.planningMode||b.maxHoursPerDay!==e.maxHoursPerDay||b.meterKey!==e.meterKey||(e.kind==='runtime_hours'?b.nextHours!==e.nextHours:b.nextDate!==e.dueDate)){missing.push(id+': основание изменилось во время выполнения');continue}
    if(e.kind==='runtime_hours'){
     const h=num(r.runtimeMeterHours);
@@ -341,7 +350,7 @@
   if(!key)return null;
   const runs=arr(d.checklistRuns).filter(r=>['completed','partial'].includes(r.status)&&day(r.date)&&r.date<=today()&&arr(r.dueEntries).some(e=>String(e.taskId)===id&&e.key===key)).sort((a,b)=>b.date.localeCompare(a.date)||str(b.completedAt).localeCompare(str(a.completedAt)));
   for(const r of runs){const result=r.executionFact?.tasks?.[id]||r.taskResults?.[id],e=arr(r.dueEntries).find(e=>String(e.taskId)===id&&e.key===key);if(!result?.done||result.resultStatus!=='completed')continue;
-   const saved=r.executionFact?.nextBasisByTask?.[id],b=saved?.key===key?copy(saved):nextBasisFromFact(r,e,result,{},arr(d.routes).find(x=>x.id===r.routeId));if(!b)continue;
+   const saved=r.executionFact?.nextBasisByTask?.[id],b=saved?.key===key?copy(saved):nextBasisFromFact(r,e,result,{},arr(d.routes).find(x=>x.id===r.routeId));if(!b||e.kind==='runtime_hours'&&!b.meterKey)continue;
    if(b.meterKey){const m=meterRecord(d,b.meterKey);if(!m)continue;Object.assign(b,{readingHours:m.readingHours,readingDate:m.readingDate,hoursPerDay:m.hoursPerDay})}
    return b;
   }return null;

@@ -172,7 +172,7 @@
    const s=A().scheduleFor(t),key=D().signature(t,d,ix),initial=o.batchByKey?.get(valid.get(id)?.key)?.initial||o.initial||{};
    if(s.kind==='runtime_hours'&&initial.planningMode==='calendar_runtime'&&initial.date){b=null;source=''}
    if(!b&&s.kind==='runtime_hours'&&initial.planningMode==='calendar_runtime'&&str(initial.date)){
-    const row=o.batchByKey?.get(valid.get(id)?.key),made=D().makeCalendarBasis(t,d,ix,{...initial,ppr:row?row.mode==='ppr':W().requiresPpr(row?.routeId,d)});if(!made.ok)return made;b=made.basis;source='Подтверждённый календарный цикл по наработке';
+    const row=o.batchByKey?.get(valid.get(id)?.key),made=D().makeCalendarBasis(t,d,ix,{...initial,ppr:row?row.mode==='ppr':arr(d.routes).some(r=>r.status!=='archived'&&A().routeKey(r)===valid.get(id)?.key&&W().requiresPpr(r.id,d))});if(!made.ok)return made;b=made.basis;source='Подтверждённый календарный цикл по наработке';
    }
    if(!b&&s.kind!=='runtime_hours'&&str(initial.date)){
     const date=D().day(initial.date);if(!date||initial.mode==='last'&&date>D().today())return fail('INITIAL_DATE','Некорректная исходная дата');
