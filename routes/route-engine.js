@@ -96,7 +96,7 @@
 
  function save(d,message='Маршруты сохранены'){global.LubricaCore?.State?.setDatabase?.(d);global.LubricaApp?.refreshFromCore?.();global.LubricaApp?.showToast?.(message)}
  function syncAndSave(){const d=database();const result=syncRoutes(d);if(d&&!result.requiresConfirmation)save(d,`Маршруты обновлены · новых: ${result.created}`);return result}
- function updateRoute(id,patch){const d=database();if(!d)return null;const r=(d.routes||[]).find(x=>x.id===id);if(!r)return null;Object.assign(r,patch,{updatedAt:now()});save(d,'Маршрут сохранён');return r}
+ function updateRoute(id,patch){const d=database();if(!d)return null;const r=(d.routes||[]).find(x=>x.id===id);if(!r||r.status==='archived'||typedLocked(d,r))return null;if(typed(r)){const keys=['name','description','assignee','estimatedMinutesPerTask','fixedMinutes'];patch=Object.fromEntries(Object.entries(patch||{}).filter(([key])=>keys.includes(key)))}Object.assign(r,patch,{updatedAt:now()});save(d,'Маршрут сохранён');return r}
  function moveTask(routeId,taskId,delta){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const a=r.taskIds||[],i=a.indexOf(String(taskId)),j=i+delta;if(i<0||j<0||j>=a.length)return false;[a[i],a[j]]=[a[j],a[i]];r.updatedAt=now();save(d,'Порядок маршрута изменён');return true}
  function excludeTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const id=String(taskId);r.taskIds=(r.taskIds||[]).filter(x=>String(x)!==id);r.excludedTaskIds=[...new Set([...(r.excludedTaskIds||[]),id])];r.updatedAt=now();save(d,'Мероприятие исключено из маршрута');return true}
  function restoreTask(routeId,taskId){const d=database(),r=(d?.routes||[]).find(x=>x.id===routeId);if(!r||r.status==='archived'||typedLocked(d,r))return false;const id=String(taskId);if(typed(r)){const t=maps(d).tasks.get(id);if(!t||!matchesService(r,taskContext(d,t))||!routeEligibility(t,d,readinessIndex(d)).ok||(d.routes||[]).some(x=>x.id!==r.id&&x.status!=='archived'&&(x.taskIds||[]).includes(id)))return false;}r.excludedTaskIds=(r.excludedTaskIds||[]).filter(x=>String(x)!==id);if(!(r.taskIds||[]).includes(id))r.taskIds.push(id);r.updatedAt=now();save(d,'Мероприятие возвращено в маршрут');return true}
@@ -212,7 +212,7 @@
    return addTasksToRoute(routeId,ids,{move:true},d);
  }
  function removePointFromRoute(routeId,pointRef,d=database()){
-   const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};
+   const r=rawRoute(d,routeId);if(!r)return {ok:false,reason:'Маршрут не найден'};if(r.status==='archived'||typedLocked(d,r))return{ok:false,reason:'Состав архивирован или зафиксирован в плане'};
    const group=findVisitGroup(pointGroupsForRoute(routeId,d),pointRef),ids=group?.taskIds||[];if(!ids.length)return {ok:false,reason:'Точка не найдена в маршруте'};
    r.taskIds=(r.taskIds||[]).filter(x=>!ids.includes(String(x)));
    for(const id of ids){const native=pointNativeRoute(d,id);if(native?.id===routeId)r.excludedTaskIds=[...new Set([...(r.excludedTaskIds||[]),id])]}
