@@ -45,6 +45,7 @@ jobs:
           python test/test_stage9_8_4_guide_labels.py
           python test/test_stage9_8_5_detailed_guide.py
           python test/test_stage9_8_6_illustrated_guide.py
+          python test/test_stage9_8_7_settings_symmetric.py
       - name: Browser navigation, search, image loading and lightbox
         run: python test/guide-r82/check_guide_browser.py
       - name: Full regression
@@ -56,7 +57,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/feature/route-safety-ux-20261119
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ui/user-guide.js ui/checks-settings.js assets/guide test/test_release_1_0_5_internal_guide.py test/test_stage9_8_2_settings_guide.py test/test_stage9_8_5_detailed_guide.py test/test_stage9_8_6_illustrated_guide.py
+          git add ui/user-guide.js ui/checks-settings.js assets/guide test/test_release_1_0_5_internal_guide.py test/test_stage9_8_2_settings_guide.py test/test_stage9_8_5_detailed_guide.py test/test_stage9_8_6_illustrated_guide.py test/test_stage9_8_7_settings_symmetric.py
           git diff --cached --name-only
           git commit -m "R8.2: publish complete interactive guide and 38 verified real UI screenshots"
           git push origin HEAD:refs/heads/feature/route-safety-ux-20261119
