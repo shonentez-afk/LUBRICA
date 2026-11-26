@@ -12,7 +12,7 @@ checks={
  'symmetric grid':'grid-template-columns:repeat(2,minmax(0,1fr))' in css and 'grid-auto-rows:1fr' in css,
  'equal tile layout':'.settings-grid-symmetric .settings-tile' in css and 'height:100%' in css,
  'primary actions':all(x in ui for x in ['settings-action-blue','settings-action-green','settings-action-orange']),
- 'guide fifteen':'15 разделов:' in ui,
+ 'guide eighteen':'18 разделов:' in ui,
  'engineering defaults retained':'engineering-defaults-panel' in ui and 'saveRules' in ui,
  'responsive':'@media(max-width:980px)' in css,
 }

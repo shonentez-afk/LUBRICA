@@ -15,7 +15,7 @@ checks={
  'control shortcut removed':'openControlFromSettings' not in settings and 'Открыть Контроль программы' not in settings,
  'guide chapters':guide.count('\"id\":')>=15 and 'Финальный Excel' in guide and 'Backup' in guide,
  'interactive navigation':'data-guide-prev' in guide and 'data-guide-next' in guide and 'data-guide-open-view' in guide and 'data-guide-search' in guide,
- 'full workflow':'База → Импорт → Классификация → Материалы → Карта → Расчёты → Маршруты → Ревизия → План → Выполнение → ФРВ → Аналитика → Контроль → Excel → Backup' in guide,
+ 'full workflow':'База → Импорт → Классификация → Материалы → Карта → Конструкторы → Расчёты → Маршруты → Настройки → Календарь → Подготовка → Выполнение → ФРВ → Аналитика → Контроль → Excel → Backup' in guide,
  'responsive guide':'#userGuideDialog' in css and '.user-guide-layout' in css and '@media(max-width:700px)' in css,
  'preflight current architecture':'renderChecks' not in preflight and 'renderProgramQA' in preflight and 'user-guide.js' in preflight,
 }
