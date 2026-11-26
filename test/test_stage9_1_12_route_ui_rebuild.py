@@ -4,7 +4,7 @@ js=Path('routes/routes-ui.js').read_text(encoding='utf-8')
 engine=Path('routes/route-engine.js').read_text(encoding='utf-8')
 checks={
  'route editor present':'Маршрут и порядок' in js and 'Добавить точки и мероприятия' in js,
- 'area selector says all areas':'<option value="">Все участки</option>' in js,
+ 'manual area selector requires a specific area':'<label>Участок<select name="areaId"><option value="">Выберите участок</option>' in js and 'manualGroupKey:group.key' in js and 'manualCreationCatalog({lineId,areaId}' in js,
  'route ui no whole-line label':'Вся линия' not in js,
  'engine whole-line display says all areas':"?'Все участки':'Без участка'" in engine,
  'editor has two explicit tabs':'route-editor-tabs' in js and 'Маршрут и порядок' in js and 'Добавить точки и мероприятия' in js,

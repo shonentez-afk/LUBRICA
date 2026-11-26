@@ -13,7 +13,7 @@ checks={
  "restore action": "restoreRoute" in ui and "restoreRoute" in engine,
  "archived route not executable": "selected?.status!=='archived'" in ui,
  "transactional create flag": "creationCommitted=false" in ui,
- "persistence in final submit": "f.addEventListener('submit'" in ui and ("E.createRoute(" in ui or "E.cloneRoute(" in ui),
+ "persistence in final submit": "f.addEventListener('submit'" in ui and "E.commitManualCreation(readInput(),report.token,db())" in ui and "E.previewManualCreation(readInput(),db())" in ui and "!report?.ok||e.submitter!==submit" in ui,
  "explicit final create button": "Создать маршрут" in ui,
  "cancel create": "Отменить создание" in ui,
  "existing task wording": "существующие мероприятия" in ui,

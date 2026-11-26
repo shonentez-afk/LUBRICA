@@ -1,0 +1,113 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+global.window=global;
+let d={lines:[{id:'L1',name:'Линия 1'},{id:'L2',name:'Линия 2'}],routes:[{id:'A',lineId:'L1',status:'active'},{id:'B',lineId:'L2',status:'active'},{id:'N',lineId:'L1',status:'active'}],routePlanItems:[],checklistRuns:[]};
+let writes=0;global.LubricaCore={State:{getDatabase:()=>d,setDatabase:x=>{d=x;writes++}}};global.LubricaRouteEngine={routeRevisions:()=>[]};
+for(const f of ['routes/route-auto-grouping.js','routes/route-workload.js','routes/route-planning.js'])vm.runInThisContext(fs.readFileSync(f,'utf8'),{filename:f});
+const W=LubricaRouteWorkload,P=LubricaRoutePlanning,copy=x=>JSON.parse(JSON.stringify(x)),today=W.today(),plus=n=>P.addInterval(today,{kind:'days',value:n}),tomorrow=plus(1),end=plus(15);
+const cfg={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:1,minutesPerWorker:30},{id:'2',workers:1,minutesPerWorker:40}],ppr:[{lineId:'L1',anchorDate:today},{lineId:'L2',anchorDate:tomorrow}],pprRouteIds:['A','B']};
+const options={startDate:today,endDate:end};
+assert.equal(W.settings(d),null);
+assert.equal(W.saveRoutePpr('A','ppr','',d).code,'PPR_ANCHOR_REQUIRED');
+assert.equal(W.saveSettings(cfg,d).code,'PPR_MODE_ROUTE');
+for(const [id,date] of [['A',today],['B',tomorrow]]){const r=W.saveRoutePpr(id,'ppr',date,d,{persist:false});assert(r.ok,r.message);d=r.database}
+assert(W.saveSettings(cfg,d).ok);assert.equal(writes,1);assert.equal(W.settings(d).ppr[0].intervalDays,14);
+assert(W.pprOn('L1',today,d));assert(!W.pprOn('L2',today,d));assert(W.pprOn('L2',tomorrow,d));
+assert(W.pprOn('L1',plus(14),d));assert(W.pprOn('L2',plus(15),d));assert(!W.pprOn('L1',plus(13),d));
+assert.equal(W.nextPpr('L1',tomorrow,d),plus(14));
+assert.equal(W.nextPpr('L2',today,d),tomorrow);
+assert.equal(W.rangeFor('week',today).startDate<=today,true);
+assert.equal(W.rangeFor('month',today).startDate,today.slice(0,7)+'-01');
+function job(id,route,minutes,date=today,extra={}){
+ const lineId=route==='B'?'L2':'L1';
+ d.routePlanItems.push({id,routeId:route,routeCode:route,routeName:'Маршрут '+route+' '+id,lineId,line:'Линия '+lineId,area:'Участок',plannedDate:date,plannedMinutes:minutes,status:'planned',runId:'',taskIds:['T'+id],dueEntries:[{taskId:'T'+id,dueDate:date,key:'key'+id}],checklistSnapshot:{taskCount:1},routeRevisionId:'rev',...extra});
+}
+job('J00','N',20,today,{workAssignment:{date:today,shiftId:'1',reason:'Назначено'}});
+job('J01','A',20);job('J02','B',15);job('J03','N',10);job('J04','N',50);job('J05','A',35);job('J06','B',10,tomorrow);
+const snapshot=copy(d),beforeWrites=writes;
+const L=W.load(options,d);assert.equal(L.totals.unassigned,6);assert.equal(L.days[0].assignedMinutes,20);
+assert.deepEqual(L.days[0].pprLines.map(x=>x.id),['L1']);assert.deepEqual(L.days[1].pprLines.map(x=>x.id),['L2']);
+let first=W.preview(options,d);assert(first.ok);assert.deepEqual(d,snapshot,'read-only preview');assert.equal(writes,beforeWrites);
+assert.deepEqual(first.proposals.map(x=>x.id),['J01','J03','J06']);
+assert.equal(first.proposals.find(x=>x.id==='J01').shiftId,'2');
+assert.equal(first.remaining.find(x=>x.id==='J02').nextPpr,tomorrow);
+assert(first.remaining.find(x=>x.id==='J02').reason.includes('ППР'));
+assert.equal(W.preview({...options,allowDelay:true},d).code,'DELAY_REASON_REQUIRED');
+const delayed={...options,allowDelay:true,reason:'Согласованный перенос на ППР'};
+const proposal=W.preview(delayed,d);assert(proposal.ok);
+assert.equal(proposal.proposals.find(x=>x.id==='J02').date,tomorrow);
+assert.equal(proposal.proposals.find(x=>x.id==='J05').date,plus(14));
+assert.equal(proposal.remaining.length,1);assert.equal(proposal.remaining[0].id,'J04');
+assert.equal(W.apply(delayed,'invalid',d).code,'STALE_PREVIEW');
+const res=W.apply(delayed,proposal.token,d);assert(res.ok);assert.equal(res.updated,5);assert.equal(writes,beforeWrites+1);
+const get=id=>d.routePlanItems.find(x=>x.id===id);
+for(const original of snapshot.routePlanItems){
+ const current=get(original.id);
+ for(const k of ['plannedDate','plannedMinutes','taskIds','dueEntries','checklistSnapshot','routeRevisionId'])assert.deepEqual(current[k],original[k],k+' must never be rewritten');
+}
+assert.equal(get('J02').workAssignment.date,tomorrow);assert.equal(get('J02').workAssignmentHistory.length,1);
+assert.equal(P.items({startDate:tomorrow,endDate:tomorrow},d).find(x=>x.id==='J02').plannedDate,today,'calendar moves display only');
+assert.equal(P.items({startDate:tomorrow,endDate:tomorrow},d).find(x=>x.id==='J02').workDate,tomorrow);
+assert.equal(W.apply(delayed,proposal.token,d).code,'STALE_PREVIEW');
+assert.equal(W.move('J02',{date:plus(2),shiftId:'1',reason:'Не ППР'},d).code,'PPR_CONFLICT');
+assert.equal(W.move('J02',{date:today,shiftId:'1',reason:'Не ППР'},d).code,'PPR_CONFLICT');
+assert.equal(W.move('J01',{date:today,shiftId:'1',reason:'Проверка'},d).code,'SHIFT_OVERLOADED');
+assert.equal(W.move('J02',{date:plus(15),shiftId:'1'},d).code,'REASON_REQUIRED');
+assert.equal(W.validateStart(get('J01'),today,'1',d).code,'WORK_SLOT_MISMATCH');
+assert(W.validateStart(get('J01'),today,'2',d).ok);
+assert.equal(W.startPolicy('A','',today,'2',d).code,'WORK_PLAN_REQUIRED');
+assert.equal(W.validateStart(get('J02'),today,'1',d).code,'WORK_SLOT_MISMATCH');
+assert(W.move('J02',{date:plus(15),shiftId:'1',reason:'Согласовано'},d).ok);
+assert.equal(get('J02').workAssignmentHistory.length,2);
+assert.equal(W.move('J02',{clear:true},d).code,'REASON_REQUIRED');
+assert(W.move('J02',{clear:true,reason:'Вернуть в очередь'},d).ok);
+assert.equal(get('J02').workAssignment,null);assert.equal(W.validateStart(get('J02'),today,'1',d).code,'PPR_ASSIGNMENT_REQUIRED');
+const old=copy(get('J01'));assert.equal(W.saveSettings({...cfg,pprRouteIds:['B']},d).code,'PPR_MODE_ROUTE');assert.equal(W.saveRoutePpr('A','normal','',d).code,'PPR_ROUTE_LOCKED');assert(W.saveSettings({...cfg,ppr:[{lineId:'L1',anchorDate:tomorrow},{lineId:'L2',anchorDate:tomorrow}]},d).ok);
+assert.deepEqual(get('J01'),old,'changing calendar cannot rewrite jobs');
+assert.equal(W.load(options,d).totals.pprConflicts,2);
+assert.equal(W.validateStart(get('J01'),today,'2',d).code,'PPR_CONFLICT');
+d.checklistRuns.push({id:'RUN1',routeId:'A',plannedItemId:'J01',status:'completed',date:today,shift:'2'});
+assert.equal(W.move('J01',{clear:true,reason:'Нельзя'},d).code,'JOB_LOCKED');
+assert.equal(P.remove('J01',d).ok,false);
+const stored=copy(d);d=stored;assert.equal(W.nextPpr('L1',today,d),tomorrow);
+console.log('R4 WORKLOAD PPR PASS — distinct 14-day line phases, shift capacity, controlled delay, unchanged due dates, plan display, audit history, locked execution');
+
+/* R4.1 staff capacity and exact weekly cadence, independent synthetic fixture. */
+vm.runInThisContext(fs.readFileSync('routes/route-auto-grouping.js','utf8'),{filename:'route-auto-grouping.js'});
+const A=LubricaRouteAutoGrouping;
+for(const n of [1,2,3,4,8,12,52]){
+ const x=A.scheduleFor({schedule:{legacyText:(n*7)+' дней'}}),y=A.scheduleFor({schedule:{legacyText:n+' нед.'}});
+ assert.equal(x.key,y.key);assert.equal(x.key,'days:'+n*7);assert.equal(x.label,n+' нед.');
+}
+assert.equal(A.scheduleFor({schedule:{legacyText:'1 месяц'}}).key,'months:1');
+assert.equal(A.scheduleFor({schedule:{legacyText:'500 часов'}}).key,'runtime_hours:500');
+assert.equal(A.scheduleFor({schedule:{legacyText:'30 дней'}}).key,'days:30');
+d={lines:[{id:'L1',name:'Линия'}],routes:[1,2,3,4].map(n=>({id:'W'+n,lineId:'L1',status:'active',scheduleKey:'days:'+n*7,interval:n+' нед.'})).concat([{id:'M',lineId:'L1',status:'active',scheduleKey:'months:1',interval:'1 мес.'},{id:'H',lineId:'L1',status:'active',scheduleKey:'runtime_hours:500',interval:'500 ч'},{id:'D',lineId:'L1',status:'active',scheduleKey:'days:30',interval:'30 дней'}]),routePlanItems:[],checklistRuns:[]};
+assert.deepEqual(W.routeCycles(d).map(g=>[g.weeks,g.routes.length]),[[1,1],[2,1],[3,1],[4,1],[0,3]]);
+const daily={startDate:today,endDate:today},multi={weekdays:[1,2,3,4,5,6,7],shifts:[{id:'1',workers:2,minutesPerWorker:60},{id:'2',workers:1,minutesPerWorker:30}],ppr:[],pprRouteIds:[]};
+for(const [id,minutes] of [['P1',40],['P2',40],['P3',40],['P4',70]])job(id,'W1',minutes);
+assert(W.saveSettings({...multi,shifts:[{id:'1',minutes:120}]},d).ok);
+assert.equal(W.settings(d).shifts[0].legacyAggregate,true);
+assert.equal(W.preview(daily,d).code,'STAFF_CONFIRMATION_REQUIRED');
+assert.equal(W.move('P1',{date:today,shiftId:'1'},d).code,'STAFF_CONFIRMATION_REQUIRED');
+assert.equal(W.saveSettings({...multi,shifts:[{id:'1',workers:0,minutesPerWorker:60}]},d).ok,false);
+assert(W.saveSettings(multi,d).ok);
+let roster=W.load(daily,d);
+assert.equal(roster.days[0].capacity,150);assert.equal(roster.days[0].slots[0].workers,2);assert.equal(roster.days[0].slots[0].capacity,120);
+let plan=W.preview(daily,d);assert(plan.ok);
+assert.deepEqual(plan.proposals.map(x=>x.id),['P1','P2'],'three indivisible 40 min jobs do not fit two 60 min workers, even though aggregate fits');
+assert(plan.remaining.find(x=>x.id==='P4').reason.includes('одного смазчика'));
+assert(W.apply(daily,plan.token,d).ok);
+assert.equal(W.move('P3',{date:today,shiftId:'1'},d).code,'SHIFT_OVERLOADED');
+assert.equal(W.move('P4',{date:today,shiftId:'1'},d).code,'SHIFT_OVERLOADED');
+// Existing assignments are retained even if staff changes; conflicts shown.
+get('P3').workAssignment={date:today,shiftId:'1',reason:'Старая запись'};
+roster=W.load(daily,d);assert.equal(roster.totals.staffConflicts,1);assert.equal(roster.days[0].slots[0].overloadMinutes,0);
+assert.equal(W.validateStart(get('P1'),today,'1',d).code,'WORK_SLOT_UNAVAILABLE');
+assert(W.move('P3',{clear:true,reason:'Недостаток людей'},d).ok);
+assert(W.saveSettings({...multi,shifts:[{id:'1',workers:1,minutesPerWorker:60}]},d).ok);
+assert.equal(W.load(daily,d).days[0].capacity,60);
+const fortnight=W.load({startDate:W.rangeFor('week',today).startDate,endDate: P.addInterval(W.rangeFor('week',today).startDate,{kind:'days',value:13})},d);
+assert.equal(fortnight.weeks.length,2);assert(fortnight.weeks.every(w=>w.days.length===7));assert.equal(fortnight.weeks.reduce((n,w)=>n+w.capacity,0),fortnight.totals.capacity);
+assert.equal(fortnight.weeks.reduce((n,w)=>n+w.assignedMinutes,0),fortnight.totals.assignedMinutes);
+console.log('R4.1 STAFF + WEEK PASS — explicit workers, indivisible job capacity, legacy settings confirmation, exact 1/2/3/4/8/12/52 week labels, weekly totals and unchanged nonweekly intervals');

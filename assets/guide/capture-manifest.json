@@ -1,0 +1,235 @@
+{
+  "capture": "Real application index.html, Chromium file://; demo and synthetic input JSON only",
+  "sourceCommit": "84676c688cfe569bd226913f9de377fdbed88e86",
+  "chapters": 18,
+  "images": [
+    {
+      "file": "01-settings-overview.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "b9e996d5a9349725074d1c2b62662e61539f555634da2de9e6212ac4d069e4cd"
+    },
+    {
+      "file": "02-demo-header.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "b138a5d18929eb6ebe95dc5502acb97f319891f72898cd782c8ed4fa83421699"
+    },
+    {
+      "file": "03-import-dialog.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "7863a40b229f8ecbb2947110fe07a4dd27deb0a355b3aed4945e37632976f6a0"
+    },
+    {
+      "file": "04-structure-tree.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "c7c24c227413b7b1c8e12ecf6e43431aaafeef3d7220c6654014760f5be94236"
+    },
+    {
+      "file": "05-candidates.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "574c42112917b32fbaa07a5c067c145ec066789b665b618803fbe13028f4be5d"
+    },
+    {
+      "file": "06-material-card.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "8a4f8d7d97b1595988c69513b148883b3ad675adb37b1a1dcd4106222ece8fc3"
+    },
+    {
+      "file": "07-material-list-label.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "9fdfaebb3cb6a8e6cb2f384c0ba2da1e8e4f7f04365da845a4ff955555e91340"
+    },
+    {
+      "file": "08-tool-material-label.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "d1493de06585a37577d751793424b0b0a0b2e0ccccbd84df5ca11fabb022205f"
+    },
+    {
+      "file": "09-printed-label.png",
+      "width": 720,
+      "height": 520,
+      "sha256": "9c7e8b095106300687a6475962cb9e7be5ad2bdfcbedcca1bfeb82e61f17e84d"
+    },
+    {
+      "file": "10-map-point-card.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "9f530ac20e9643be2353574a20d9b512fbd6cfc640467abcd8e2a9c6ceaa2305"
+    },
+    {
+      "file": "11-map-multiple-tasks.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "75b3ece0b8132aeeb3f8e206addf40e09ac2a7dc2c0d02f4600d033e94a7cb05"
+    },
+    {
+      "file": "12-calculation.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "7c241b7f9594177ce45a2ded31b92e86c6536ae3b849ca25eabdd8d3f1fa46c7"
+    },
+    {
+      "file": "13-route-wizard.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "7aba3508419980f802bf893b833ff93dfe50acbeef2c5db5add83f8cde2804c4"
+    },
+    {
+      "file": "14-route-editor.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "2bc011965fafaacfa510e97c3a1fec4600dbe54cd722a12025ea57e80a172617"
+    },
+    {
+      "file": "15-planning.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "ee8efe94313b5ff8a34111bf13d9ff6048f8526b21fe3b9bacead08463c0104c"
+    },
+    {
+      "file": "16-checklist.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "69147633dd4a85839ca97d8848401b84074d74e520fcd4203022d2fe0cf95448"
+    },
+    {
+      "file": "17-frv.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "7dd2344ae9d7a4efa27dda43c1cca905ef4a364335d0efd092a8e74d19b8e092"
+    },
+    {
+      "file": "18-plan-fact.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "4352c7d7992869929645ce605c53fd9c7a8854a608a5431d429b23c6233f2512"
+    },
+    {
+      "file": "19-analytics.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "a315f659b4947f9a1180a70417a8a62249fab8fb2332924ed8971340e774ed12"
+    },
+    {
+      "file": "20-dashboard.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "090148e52dac4854ae815fe138e8515accc7cf04ef23b0e78c0ee7c829119c99"
+    },
+    {
+      "file": "21-control.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "ac581beae90d1617db5cf4f6b2341b80c29d38d020b49b3832332953df94758b"
+    },
+    {
+      "file": "22-final-excel.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "285cdac143258eae9d1c3ce9d0fb873c969d8d3aac3ad98fb28cff20a87138e9"
+    },
+    {
+      "file": "23-backup-recovery.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "b9e996d5a9349725074d1c2b62662e61539f555634da2de9e6212ac4d069e4cd"
+    },
+    {
+      "file": "24-analysis.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "020d8826594b96c93eb4a8baf8ea44f40b252f603f3eb942b6354818dfd5ce96"
+    },
+    {
+      "file": "25-conveyor.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "1f74f14eb71b2428eb5ed116ed2f0818eeb021b96218c7ce154fb4b58d13eb15"
+    },
+    {
+      "file": "26-saw.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "beaa479adb24b42dcd00cd7c1c3e7f6101a852350fd763ee4d3e35012cb36dbe"
+    },
+    {
+      "file": "27-shaft.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "1098b079200487f15a563051f11505bb5c6361e49829608fb980d936e123960e"
+    },
+    {
+      "file": "28-control-queue.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "6179bf885d1e1904bb8503729bc42e7ae89abad4dd568e73e814b88f4ed3a429"
+    },
+    {
+      "file": "29-manual-selection.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "9c92925916b19166fd7efdbc5fc5ae5c03dd4cbf1c376a9ee7bbd00c94952814"
+    },
+    {
+      "file": "30-manual-result.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "7ed3e89471759d6ebcff2c844fd963a24462cf91c9d605ae663a5433ee967c4c"
+    },
+    {
+      "file": "31-auto-master.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "945be9dd7a2a1a36aedb09674ccf00c5aa0d59b9ec7df37c849ccda564c36d4b"
+    },
+    {
+      "file": "32-enterprise-settings.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "3765d5a83f5ba61ebb0e1a0c1fe929333575fd974be737698bcb6acdb30f8787"
+    },
+    {
+      "file": "33-route-due.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "884c1fd6cf9ee2e7e9b06365818c8ac3dba154a0e5176d95b519ba56648bac50"
+    },
+    {
+      "file": "34-preparation.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "b9f6d91eb5fd93219c68a6fc2732036cc8e865d467a94f18d70c3d78f57943f4"
+    },
+    {
+      "file": "35-archive.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "ff4da3c5424fb3bd11ef874f2f0a7cfeb2338f049876cb383152e3699c28420b"
+    },
+    {
+      "file": "36-revisions.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "5ec5dc45cf1f9878df4107bd3bd44c92e32cfdf0ec8029b6f0d4e3190b73ecb7"
+    },
+    {
+      "file": "37-calculation-detail.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "699fa2eaef2a5d0137b6412fe53033a61fba378c5f0ff1f94ee1a49ee760fc00"
+    },
+    {
+      "file": "38-auto-result.png",
+      "width": 1600,
+      "height": 1000,
+      "sha256": "c0a2d0bc575eeaf0cf3ba65bc5de8b1da254f88f68004e05c03e45c8c31a3a4b"
+    }
+  ]
+}

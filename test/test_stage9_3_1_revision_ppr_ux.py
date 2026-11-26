@@ -9,11 +9,11 @@ checks={
  'revision changed state explicit':'есть незакреплённые изменения' in ui and 'Зафиксировать Rev ${Number(latest.revision)+1}' in ui,
  'revision parent owns size':'#routeExecutionDialog:has(.route-revisions-dialog)' in css and 'width:min(900px' in css,
  'revision no forced tall empty layout':'.route-revisions-layout' in css and 'min-height:0!important' in css,
- 'three step explanation':'route-planning-steps' in pui and 'Выберите период' in pui and 'Сформируйте предварительный план' in pui and 'Зафиксируйте план' in pui,
+ 'live calendar and explicit commit':'LubricaRouteWorkloadUI?.overview' in pui and 'Обновить расчёт' in pui and 'Зафиксировать ближайшие задания' in pui,
  'preview explicitly nonpersistent':'Предварительный план ничего не записывает в базу' in pui and 'Предварительный план · не сохранён' in pui,
- 'commit disabled until preview':'data-commit ${!previewReady||!previewCount?\'disabled\':\'\'}' in pui,
- 'date change invalidates preview':"preview=null;previewKey=''" in pui,
- 'no implicit preview on open':'let startDate=initial.startDate,endDate=initial.endDate,preview=null' in pui,
+ 'commit disabled until preview':'data-commit ${!previewReady||!previewCount||previewBlocked?\'disabled\':\'\'}' in pui,
+ 'date change recalculates preview':"readDates();autoPreview();render()" in pui,
+ 'read-only preview on open':'autoPreview();render();if(!dlg.open)dlg.showModal();' in pui and 'P.preview({startDate,endDate})' in pui,
  'planning responsive steps':'.route-planning-steps' in css and '@media(max-width:900px)' in css,
 }
 bad=[k for k,v in checks.items() if not v]

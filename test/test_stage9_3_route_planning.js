@@ -9,5 +9,5 @@ let pr=P.preview({startDate:'2027-01-01',endDate:'2027-02-10'},db);let dates=pr.
 // Completion history takes priority over route anchor for next due.
 db.checklistRuns.push({id:'CHK-X',routeId:r.id,status:'completed',date:'2027-01-10',completedAt:'2027-01-10T12:00:00Z',taskResults:{T1:{done:true}}});pr=P.preview({startDate:'2027-01-11',endDate:'2027-02-10'},db);dates=pr.items.filter(x=>x.routeId===r.id).map(x=>x.plannedDate);a(dates[0]==='2027-01-24','last completion anchor');
 // Missing anchor is explicit and never guessed.
-let c2=E.createRoute({lineId:'L1',areaId:'A1',interval:'4 недели',taskIds:['T1'],fillMode:'empty',status:'active',code:'R2'},db);c2.route.status='active';pr=P.preview({startDate:'2027-01-01',endDate:'2027-02-10'},db);a(pr.warnings.some(x=>x.routeId===c2.route.id&&x.code==='ANCHOR_MISSING'),'missing anchor warning');
+let c2=E.createRoute({lineId:'L1',areaId:'A1',interval:'4 недели',taskIds:['T1'],fillMode:'empty',status:'draft',code:'R2'},db);c2.route.status='active';pr=P.preview({startDate:'2027-01-01',endDate:'2027-02-10'},db);a(pr.warnings.some(x=>x.routeId===c2.route.id&&x.code==='ROUTE_NOT_READY'),'invalid active route must be excluded from planning');
 console.log('STAGE 9.3 PPR CALENDAR ENGINE TEST PASS');

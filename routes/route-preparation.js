@@ -2,18 +2,18 @@
 (function(global){
  function db(){return global.LubricaCore?.State?.getDatabase?.()||null}
  function clean(v){return String(v??'').trim()}
- function num(v){const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:null}
+ function num(v){if(v==null||String(v).trim()==='')return null;const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null}
  function taskIdFromPoint(p){return String(p?.taskId||p?.id||'')}
- function unitKey(u){const x=clean(u).toLowerCase().replace(/³/g,'3').replace(/\s+/g,'');if(['г','гр','g'].includes(x))return{dim:'mass',base:'g',factor:1,label:'г'};if(['кг','kg'].includes(x))return{dim:'mass',base:'g',factor:1000,label:'кг'};if(['мл','ml','см3','см^3','cm3','cc'].includes(x))return{dim:'volume',base:'ml',factor:1,label:'мл'};if(['л','l','литр','литра','литров'].includes(x))return{dim:'volume',base:'ml',factor:1000,label:'л'};return x?{dim:'other',base:x,factor:1,label:clean(u)}:null}
+ function unitKey(u){return global.LubricaRouteUnits?.unitInfo(u)||null}
  function fmt(n,d=2){return Number(n).toLocaleString('ru-RU',{maximumFractionDigits:d})}
- function demand(task){const q=task?.quantity||{},unit=clean(q.unit),u=unitKey(unit);let value=num(q.approved);if(value==null)value=num(q.calculated);if(u&&value!=null)return{amount:value*u.factor,dim:u.dim,base:u.base,source:'approved',raw:value,unit};if(/кач|ход|цикл|имп/.test(unit.toLowerCase())&&num(q.calculatedGrams)!=null)return{amount:num(q.calculatedGrams),dim:'mass',base:'g',source:'calculatedGrams',raw:num(q.calculatedGrams),unit:'г'};return null}
+ function demand(task){const q=task?.quantity||{},unit=clean(q.unit),u=unitKey(unit);const value=num(q.approved),base=global.LubricaRouteUnits?.base({value,unit});if(u&&base)return{amount:base.amount,dim:base.dim,base:base.base,source:'approved',raw:value,unit};return null}
  function demandLabel(dim,amount,base){if(dim==='mass'){return amount>=1000?`${fmt(amount/1000,3)} кг`:`${fmt(amount,2)} г`}if(dim==='volume'){return amount>=1000?`${fmt(amount/1000,3)} л`:`${fmt(amount,2)} мл`}return`${fmt(amount,3)} ${base}`}
- function build(route,d=db()){
+ function build(route,d=db(),shared=null,validated=null){
   if(!route||!d)return null;
   const checklist=global.LubricaChecklistEngine?.model?.(route,d);if(!checklist)return null;
   const taskMap=new Map((d.tasks||[]).map(t=>[String(t.id),t]));
   const materials=new Map(),tools=new Map(),errors=[],warnings=[];
-  const routeReport=global.LubricaRouteEngine?.validateRoute?.(route.id,d);
+  const routeReport=validated||global.LubricaRouteEngine?.validateRoute?.(route.id,d,shared,global.LubricaRouteDue?.typed(route)?route.taskIds:null);
   for(const x of routeReport?.errors||[])errors.push({code:x.code||'ROUTE_ERROR',message:x.message||'Ошибка маршрута',taskId:x.taskId||''});
   for(const x of routeReport?.warnings||[])warnings.push({code:x.code||'ROUTE_WARNING',message:x.message||'Предупреждение маршрута',taskId:x.taskId||''});
   const tasks=checklist.groups.flatMap(g=>g.tasks);
@@ -36,7 +36,7 @@
     const tool=tools.get(key);tool.taskIds.add(x.taskId);tool.pointIds.add(x.pointId);if(clean(x.toolCalibration))tool.calibrations.add(x.toolCalibration);
    }
   }
-  if(route.status==='draft')warnings.push({code:'ROUTE_DRAFT',message:'Маршрут имеет статус «Черновик». Перед эксплуатацией проверьте и активируйте его.'});
+  if(route.status!=='active')errors.push({code:'ROUTE_NOT_ACTIVE',message:'Для выполнения маршрут должен быть активирован'});
   const materialRows=[...materials.values()].map(m=>({code:m.code,name:m.name,taskCount:m.taskIds.size,pointCount:m.pointIds.size,total:m.total,dimension:m.dimension,baseUnit:m.baseUnit,unknownQty:m.unknownQty,totalLabel:m.dimension==='unknown'?'Количество уточнить':demandLabel(m.dimension,m.total,m.baseUnit)}));
   const toolRows=[...tools.values()].map(t=>({code:t.code,name:t.name,taskCount:t.taskIds.size,pointCount:t.pointIds.size,calibrations:[...t.calibrations]}));
   const status=errors.length?'blocked':warnings.length?'warning':'ready';

@@ -1,0 +1,164 @@
+name: LUBRICA Routes R1–R8.2 Regression and Preview
+
+on:
+  pull_request:
+    branches:
+      - feature/stage5b-conveyor-families-20261105
+      - main
+    paths:
+      - 'routes/**'
+      - 'checklist/**'
+      - 'test/run_all.sh'
+      - 'test/test_route_safety_stage_r1.js'
+      - 'test/test_route_execution_compact_r2.js'
+      - 'test/test_route_auto_grouping_r3a.js'
+      - 'test/test_route_due_r3b.js'
+      - 'test/test_route_workload_r4.js'
+      - 'test/test_route_automation_r5.js'
+      - 'test/test_route_r6_integration.js'
+      - 'test/test_route_r7_consolidation.js'
+      - 'test/test_route_r8_live_planning.js'
+      - 'test/test_route_r81_unified_schedule.js'
+      - 'test/test_route_r82_audit.js'
+      - 'test/test_database_modules.js'
+      - 'test/route_r6_fixture.js'
+      - 'core/database-*.js'
+      - 'test/test_json_autosave_queue.js'
+      - 'tools/route-r6-audit.js'
+      - 'assets/route-automation.css'
+      - 'test/test_final_ui_baseline_audit.py'
+      - 'assets/route-workload.css'
+      - 'test/test_route_execution_compact_r2_ui.py'
+      - 'assets/route-compact.css'
+      - 'index.html'
+      - 'test/test_stage9_1_7_route_creation.js'
+      - 'test/test_stage9_3_route_planning.js'
+      - '.github/workflows/route-safety-r1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  route-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Regression Python dependencies
+        run: python -m pip install --disable-pip-version-check beautifulsoup4 openpyxl pillow
+      - name: Syntax
+        run: |
+          node --check routes/route-engine.js
+          node --check routes/route-auto-grouping.js
+          node --check routes/route-due.js
+          node --check routes/route-workload.js
+          node --check routes/route-workload-ui.js
+          node --check routes/route-automation.js
+          node --check routes/route-automation-ui.js
+          node --check test/test_route_automation_r5.js
+          node --check test/test_route_r6_integration.js
+          node --check test/test_route_r7_consolidation.js
+          node --check test/test_route_r8_live_planning.js
+          node --check test/test_route_r81_unified_schedule.js
+          node --check test/test_route_r82_audit.js
+          node --check routes/route-plan-fact.js
+          node --check routes/route-analytics.js
+          node --check routes/management-dashboard.js
+          node --check tools/route-r6-audit.js
+          node --check test/test_route_workload_r4.js
+          node --check test/test_route_due_r3b.js
+          node --check test/test_route_auto_grouping_r3a.js
+          node --check routes/route-planning.js
+          node --check routes/route-preparation.js
+          node --check routes/route-planning-ui.js
+          node --check routes/routes-ui.js
+          node --check routes/route-compact-ui.js
+          node --check checklist/checklist-engine.js
+          node --check test/test_route_safety_stage_r1.js
+          node --check test/test_route_execution_compact_r2.js
+      - name: Route safety R1
+        run: node test/test_route_safety_stage_r1.js
+      - name: Route walkthrough R2
+        run: |
+          node test/test_route_execution_compact_r2.js
+          python3 test/test_route_execution_compact_r2_ui.py
+      - name: Route auto grouping R3A
+        run: node test/test_route_auto_grouping_r3a.js
+      - name: Individual due R3B
+        run: node test/test_route_due_r3b.js
+      - name: R4 workload and line PPR
+        run: node test/test_route_workload_r4.js
+      - name: R5 unified automation and exact execution
+        run: node test/test_route_automation_r5.js
+      - name: R7 consolidation regressions
+        run: node test/test_route_r7_consolidation.js
+      - name: R8 live planning and safe cycles
+        run: node test/test_route_r8_live_planning.js
+      - name: R8.1 unified schedule
+        run: node test/test_route_r81_unified_schedule.js
+      - name: R8.2 original and expanded audit
+        run: node test/test_route_r82_audit.js
+      - name: Full regression including R6 real modules and mass routes
+        run: bash test/run_all.sh
+      - name: Build isolated Edge file preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW"
+          mkdir -p "$STAGE"
+          rsync -a ./ "$STAGE/" \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.gitignore' \
+            --exclude 'test/' \
+            --exclude 'tests/' \
+            --exclude 'project/' \
+            --exclude 'acceptance/' \
+            --exclude 'releases/' \
+            --exclude 'README.md' \
+            --exclude 'START_NEW_CHAT_RU.md'
+          find "$STAGE" -maxdepth 1 -type f \( -name 'RELEASE_*.md' -o -name 'LUBRICA_*.md' -o -name 'LUBRICA_*.txt' -o -name 'LUBRICA_*.json' -o -name 'LUBRICA_*.csv' \) -delete
+          printf '%s\n' 'LUBRICA ROUTES STAGE R1-R8.2' 'Draft preview, not a production release.' 'Use Edge file:// with a BACKUP COPY of plant JSON only.' 'Do not create production routes before K3/M1 acceptance.' 'Check selected-group route table, centralized line PPR and staffing, calendar/actual weekly cycles, live forecast and atomic next-job shift assignment. All changes require preview and confirmation.' > "$STAGE/ROUTES_R8_2_README.txt"
+          test -f "$STAGE/index.html"
+          test -f "$STAGE/tools/route-r6-audit.js"
+          test -f "$STAGE/manifest.json"
+          test -f "$STAGE/routes/route-engine.js"
+          test -f "$STAGE/routes/route-auto-grouping.js"
+          test -f "$STAGE/routes/route-due.js"
+          test -f "$STAGE/routes/route-workload.js"
+          test -f "$STAGE/routes/route-workload-ui.js"
+          test -f "$STAGE/routes/route-automation.js"
+          test -f "$STAGE/routes/route-automation-ui.js"
+          test -f "$STAGE/assets/route-automation.css"
+          test -f "$STAGE/assets/route-workload.css"
+          test -f "$STAGE/routes/route-planning.js"
+          test -f "$STAGE/routes/route-compact-ui.js"
+          test -f "$STAGE/assets/route-compact.css"
+          test -f "$STAGE/checklist/checklist-engine.js"
+          test ! -d "$STAGE/project"
+          test ! -d "$STAGE/test"
+      - name: ZIP and verify checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          zip -qr "$GITHUB_WORKSPACE/LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW.zip" LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW
+          cd "$GITHUB_WORKSPACE"
+          unzip -tq LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW.zip
+          sha256sum LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW.zip > LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW.zip.sha256
+          sha256sum -c LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW.zip.sha256
+      - name: Upload ZIP for manual Edge QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW
+          path: |
+            LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW.zip
+            LUBRICA_ROUTES_R8_2_CORE_CONSOLIDATION_PREVIEW.zip.sha256
+          if-no-files-found: error
+          retention-days: 30

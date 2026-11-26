@@ -1,7 +1,7 @@
 (function(global){
 'use strict';
 const Core=global.LubricaCore=global.LubricaCore||{};
-const ARRAYS=['plants','lines','areas','equipment','components','nodes','lubricationPoints','tasks','materials','routes','checklistRuns','tools','imports','bearingOverrides','componentLibraryEntries'];
+const ARRAYS=['plants','lines','areas','equipment','components','nodes','lubricationPoints','tasks','materials','routes','checklistRuns','routePlanItems','routeRevisions','routeMeters','tools','imports','bearingOverrides','componentLibraryEntries'];
 function clean(v){return String(v??'').trim()}
 function objectLike(v){return !!v&&typeof v==='object'&&!Array.isArray(v)}
 function duplicateIds(arr){
@@ -12,6 +12,7 @@ function inspect(db){
  if(!objectLike(db)){issues.push('Корневая структура JSON должна быть объектом.');return{ok:false,issues,warnings}}
  for(const key of ARRAYS)if(db[key]!==undefined&&!Array.isArray(db[key]))issues.push(`Поле ${key} должно быть массивом.`);
  for(const key of ARRAYS){const d=duplicateIds(db[key]);if(d.length)issues.push(`Дубли ID в ${key}: ${d.slice(0,5).join(', ')}${d.length>5?'…':''}`)}
+ const meterKeys=new Set();for(const m of Array.isArray(db.routeMeters)?db.routeMeters:[]){let parts;try{parts=JSON.parse(m?.key||'')}catch{}if(!Array.isArray(parts)||parts.length!==2||parts.some(x=>typeof x!=='string'||!x.trim())||JSON.stringify(parts)!==m.key||meterKeys.has(m.key)||typeof m.readingHours!=='number'||!Number.isFinite(m.readingHours)||m.readingHours<0||typeof m.hoursPerDay!=='number'||!Number.isFinite(m.hoursPerDay)||m.hoursPerDay<0||m.hoursPerDay>24||!/^\d{4}-\d{2}-\d{2}$/.test(m.readingDate||'')){issues.push('Некорректная или дублирующаяся запись счётчика маршрутов.');continue}meterKeys.add(m.key)}
  const ids=k=>new Set((Array.isArray(db[k])?db[k]:[]).map(x=>clean(x?.id)).filter(Boolean));
  const eq=ids('equipment'),nodes=ids('nodes'),pts=ids('lubricationPoints'),mats=ids('materials'),tools=ids('tools'),tasks=ids('tasks'),lines=ids('lines'),areas=ids('areas');
  for(const p of db.lubricationPoints||[]){
@@ -39,6 +40,8 @@ function prepare(data){
  const isV2=data.schemaVersion==='2.0'||ARRAYS.some(k=>Array.isArray(data[k]))&&('project' in data||'meta' in data);
  const isLegacy=Array.isArray(data.points);
  if(!isV2&&!isLegacy)throw new Error('Неизвестный формат базы. Ожидается JSON LUBRICA v2 или совместимая база v1.');
+ // Do not silently coerce broken route history into empty arrays.
+ for(const key of ['routePlanItems','routeRevisions','checklistRuns','routeMeters'])if(data[key]!==undefined){if(!Array.isArray(data[key]))throw new Error('Поле '+key+' должно быть массивом.');if(duplicateIds(data[key]).length)throw new Error('Дубли ID в '+key)}
  let db;
  if(Core.Migration?.toDatabase)db=Core.Migration.toDatabase(data);
  else if(isV2&&Core.Database?.normalize)db=Core.Database.normalize(data);

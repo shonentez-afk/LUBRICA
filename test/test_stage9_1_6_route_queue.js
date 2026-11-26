@@ -22,7 +22,8 @@ global.LubricaCore={State:{getDatabase:()=>db,setDatabase:d=>{saved=d}},Database
 global.LubricaApp={refreshFromCore(){},showToast:m=>toasts.push(m)};global.LubricaSystem={registerModule(){}};
 vm.runInThisContext(fs.readFileSync('routes/route-engine.js','utf8'),{filename:'route-engine.js'});
 const E=LubricaRouteEngine,a=(x,m)=>{if(!x)throw new Error(m)};
-E.syncRoutes(db);
+a(E.createRoute({lineId:'L1',areaId:'A1',interval:'4 недели',taskIds:['T1A','T1B','T2','T3']},db).ok,'explicit manual route');
+a(E.createRoute({lineId:'L1',areaId:'A1',interval:'1 месяц',taskIds:['T3M']},db).ok,'explicit monthly route');
 const r4=db.routes.find(r=>r.interval==='4 недели'),r1=db.routes.find(r=>r.interval==='1 месяц');
 a(r4&&r1,'routes by periodicity');
 a(r4.taskIds.join(',')==='T1A,T1B,T2,T3','initial tasks');

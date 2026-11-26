@@ -15,15 +15,15 @@ checks={
  'creation commit flag starts false':'creationCommitted=false' in js,
  'creation commit only after success':'creationCommitted=true;view.dataset.selectedRoute=res.route.id' in js,
  'close cleanup does not create':"if(!creationCommitted){selectedTaskIds.clear();delete dlg.dataset.pendingRouteId}" in js,
- 'area selector remains correct':'<option value="">Все участки</option>' in js,
+ 'manual scope guard remains correct':'<option value="">Выберите участок</option>' in js and 'manualGroupKey:group.key' in js and 'manualCreationCatalog({lineId,areaId}' in js,
 }
 # Structural guard: createRoute / cloneRoute must only occur inside submit handler region.
 start=js.index("f.addEventListener('submit'")
 end=js.index("dlg.addEventListener('close'", start)
 prefix=js[js.index('function openCreateRouteDialog'):start]
-checks['no route persistence before submit']='E.createRoute(' not in prefix and 'E.cloneRoute(' not in prefix
+checks['no route persistence before submit']='E.createRoute(' not in prefix and 'E.cloneRoute(' not in prefix and 'E.commitManualCreation(' not in prefix
 submit=js[start:end]
-checks['route persistence happens in submit']='E.createRoute(data)' in submit and 'E.cloneRoute(' in submit
+checks['route persistence happens in submit']='E.commitManualCreation(readInput(),report.token,db())' in submit and 'E.cloneRoute(' not in submit
 failed=[k for k,v in checks.items() if not v]
 if failed:
     raise SystemExit('FAIL: '+', '.join(failed))

@@ -11,7 +11,8 @@ ids=re.findall(r'\bid="([^"]+)"',html)
 checks={
  "clean document title":"LUBRICA — Конструктор карты смазки" in html and "Stage 9.1.6 Route Point Queue" not in html,
  "no visible stage eyebrow":not re.search(r'<span class="eyebrow">[^<]*STAGE\s*9',html+ui+pui,re.I),
- "no visible PPR wording":"ППР" not in html+ui+pui and "PPR Calendar Planning" not in planning,
+ "PPR terminology only for actual line PPR and workload":"ППР" not in html and "ППР" not in ui.replace("Нагрузка, смены и ППР","").replace(">Только ППР</option>","").replace("ppr?'Только ППР линии':'Обычный обход'","").replace("График ППР линии задаётся в настройках предприятия.","").replace(">Только ППР линии</option>","").replace("Чтобы выбрать ППР, сначала задайте график линии в настройках предприятия. Доступ можно изменить после создания.","").replace("График ППР берётся из настроек предприятия.","") and "W.requiresPpr(route.id,db)" in ui and "ppr=W?.requiresPpr(route.id,d)" in ui and "pprMode:val('[data-r81-access]')" in ui and "ППР" not in pui.replace("Нагрузка, смены и ППР","").replace(" · только ППР","") and "PPR Calendar Planning" not in planning,
+ "explicit line PPR workload entry":"data-rw-open>Распределение по сменам" in pui and "Календарь смазочных работ" in pui and 'id="routeSettings"' in ui and "settingsOnly:true" in ui,
  "dashboard single navigation":'data-view="dashboard"' in html and 'id="managementDashboard">Дашборд' not in ui,
  "dashboard main view":'id="managementDashboardView"' in html and "renderManagementDashboard" in ui,
  "no duplicate static ids":all(v==1 for v in collections.Counter(ids).values()),
@@ -29,7 +30,7 @@ checks={
  "checklist fixed layout":".stage91-checklist .checklist-task-table{" in css and "table-layout:fixed!important" in css,
  "checklist print reset":"width:auto!important" in css and "font-size:7.2pt!important" in css,
  "action groups wrap":".route-preview-actions,.route-actions,.route-editor-head-actions" in css and "flex-wrap:wrap!important" in css,
- "planning terminology":"План смазочных работ" in pui and "Зафиксируйте план" in pui,
+ "planning terminology":"Календарь смазочных работ" in pui and "Зафиксировать ближайшие задания" in pui and "ничего не записывает" in pui,
  "existing task source":"существующие мероприятия карточек точек" in pui,
  "dashboard read only":"setDatabase" not in dashboard and "createRun" not in dashboard and "updateRoute" not in dashboard,
 }

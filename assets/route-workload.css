@@ -1,0 +1,108 @@
+/* R4 — workload and PPR calendar, local to the existing planning dialog. */
+#routePlanningDialog:has(.rw-shell){width:min(1360px,96vw);max-width:96vw;max-height:92vh;overflow:hidden;padding:0}
+.rw-shell{display:flex;flex-direction:column;max-height:92vh;min-width:0;background:#fff;color:var(--ink)}
+.rw-shell .dialog-head{flex:none;padding:16px 20px;border-bottom:1px solid var(--line)}
+.rw-shell .dialog-head h2{margin:4px 0}
+.rw-shell .dialog-copy{max-width:850px;line-height:1.45}
+.rw-shell menu{flex:none;display:flex;gap:9px;justify-content:flex-end;padding:10px 18px;margin:0;border-top:1px solid var(--line);background:#fff}
+.rw-body{overflow:auto;min-height:0;padding:16px 20px;display:flex;flex-direction:column;gap:15px}
+.rw-shell h3{font-size:14px;margin:0 0 7px}
+.rw-toolbar,.rw-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.rw-shell label{font-size:11px;font-weight:700;display:grid;gap:5px;min-width:0;color:var(--muted)}
+.rw-shell input:not([type=checkbox]),.rw-shell select{box-sizing:border-box;min-height:35px;min-width:0;width:100%;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font:inherit;font-size:12px;color:var(--ink);background:#fff}
+.rw-toolbar label{min-width:145px}
+.rw-settings,.rw-preview,.rw-manual,.rw-controls,.rw-queue{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fff;min-width:0}
+.rw-settings>summary,.rw-ppr-routes>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--ink)}
+.rw-settings-inner{display:grid;gap:10px;padding-top:13px}
+.rw-weekdays{display:flex;gap:6px;flex-wrap:wrap}
+.rw-weekdays label,.rw-delay{display:flex!important;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;background:#f8faf9}
+.rw-shifts,.rw-ppr-lines,.rw-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.rw-settings small,.rw-note,.rw-shell section>small,.rw-controls small{font-size:11px;line-height:1.45;color:var(--muted)}
+.rw-ppr-routes{border:1px solid var(--line);border-radius:8px;padding:10px}
+.rw-route-options{display:grid;gap:5px;max-height:230px;overflow:auto;margin:8px 0}
+.rw-route-options label{display:flex;align-items:start;padding:6px;background:#f6f9f9}
+.rw-route-options span{min-width:0;overflow-wrap:anywhere;color:var(--ink)}
+.rw-route-options small{display:block;font-weight:400}
+.rw-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
+.rw-summary>div{padding:11px 9px;background:#f4f8f7;border:1px solid #d9e4df;border-radius:9px;min-width:0;display:grid;gap:4px}
+.rw-summary b{font-size:18px;line-height:1.2;overflow-wrap:anywhere}
+.rw-summary small{font-size:10px;color:var(--muted);line-height:1.3}
+.rw-controls{display:flex;gap:11px;flex-wrap:wrap;align-items:end;background:#f9fbfa}
+.rw-controls>div:first-child{flex:1 1 230px;display:grid;gap:4px}
+.rw-controls>label:not(.rw-delay){flex:1 1 170px}
+.rw-controls [hidden]{display:none!important}
+.rw-preview p,.rw-note{margin:5px 0 9px}
+.rw-proposals,.rw-jobs{display:grid;gap:6px;margin:9px 0;max-height:300px;overflow:auto}
+.rw-job,.rw-proposal{display:flex;align-items:start;justify-content:space-between;gap:8px;padding:8px;border:1px solid #dfe7e7;background:#fff;border-radius:7px;min-width:0}
+.rw-job>div,.rw-proposal>div{min-width:0;display:grid;gap:4px}
+.rw-job b,.rw-proposal b{font-size:11px;overflow-wrap:anywhere}
+.rw-job small,.rw-proposal small{font-size:10px;line-height:1.35;color:var(--muted);overflow-wrap:anywhere}
+.rw-proposal strong{font-size:11px;text-align:right;max-width:46%}
+.rw-job .btn{font-size:10px;padding:4px 6px;white-space:nowrap}
+.rw-unplaced{background:#fffbf1;border-color:#e8d5ae}
+.rw-warning{color:#8a5918;background:#fff8ea;border-radius:6px;padding:7px;font-size:11px;line-height:1.45;margin:3px 0}
+.rw-warning:empty{display:none}
+.rw-notice{margin:0;padding:9px 12px;font-size:12px;background:#f1f6f4;border:1px solid #d8e5de;border-radius:8px}
+.rw-calendar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(245px,100%),1fr));gap:9px;margin-top:10px;align-items:start}
+.rw-day{border:1px solid #d8e1e2;border-radius:9px;overflow:hidden;background:#fff;min-width:0}
+.rw-day>header{padding:10px;display:grid;gap:4px;background:#eff5f4}
+.rw-day>header b{font-size:12px}
+.rw-day>header small{font-size:11px;color:var(--muted)}
+.rw-day.nonwork>header{background:#f2f3f4}
+.rw-day.warn{border-color:#dfbd81}
+.rw-ppr-marker{font-size:11px;color:#294f76;background:#edf3f9;padding:7px 10px;font-weight:700;overflow-wrap:anywhere}
+.rw-slot{border-top:1px solid #e7ecec;padding:9px;display:grid;gap:6px}
+.rw-slot-head{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;font-size:11px}
+.rw-slot-head small{font-size:10px;color:var(--muted)}
+.rw-track{height:5px;border-radius:8px;background:#e6ecea;overflow:hidden}
+.rw-track i{height:100%;display:block;background:#4c8872;border-radius:8px}
+.rw-track i.over{background:#b67b36}
+.rw-day-unassigned,.rw-status{padding:5px 8px;font-size:10px;color:var(--muted);display:block}
+.rw-empty{font-size:11px;color:var(--muted);margin:6px 0}
+.rw-shell [hidden]{display:none!important}
+@media(max-width:960px){.rw-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.rw-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.rw-body{padding:10px}.rw-shell .dialog-head{padding:12px}.rw-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.rw-shifts,.rw-ppr-lines,.rw-fields{grid-template-columns:1fr}.rw-shell menu{flex-wrap:wrap}.rw-toolbar label{flex:1 1 110px;min-width:0}.rw-proposal{flex-direction:column}.rw-proposal strong{max-width:none;text-align:left}}
+
+/* R4.1 — staffing and week-aligned workload */
+.rw-shift-setting{border:1px solid var(--line);padding:10px;display:grid;gap:8px;border-radius:8px;min-width:0;background:#f8faf9}
+.rw-shift-setting>b{font-size:12px}
+.rw-staff{font-size:10px;color:var(--muted)}
+.rw-weeks{display:grid;gap:15px;margin-top:10px}
+.rw-week{min-width:0;border:1px solid var(--line);padding:10px;border-radius:10px;background:#f8faf9}
+.rw-week-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.rw-week-head b{font-size:13px}
+.rw-week-head small{font-size:11px;color:var(--muted)}
+.rw-cycle{border:1px solid var(--line);border-radius:7px;padding:8px}
+.rw-cycle summary{cursor:pointer;font-size:12px;font-weight:700}
+.rw-cycle-list{display:grid;gap:6px;max-height:180px;overflow:auto;margin-top:8px}
+.rw-cycle-list>div{display:flex;justify-content:space-between;gap:8px;align-items:start;font-size:11px;overflow-wrap:anywhere}
+
+/* R8: unknown capacity, forecast and actual work have distinct states */
+.r8-settings-only .rw-toolbar,.r8-settings-only .rw-cadences,.r8-settings-only .rw-summary,.r8-settings-only .rw-controls,.r8-settings-only .rw-queue,.r8-settings-only .rw-body>section,.r8-settings-only .rw-preview,.r8-settings-only .rw-manual{display:none!important}.rw-day.unknown-capacity{background:#fafafa}.r8-forecast-day{border-left:3px solid #7eab93;margin:5px 0;padding:5px;background:#edf6f0}.r8-forecast-item{margin-top:5px;overflow-wrap:anywhere}.r8-forecast-item b,.r8-day-details b{font-size:11px;display:block}.r8-forecast-item small,.r8-day-details small{font-size:10px;display:block}.r8-forecast-item.conflict{border-left:2px solid #b87731;padding-left:5px}.r8-live{margin:10px 0;border:1px solid var(--line);border-radius:9px;padding:10px}.r8-live-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}.r8-live-head small{font-size:11px;color:var(--muted)}.r8-live-scroll{overflow-x:auto}.r8-live-grid{display:grid;grid-template-columns:repeat(7,minmax(76px,1fr));gap:4px;align-items:start;min-width:560px}.r8-week-label{font-size:11px;color:var(--muted);text-align:center}.r8-live-day{border:1px solid var(--line);border-radius:6px;background:#f8faf9;min-height:55px;padding:5px;min-width:0}.r8-live-day.ppr{background:#edf4fa;border-color:#b4c9db}.r8-live-day summary{list-style:none;cursor:pointer;display:grid;gap:2px}.r8-live-day summary b{font-size:12px}.r8-live-day summary small{font-size:10px;overflow-wrap:anywhere}.r8-ppr-label{color:#28679e}.r8-projected-label,.r8-done-label{color:#286a4b}.r8-day-details{margin-top:5px;border-top:1px solid var(--line);padding-top:4px;overflow-wrap:anywhere}.r8-unknown{margin-top:8px;font-size:11px;max-height:220px;overflow:auto}.r8-unknown summary{font-weight:700;cursor:pointer}
+
+/* Live calendar adds a variable-height section; scroll the workspace rather than
+   compressing the committed work list to zero height. Keep the lists usable on tablets. */
+.route-planning-workspace:has(.r8-live){overflow:auto;align-content:start;}
+.route-planning-workspace:has(.r8-live)>*{flex-shrink:0}
+.route-planning-workspace:has(.r8-live) .route-planning-layout{flex:0 0 auto;min-height:320px;overflow:visible;align-items:stretch}
+.route-planning-workspace:has(.r8-live) .route-planning-layout>section{min-height:320px;max-height:460px}
+.route-planning-workspace:has(.r8-live) .route-planning-preview-list,.route-planning-workspace:has(.r8-live) .route-planning-calendar-list{flex:1 1 auto;min-height:0;overflow:auto}
+.route-planning-workspace:has(.r8-live) .route-planning-controls{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.route-planning-workspace:has(.r8-live) .route-planning-controls .btn{white-space:normal;min-width:0}
+@media(max-width:900px){.route-planning-workspace:has(.r8-live) .route-planning-controls{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+/* R8.2: totals use the same day/period data in the planning and workload views. */
+#routePlanningDialog .r82-calendar-labor{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:8px 10px;border:1px solid var(--line,#d9e0e3);border-radius:7px;background:#f5f8f8;margin:6px 0}
+#routePlanningDialog .r82-calendar-labor>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+#routePlanningDialog .r82-calendar-labor small{font-size:11px;color:var(--muted)}
+#routePlanningDialog .r82-calendar-labor b{font-size:14px;font-variant-numeric:tabular-nums}
+/* Date and total share a single in-flow row; neither can overlap the other. */
+#routePlanningDialog .r82-day-heading{display:flex;align-items:baseline;justify-content:space-between;gap:3px;min-width:0;max-width:100%;line-height:1.25}
+#routePlanningDialog .r82-day-heading .r82-day-number{display:block;flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#routePlanningDialog .r82-day-heading .r82-day-labor{display:block;flex:0 1 auto;min-width:0;max-width:100%;margin-left:auto;font-weight:600;font-size:10px;line-height:1.25;font-variant-numeric:tabular-nums;color:var(--ink,#213438);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+#routePlanningDialog .r8-live-day .r82-day-number{flex:0 0 auto}
+#routePlanningDialog .r82-day-heading .r82-day-labor.closed{color:var(--muted,#62717a)}
+#routePlanningDialog .r8-live-day>summary{min-width:0;max-width:100%}
+#routePlanningDialog .route-planning-workspace:has(.r8-live){overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
+#routePlanningDialog .route-planning-workspace:has(.r8-live) .route-planning-layout>section{min-height:0;max-height:none;overflow:visible}
+#routePlanningDialog .route-planning-workspace:has(.r8-live) .route-planning-preview-list,#routePlanningDialog .route-planning-workspace:has(.r8-live) .route-planning-calendar-list{overflow:visible;flex:none}

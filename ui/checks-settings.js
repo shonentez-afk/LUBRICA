@@ -29,7 +29,7 @@ function renderSettings(view){
     <div class="settings-card-head"><div><span class="settings-icon settings-icon-help">?</span><div><h3>Помощь пользователю</h3><p>Полная интерактивная инструкция по рабочему циклу LUBRICA.</p></div></div></div>
     <div class="settings-guide-box settings-guide-box-v2">
       <b>От базы до финального Excel</b>
-      <span>15 разделов: обзор функционала и критических правил, база, импорт, классификация, материалы, карта смазки, расчёты, маршруты, ревизии, планирование, выполнение, ФРВ, аналитика, Контроль и Финальный Excel/Recovery.</span>
+      <span>18 разделов: рабочая база, импорт, инженерные решения, материалы, карта, конструкторы, расчёты, ручные и автоматические маршруты, сроки и ППР, календарь, выполнение, ФРВ, аналитика, Контроль, Excel и восстановление.</span>
       <button class="btn settings-main-action settings-action-orange" id="openFullGuideCard">▣&nbsp; Открыть интерактивную инструкцию</button>
     </div>
    </article>

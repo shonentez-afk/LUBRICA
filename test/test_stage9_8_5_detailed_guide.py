@@ -10,7 +10,7 @@ checks={
  'result':'Результат раздела' in g,
  'critical':'Критический момент' in g,
  'example':'Практический пример' in g,
- 'screenshots':'Актуальные скриншоты LUBRICA 1.0.4' in g and 'assets/guide/' in g,
+ 'screenshots':'Скриншоты LUBRICA R8.2' in g and 'assets/guide/' in g,
  'image zoom':'data-guide-image' in g and 'user-guide-lightbox' in g,
  'point event invariant':'Физическая точка и мероприятие' in g and 'Маршрут не создаёт свои мероприятия' in g,
  'planning reason':'предварительный план' in g.lower(),

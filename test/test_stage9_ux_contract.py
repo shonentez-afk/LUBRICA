@@ -8,7 +8,7 @@ checks={
  'module scroll wrapper':'system-module-scroll' in obs,
  'module scroll only':'system-module-scroll{flex:1;min-height:0;overflow-y:auto' in css,
  'dialog fixed':'system-dialog{max-height:86vh;overflow:hidden}' in css,
- 'route sync action':'syncRoutes' in ui,
+ 'single automatic route action':'id="autoCreateRoute"' in ui and 'id="syncRoutes"' not in ui and 'data-r3-apply' not in ui,
  'route editor':'openRouteEditor' in ui,
  'point reorder':'movePoint' in eng and 'data-point-up' in ui and 'data-point-down' in ui,
  'point removal':'removePointFromRoute' in eng and 'data-point-remove' in ui,
